@@ -28,6 +28,44 @@ export type RuntimeProbe = {
   sourceLabel: string;
 };
 
+export type DashboardFeedState = "available" | "degraded";
+
+export type DashboardSummaryFeed<TPayload = unknown> = {
+  state: DashboardFeedState;
+  status: ModuleStatus;
+  title: string;
+  visibleValue: string;
+  detail: string;
+  checkedAt: string;
+  sourceLabel: string;
+  payload?: TPayload;
+};
+
+export type DashboardOverviewSummary = DashboardSummaryFeed;
+export type EvidenceSummary = DashboardSummaryFeed;
+export type RecommendationSummary = DashboardSummaryFeed;
+export type EvaluationSummary = DashboardSummaryFeed;
+export type ModelRunSummary = DashboardSummaryFeed;
+export type DataQualitySummary = DashboardSummaryFeed;
+export type IncidentSummary = DashboardSummaryFeed;
+
+export type DashboardModuleSummary = {
+  id: string;
+  name?: string;
+  plane?: string;
+  status?: string;
+  sourceType?: StatusSourceType;
+  source_type?: StatusSourceType;
+  sourceLabel?: string;
+  source_label?: string;
+  detail?: string;
+  visibleValue?: string;
+  visible_value?: string;
+  specRefs?: string[];
+  spec_refs?: string[];
+  dependencies?: string[];
+};
+
 export const STATUS_TONE_MAP: Record<
   ModuleStatus,
   { tone: StatusTone; label: string; cssClass: string }
@@ -241,4 +279,58 @@ export function summarizeModules(modules: ModuleStatusRecord[]) {
     }),
     { passing: 0, degraded: 0, failing: 0, planned: 0 } satisfies Record<ModuleStatus, number>
   );
+}
+
+export function moduleStatusFromSummary(status: string | undefined): ModuleStatus {
+  const normalizedStatus = (status ?? "").toLowerCase();
+
+  if (["passing", "passed", "ok", "ready", "healthy", "available", "success"].includes(normalizedStatus)) {
+    return "passing";
+  }
+
+  if (["failing", "failed", "error", "critical", "unavailable", "down"].includes(normalizedStatus)) {
+    return "failing";
+  }
+
+  if (["planned", "pending", "not_started", "not-started"].includes(normalizedStatus)) {
+    return "planned";
+  }
+
+  return "degraded";
+}
+
+export function applyLiveModuleSummaries(
+  modules: ModuleStatusRecord[],
+  summaries: DashboardModuleSummary[]
+): ModuleStatusRecord[] {
+  const summariesById = new Map(summaries.map((summary) => [summary.id, summary]));
+
+  return modules.map((module) => {
+    const summary = summariesById.get(module.id);
+    if (!summary) {
+      return module;
+    }
+
+    return {
+      ...module,
+      name: summary.name ?? module.name,
+      plane: summary.plane ?? module.plane,
+      status: moduleStatusFromSummary(summary.status),
+      sourceType: summary.sourceType ?? summary.source_type ?? module.sourceType,
+      sourceLabel: summary.sourceLabel ?? summary.source_label ?? module.sourceLabel,
+      detail: summary.detail ?? summary.visibleValue ?? summary.visible_value ?? module.detail,
+      specRefs: summary.specRefs ?? summary.spec_refs ?? module.specRefs,
+      dependencies: summary.dependencies ?? module.dependencies
+    };
+  });
+}
+
+export function dashboardFeedToRuntimeProbe(feed: DashboardSummaryFeed): RuntimeProbe {
+  return {
+    state: feed.state === "available" ? "available" : "unavailable",
+    status: feed.status,
+    detail: `${feed.title}: ${feed.visibleValue}. ${feed.detail}`,
+    checkedAt: feed.checkedAt,
+    sourceLabel: feed.sourceLabel
+  };
 }
