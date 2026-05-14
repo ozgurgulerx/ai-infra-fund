@@ -228,3 +228,130 @@ entries:
     source_urls:
       - https://investors.ionq.com/
     priority: low
+
+  - ticker: MU
+    company_name: Micron Technology
+    themes:
+      - hbm_memory
+      - compute_supply_chain
+      - ai_accelerators
+    sector_tags:
+      - semiconductors
+      - memory
+      - ai_infrastructure
+    source_urls:
+      - https://investors.micron.com/
+      - https://www.micron.com/products/memory/hbm
+    priority: high
+
+  - ticker: CEG
+    company_name: Constellation Energy
+    themes:
+      - nuclear_power
+      - data_center_power
+      - hyperscaler_ppa
+    sector_tags:
+      - utilities
+      - independent_power
+      - ai_infrastructure
+    source_urls:
+      - https://investors.constellationenergy.com/
+    priority: high
+
+  - ticker: VST
+    company_name: Vistra
+    themes:
+      - nuclear_power
+      - data_center_power
+      - independent_power_producer
+    sector_tags:
+      - utilities
+      - independent_power
+      - ai_infrastructure
+    source_urls:
+      - https://investor.vistracorp.com/
+    priority: high
+
+  - ticker: TLN
+    company_name: Talen Energy
+    themes:
+      - nuclear_power
+      - data_center_power
+      - hyperscaler_ppa
+    sector_tags:
+      - utilities
+      - independent_power
+      - ai_infrastructure
+    source_urls:
+      - https://www.talenenergy.com/investors/
+    priority: medium
+
+  - ticker: GEV
+    company_name: GE Vernova
+    themes:
+      - gas_turbines
+      - grid_equipment
+      - data_center_power
+    sector_tags:
+      - electrical_equipment
+      - power_generation
+      - ai_infrastructure
+    source_urls:
+      - https://www.gevernova.com/investors
+    priority: high
+
+  - ticker: ETN
+    company_name: Eaton
+    themes:
+      - data_center_power
+      - electrical_distribution
+      - grid_equipment
+    sector_tags:
+      - electrical_equipment
+      - industrials
+      - ai_infrastructure
+    source_urls:
+      - https://www.eaton.com/us/en-us/company/investor-relations.html
+    priority: high
+
+  - ticker: PWR
+    company_name: Quanta Services
+    themes:
+      - transmission_buildout
+      - grid_equipment
+      - data_center_power
+    sector_tags:
+      - construction_services
+      - utilities_infrastructure
+      - ai_infrastructure
+    source_urls:
+      - https://investors.quantaservices.com/
+    priority: medium
+
+  - ticker: EQT
+    company_name: EQT Corporation
+    themes:
+      - marcellus_gas
+      - data_center_power
+      - natural_gas_supply
+    sector_tags:
+      - energy
+      - natural_gas
+      - ai_infrastructure
+    source_urls:
+      - https://ir.eqt.com/
+    priority: medium
+
+  - ticker: TT
+    company_name: Trane Technologies
+    themes:
+      - data_center_cooling
+      - hvac
+      - ai_data_centers
+    sector_tags:
+      - industrials
+      - thermal_management
+      - ai_infrastructure
+    source_urls:
+      - https://investors.tranetechnologies.com/
+    priority: medium

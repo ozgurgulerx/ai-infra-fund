@@ -18,17 +18,18 @@ const navigationSections = [
       { href: "/", label: "Control Room" },
       { href: "/portfolio", label: "Portfolio Workbench" },
       { href: "/trade-intents", label: "Manual Trade Intents" },
-      { href: "/trade-journal", label: "Trade Journal" }
-    ]
+      { href: "/trade-journal", label: "Trade Journal" },
+    ],
   },
   {
     title: "Research",
     items: [
+      { href: "/themes", label: "Value-Chain Atlas" },
       { href: "/watchlist", label: "Watchlist" },
       { href: "/ticker/NVDA", label: "Ticker Workbench" },
       { href: "/evidence", label: "Evidence Library" },
-      { href: "/signals", label: "Signals" }
-    ]
+      { href: "/signals", label: "Signals" },
+    ],
   },
   {
     title: "Governance",
@@ -36,9 +37,9 @@ const navigationSections = [
       { href: "/runs", label: "Runs" },
       { href: "/evaluation", label: "Evaluation" },
       { href: "/ops", label: "Ops Room" },
-      { href: "/incidents", label: "Incidents" }
-    ]
-  }
+      { href: "/incidents", label: "Incidents" },
+    ],
+  },
 ];
 
 export function AppShell({ eyebrow, title, children, aside }: AppShellProps) {
@@ -56,12 +57,17 @@ export function AppShell({ eyebrow, title, children, aside }: AppShellProps) {
             <div className="nav-section" key={section.title}>
               <span className="nav-section-title">{section.title}</span>
               {section.items.map((item) => {
-                const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href.replace("/NVDA", ""));
+                const isActive =
+                  item.href === "/"
+                    ? pathname === "/"
+                    : pathname.startsWith(item.href.replace("/NVDA", ""));
 
                 return (
                   <Link
                     aria-current={isActive ? "page" : undefined}
-                    className={isActive ? "nav-link nav-link-active" : "nav-link"}
+                    className={
+                      isActive ? "nav-link nav-link-active" : "nav-link"
+                    }
                     href={item.href}
                     key={item.href}
                   >
