@@ -12,7 +12,7 @@ data:
   AI_INFRA_FUND_ENV: production
   AI_INFRA_FUND_DATA_DIR: /app/data
   AI_INFRA_FUND_MODEL_PROFILES: config/model_profiles.yaml
-  AI_INFRA_FUND_CORS_ORIGINS: https://fundrag-frontend.azurewebsites.net
+  AI_INFRA_FUND_CORS_ORIGINS: https://ai-infra-fund-frontend.azurewebsites.net,https://fundrag-frontend.azurewebsites.net
 ---
 apiVersion: v1
 kind: Service
