@@ -1,0 +1,201 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai-infra-fund
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-infra-fund-config
+  namespace: ai-infra-fund
+data:
+  AI_INFRA_FUND_ENV: production
+  AI_INFRA_FUND_DATA_DIR: /app/data
+  AI_INFRA_FUND_MODEL_PROFILES: config/model_profiles.yaml
+  AI_INFRA_FUND_CORS_ORIGINS: https://fundrag-frontend.azurewebsites.net
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-infra-fund-postgres
+  namespace: ai-infra-fund
+spec:
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+  selector:
+    app: ai-infra-fund-postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ai-infra-fund-postgres
+  namespace: ai-infra-fund
+spec:
+  serviceName: ai-infra-fund-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-infra-fund-postgres
+  template:
+    metadata:
+      labels:
+        app: ai-infra-fund-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:pg16
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: ai-infra-fund-db
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: ai-infra-fund-db
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ai-infra-fund-db
+                  key: POSTGRES_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - ai_infra_fund
+                - -d
+                - ai_infra_fund
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 5
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+      volumes: []
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 8Gi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ai-infra-fund-migrate
+  namespace: ai-infra-fund
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: ai-infra-fund-migrate
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: aistartuptr.azurecr.io/ai-infra-fund-api:20260514161621
+          imagePullPolicy: Always
+          command:
+            - python
+            - -m
+            - ai_infra_fund_api.migrate
+          envFrom:
+            - configMapRef:
+                name: ai-infra-fund-config
+            - secretRef:
+                name: ai-infra-fund-db
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-infra-fund-api
+  namespace: ai-infra-fund
+  labels:
+    app: ai-infra-fund-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-infra-fund-api
+  template:
+    metadata:
+      labels:
+        app: ai-infra-fund-api
+    spec:
+      containers:
+        - name: api
+          image: aistartuptr.azurecr.io/ai-infra-fund-api:20260514161621
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: ai-infra-fund-config
+            - secretRef:
+                name: ai-infra-fund-db
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-infra-fund-api
+  namespace: ai-infra-fund
+spec:
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+  selector:
+    app: ai-infra-fund-api
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-infra-fund-api-lb
+  namespace: ai-infra-fund
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /health
+spec:
+  type: LoadBalancer
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+  selector:
+    app: ai-infra-fund-api
