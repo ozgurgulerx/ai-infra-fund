@@ -1,106 +1,184 @@
 version: 1
 
-profiles:
-  gpt-5-nano:
-    provider: azure_foundry
+models:
+  gpt_5_nano:
+    model_id: gpt-5-nano
     deployment: gpt-5-nano
+    provider: azure_foundry
+    endpoint_type: azure_ai_foundry
+    task_roles:
+      - source_classification
+    quota_rpm: null
+    quota_tpm: null
     cost_class: low
     max_context: unknown
-    privacy: cloud_allowed_by_data_class
-    quota_notes: user-provided-foundry-project
+    privacy_class: cloud
+    allowed_data_classes:
+      - public_market_data
+      - public_evidence
+      - run_audit
+    fallback_chain:
+      - gpt_5_mini
+      - qwen3_30b
+    structured_output_support: true
+    notes: Cheap classifier, dedupe, and light metadata route.
 
-  deepseek-v4-flash:
-    provider: azure_foundry
+  deepseek_v4_flash:
+    model_id: DeepSeek-V4-Flash
     deployment: DeepSeek-V4-Flash
+    provider: azure_foundry
+    endpoint_type: azure_ai_foundry
+    task_roles:
+      - evidence_summary
+      - adversarial_review
+    quota_rpm: 500
+    quota_tpm: 500000
     cost_class: medium
     max_context: unknown
-    privacy: cloud_allowed_by_data_class
-    quota_notes: user-provided-foundry-project
+    privacy_class: cloud
+    allowed_data_classes:
+      - public_market_data
+      - public_evidence
+      - run_audit
+      - derived_analytics
+    fallback_chain:
+      - gpt_5_mini
+      - qwen3_30b
+    structured_output_support: true
+    notes: Primary evidence-summary and draft narrative model.
 
-  gpt-5-mini:
-    provider: azure_foundry
+  gpt_5_mini:
+    model_id: gpt-5-mini
     deployment: gpt-5-mini
+    provider: azure_foundry
+    endpoint_type: azure_ai_foundry
+    task_roles:
+      - source_classification
+      - evidence_summary
+      - orchestration_validation
+      - adversarial_review
+    quota_rpm: null
+    quota_tpm: null
     cost_class: medium
     max_context: unknown
-    privacy: cloud_allowed_by_data_class
-    quota_notes: user-provided-foundry-project
+    privacy_class: cloud
+    allowed_data_classes:
+      - public_market_data
+      - public_evidence
+      - run_audit
+      - derived_analytics
+    fallback_chain:
+      - qwen3_30b
+    structured_output_support: true
+    notes: Structured workflow controller and validation fallback.
 
-  kimi-k2-6:
-    provider: azure_foundry
+  kimi_k2_6:
+    model_id: Kimi-K2.6
     deployment: Kimi-K2.6
+    provider: azure_foundry
+    endpoint_type: azure_ai_foundry
+    task_roles:
+      - adversarial_review
+    quota_rpm: 100
+    quota_tpm: 100000
     cost_class: high
     max_context: unknown
-    privacy: cloud_allowed_by_data_class
-    quota_notes: use-for-review-not-workhorse
+    privacy_class: cloud
+    allowed_data_classes:
+      - public_evidence
+      - run_audit
+      - derived_analytics
+    fallback_chain:
+      - deepseek_v4_flash
+      - gpt_5_mini
+    structured_output_support: true
+    notes: Selective contradiction and thesis review route, not the workhorse.
 
-  qwen3-30b:
-    provider: ollama
+  kimi_k2_thinking:
+    model_id: Kimi-K2-Thinking
+    deployment: Kimi-K2-Thinking
+    provider: azure_foundry
+    endpoint_type: azure_ai_foundry
+    task_roles:
+      - adversarial_review
+    quota_rpm: null
+    quota_tpm: null
+    cost_class: high
+    max_context: unknown
+    privacy_class: cloud
+    allowed_data_classes:
+      - public_evidence
+      - run_audit
+      - derived_analytics
+    fallback_chain:
+      - kimi_k2_6
+      - gpt_5_mini
+    structured_output_support: true
+    notes: Optional deeper review deployment when explicitly promoted in config order.
+
+  deepseek_v3_2:
+    model_id: DeepSeek-V3.2
+    deployment: DeepSeek-V3.2
+    provider: azure_foundry
+    endpoint_type: azure_ai_foundry
+    task_roles:
+      - evidence_summary
+    quota_rpm: null
+    quota_tpm: null
+    cost_class: medium
+    max_context: unknown
+    privacy_class: cloud
+    allowed_data_classes:
+      - public_market_data
+      - public_evidence
+      - run_audit
+      - derived_analytics
+    fallback_chain:
+      - deepseek_v4_flash
+      - qwen3_30b
+    structured_output_support: true
+    notes: Alternate evidence-summary deployment for shadow evaluation.
+
+  qwen3_30b:
+    model_id: qwen3:30b
     deployment: qwen3:30b
+    provider: ollama
+    endpoint_type: local
+    task_roles:
+      - source_classification
+      - evidence_summary
+      - orchestration_validation
+      - local_fallback
+    quota_rpm: null
+    quota_tpm: null
     cost_class: local
     max_context: unknown
-    privacy: local_only
-    quota_notes: local-mac-capacity-dependent
+    privacy_class: local
+    allowed_data_classes:
+      - public_market_data
+      - public_evidence
+      - user_portfolio
+      - private_research
+      - run_audit
+      - derived_analytics
+    fallback_chain:
+      - deepseek_r1_32b
+    structured_output_support: true
+    notes: Local/private fallback route.
 
-  deepseek-r1-32b:
-    provider: ollama
+  deepseek_r1_32b:
+    model_id: deepseek-r1:32b
     deployment: deepseek-r1:32b
-    cost_class: local
-    max_context: unknown
-    privacy: local_only
-    quota_notes: local-mac-capacity-dependent
-
-  bge-m3:
     provider: ollama
-    deployment: bge-m3
+    endpoint_type: local
+    task_roles:
+      - adversarial_review
+      - local_fallback
+    quota_rpm: null
+    quota_tpm: null
     cost_class: local
     max_context: unknown
-    privacy: local_only
-    quota_notes: embedding-dimension-must-match-migration
-
-task_routes:
-  source_classification:
-    default: gpt-5-nano
-    fallback_chain:
-      - gpt-5-mini
-      - qwen3-30b
-    allowed_data_classes:
-      - public_market_data
-      - public_evidence
-      - run_audit
-
-  evidence_summary:
-    default: deepseek-v4-flash
-    fallback_chain:
-      - gpt-5-mini
-      - qwen3-30b
-    allowed_data_classes:
-      - public_evidence
-      - run_audit
-
-  orchestration_validation:
-    default: gpt-5-mini
-    fallback_chain:
-      - qwen3-30b
-    allowed_data_classes:
-      - public_market_data
-      - public_evidence
-      - run_audit
-      - derived_analytics
-
-  adversarial_review:
-    default: kimi-k2-6
-    fallback_chain:
-      - deepseek-v4-flash
-      - gpt-5-mini
-    allowed_data_classes:
-      - public_evidence
-      - run_audit
-      - derived_analytics
-
-  local_fallback:
-    default: qwen3-30b
-    fallback_chain:
-      - deepseek-r1-32b
+    privacy_class: local
     allowed_data_classes:
       - public_market_data
       - public_evidence
@@ -108,10 +186,22 @@ task_routes:
       - private_research
       - run_audit
       - derived_analytics
-
-  embeddings:
-    default: bge-m3
     fallback_chain: []
+    structured_output_support: true
+    notes: Local reasoning fallback for private review.
+
+  bge_m3:
+    model_id: bge-m3
+    deployment: bge-m3
+    provider: ollama
+    endpoint_type: local
+    task_roles:
+      - embeddings
+    quota_rpm: null
+    quota_tpm: null
+    cost_class: local
+    max_context: unknown
+    privacy_class: local
     allowed_data_classes:
       - public_market_data
       - public_evidence
@@ -119,3 +209,28 @@ task_routes:
       - private_research
       - run_audit
       - derived_analytics
+    fallback_chain:
+      - text_embedding_3_small
+    structured_output_support: false
+    notes: Local-first embedding profile. Phase 2 migration currently uses 1024 dimensions.
+
+  text_embedding_3_small:
+    model_id: text-embedding-3-small
+    deployment: text-embedding-3-small
+    provider: azure_foundry
+    endpoint_type: azure_ai_foundry
+    task_roles:
+      - embeddings
+    quota_rpm: null
+    quota_tpm: null
+    cost_class: low
+    max_context: unknown
+    privacy_class: cloud
+    allowed_data_classes:
+      - public_market_data
+      - public_evidence
+      - run_audit
+      - derived_analytics
+    fallback_chain: []
+    structured_output_support: false
+    notes: Cloud embedding fallback for public or derived data only.

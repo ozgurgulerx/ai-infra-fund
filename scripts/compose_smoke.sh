@@ -47,6 +47,16 @@ docker compose exec -T postgres psql \
   -d ai_infra_fund \
   -v ON_ERROR_STOP=1 \
   -c "SELECT to_regclass('evidence.evidence_chunks') AS evidence_chunks, to_regclass('recommendations.recommendation_artifacts') AS recommendation_artifacts;"
+docker compose exec -T postgres psql \
+  -U ai_infra_fund \
+  -d ai_infra_fund \
+  -v ON_ERROR_STOP=1 \
+  -c "INSERT INTO audit.model_runs (model_run_id, task_role, model_id, deployment, provider, prompt_version, input_hash, output_hash, latency_ms, token_estimate_input, token_estimate_output, schema_valid, retry_count, data_classes, status, created_at) VALUES ('smoke-model-run', 'evidence_summary', 'smoke-model', 'smoke-deployment', 'smoke-provider', 'smoke-prompt-v1', repeat('a', 64), repeat('b', 64), 1, 1, 1, true, 0, ARRAY['public_evidence'], 'success', now()) ON CONFLICT (model_run_id) DO NOTHING;"
+docker compose exec -T postgres psql \
+  -U ai_infra_fund \
+  -d ai_infra_fund \
+  -v ON_ERROR_STOP=1 \
+  -c "DELETE FROM audit.model_runs WHERE model_run_id = 'smoke-model-run';"
 
 log "starting api, worker, and web"
 docker compose up -d api worker web
