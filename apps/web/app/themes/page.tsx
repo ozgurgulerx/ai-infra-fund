@@ -149,7 +149,11 @@ export default function ThemesPage() {
           </div>
         </section>
 
-        <section className={styles.detail} aria-label="Station detail">
+        <section
+          className={styles.detail}
+          aria-label="Station detail"
+          aria-live="polite"
+        >
           <header className={styles.detailHeader}>
             <div>
               <span className={styles.detailEyebrow}>

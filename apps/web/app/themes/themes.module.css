@@ -247,6 +247,13 @@
   transform: translateY(-1px);
 }
 
+.stationButton:focus-visible,
+.adjacentChip:focus-visible,
+.backLink:focus-visible {
+  outline: 2px solid var(--copper);
+  outline-offset: 2px;
+}
+
 .stationActive .stationButton {
   background-color: var(--paper-3);
   border-color: var(--copper);
