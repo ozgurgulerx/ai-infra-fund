@@ -108,7 +108,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: migrate
-          image: aistartuptr.azurecr.io/ai-infra-fund-api:20260514161621
+          image: aistartuptr.azurecr.io/ai-infra-fund-api:20260514195848
           imagePullPolicy: Always
           command:
             - python
@@ -139,7 +139,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: aistartuptr.azurecr.io/ai-infra-fund-api:20260514161621
+          image: aistartuptr.azurecr.io/ai-infra-fund-api:20260514195848
           imagePullPolicy: Always
           ports:
             - name: http
@@ -183,6 +183,40 @@ spec:
       targetPort: 8000
   selector:
     app: ai-infra-fund-api
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-infra-fund-worker
+  namespace: ai-infra-fund
+  labels:
+    app: ai-infra-fund-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-infra-fund-worker
+  template:
+    metadata:
+      labels:
+        app: ai-infra-fund-worker
+    spec:
+      containers:
+        - name: worker
+          image: aistartuptr.azurecr.io/ai-infra-fund-worker:20260514195848
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: ai-infra-fund-config
+            - secretRef:
+                name: ai-infra-fund-db
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
 ---
 apiVersion: v1
 kind: Service
