@@ -10,6 +10,10 @@ from ai_infra_fund_api.routes.evidence import (
     ManualEvidenceRepository,
     register_evidence_routes,
 )
+from ai_infra_fund_api.routes.evaluation import (
+    EvaluationPersistenceRepository,
+    register_evaluation_routes,
+)
 from ai_infra_fund_api.routes.recommendations import (
     RecommendationService,
     register_recommendation_routes,
@@ -46,6 +50,7 @@ def create_app(
     connection_check: ConnectionCheck = check_database_connection,
     settings_provider: SettingsProvider = default_settings_provider,
     evidence_repository: ManualEvidenceRepository | None = None,
+    evaluation_repository: EvaluationPersistenceRepository | None = None,
     recommendation_service: RecommendationService | None = None,
 ) -> FastAPI:
     app = FastAPI(title="AI Infrastructure Fund API", version=VERSION)
@@ -85,6 +90,11 @@ def create_app(
     register_evidence_routes(
         app,
         evidence_repository=evidence_repository,
+        settings_provider=settings_provider,
+    )
+    register_evaluation_routes(
+        app,
+        evaluation_repository=evaluation_repository,
         settings_provider=settings_provider,
     )
     register_recommendation_routes(
