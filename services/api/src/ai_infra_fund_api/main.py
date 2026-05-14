@@ -4,6 +4,7 @@ import os
 from typing import Callable
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from ai_infra_fund_api.routes.evidence import (
@@ -25,6 +26,7 @@ from ai_infra_fund_core.runtime.database import check_database_connection
 PROJECT_NAME = "ai-infra-fund"
 SERVICE_NAME = "api"
 VERSION = "0.1.0"
+LOCAL_WEB_ORIGINS = ("http://localhost:3000", "http://127.0.0.1:3000")
 
 ConnectionCheck = Callable[[RuntimeSettings], bool]
 SettingsProvider = Callable[[], RuntimeSettings]
@@ -54,6 +56,13 @@ def create_app(
     recommendation_service: RecommendationService | None = None,
 ) -> FastAPI:
     app = FastAPI(title="AI Infrastructure Fund API", version=VERSION)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=list(LOCAL_WEB_ORIGINS),
+        allow_credentials=False,
+        allow_methods=["GET", "OPTIONS"],
+        allow_headers=["Content-Type"],
+    )
 
     @app.get("/health")
     def health() -> JSONResponse:

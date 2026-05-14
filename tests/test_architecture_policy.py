@@ -250,6 +250,46 @@ class ArchitecturePolicyTests(unittest.TestCase):
                     offenders.append(f"{path.relative_to(ROOT)} matches {pattern}")
         self.assertEqual([], offenders)
 
+    def test_frontend_does_not_import_database_or_backend_internals(self) -> None:
+        forbidden_patterns = [
+            r"AI_INFRA_FUND_DATABASE_URL",
+            r"\bpsycopg\b",
+            r"services/api",
+            r"ai_infra_fund_api",
+            r"postgresql://",
+        ]
+        offenders: list[str] = []
+        for path in existing_text_files("apps/web"):
+            if "node_modules" in path.parts or ".next" in path.parts:
+                continue
+            if path.suffix not in {".css", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".json"}:
+                continue
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for pattern in forbidden_patterns:
+                if re.search(pattern, text, re.IGNORECASE):
+                    offenders.append(f"{path.relative_to(ROOT)} matches {pattern}")
+        self.assertEqual([], offenders)
+
+    def test_frontend_has_no_order_or_broker_execution_controls(self) -> None:
+        forbidden_label_patterns = [
+            r">\s*Place\s+Order\s*<",
+            r">\s*Submit\s+Order\s*<",
+            r">\s*Execute\s+Order\s*<",
+            r">\s*Connect\s+Broker\s*<",
+            r">\s*Start\s+Live\s+Trading\s*<",
+        ]
+        offenders: list[str] = []
+        for path in existing_text_files("apps/web"):
+            if "node_modules" in path.parts or ".next" in path.parts:
+                continue
+            if path.suffix not in {".css", ".ts", ".tsx"}:
+                continue
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for pattern in forbidden_label_patterns:
+                if re.search(pattern, text, re.IGNORECASE):
+                    offenders.append(f"{path.relative_to(ROOT)} matches {pattern}")
+        self.assertEqual([], offenders)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -146,6 +146,39 @@ class ApiReadinessTests(unittest.TestCase):
         self.assertEqual(200, response.status_code)
         self.assertEqual("ready", response.json()["data"]["status"])
 
+    def test_local_web_origin_can_read_health_endpoint(self) -> None:
+        from fastapi.testclient import TestClient
+
+        from ai_infra_fund_api import main
+
+        app = main.create_app(connection_check=lambda _settings: True)
+        response = TestClient(app).options(
+            "/health",
+            headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("http://localhost:3000", response.headers.get("access-control-allow-origin"))
+
+    def test_local_web_origin_is_not_granted_cross_origin_post(self) -> None:
+        from fastapi.testclient import TestClient
+
+        from ai_infra_fund_api import main
+
+        app = main.create_app(connection_check=lambda _settings: True)
+        response = TestClient(app).options(
+            "/internal/recommendations",
+            headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": "POST",
+            },
+        )
+
+        self.assertNotEqual(200, response.status_code)
+
 
 class WorkerReadinessTests(unittest.TestCase):
     def test_worker_requires_database_url_and_model_profile_path(self) -> None:
