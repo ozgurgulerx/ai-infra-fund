@@ -1,0 +1,121 @@
+version: 1
+
+profiles:
+  gpt-5-nano:
+    provider: azure_foundry
+    deployment: gpt-5-nano
+    cost_class: low
+    max_context: unknown
+    privacy: cloud_allowed_by_data_class
+    quota_notes: user-provided-foundry-project
+
+  deepseek-v4-flash:
+    provider: azure_foundry
+    deployment: DeepSeek-V4-Flash
+    cost_class: medium
+    max_context: unknown
+    privacy: cloud_allowed_by_data_class
+    quota_notes: user-provided-foundry-project
+
+  gpt-5-mini:
+    provider: azure_foundry
+    deployment: gpt-5-mini
+    cost_class: medium
+    max_context: unknown
+    privacy: cloud_allowed_by_data_class
+    quota_notes: user-provided-foundry-project
+
+  kimi-k2-6:
+    provider: azure_foundry
+    deployment: Kimi-K2.6
+    cost_class: high
+    max_context: unknown
+    privacy: cloud_allowed_by_data_class
+    quota_notes: use-for-review-not-workhorse
+
+  qwen3-30b:
+    provider: ollama
+    deployment: qwen3:30b
+    cost_class: local
+    max_context: unknown
+    privacy: local_only
+    quota_notes: local-mac-capacity-dependent
+
+  deepseek-r1-32b:
+    provider: ollama
+    deployment: deepseek-r1:32b
+    cost_class: local
+    max_context: unknown
+    privacy: local_only
+    quota_notes: local-mac-capacity-dependent
+
+  bge-m3:
+    provider: ollama
+    deployment: bge-m3
+    cost_class: local
+    max_context: unknown
+    privacy: local_only
+    quota_notes: embedding-dimension-must-match-migration
+
+task_routes:
+  source_classification:
+    default: gpt-5-nano
+    fallback_chain:
+      - gpt-5-mini
+      - qwen3-30b
+    allowed_data_classes:
+      - public_market_data
+      - public_evidence
+      - run_audit
+
+  evidence_summary:
+    default: deepseek-v4-flash
+    fallback_chain:
+      - gpt-5-mini
+      - qwen3-30b
+    allowed_data_classes:
+      - public_evidence
+      - run_audit
+
+  orchestration_validation:
+    default: gpt-5-mini
+    fallback_chain:
+      - qwen3-30b
+    allowed_data_classes:
+      - public_market_data
+      - public_evidence
+      - run_audit
+      - derived_analytics
+
+  adversarial_review:
+    default: kimi-k2-6
+    fallback_chain:
+      - deepseek-v4-flash
+      - gpt-5-mini
+    allowed_data_classes:
+      - public_evidence
+      - run_audit
+      - derived_analytics
+
+  local_fallback:
+    default: qwen3-30b
+    fallback_chain:
+      - deepseek-r1-32b
+    allowed_data_classes:
+      - public_market_data
+      - public_evidence
+      - user_portfolio
+      - private_research
+      - run_audit
+      - derived_analytics
+
+  embeddings:
+    default: bge-m3
+    fallback_chain: []
+    allowed_data_classes:
+      - public_market_data
+      - public_evidence
+      - user_portfolio
+      - private_research
+      - run_audit
+      - derived_analytics
