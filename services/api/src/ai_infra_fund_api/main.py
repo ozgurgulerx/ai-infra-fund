@@ -31,6 +31,10 @@ from ai_infra_fund_api.routes.runs import (
     RunReadRepository,
     register_run_routes,
 )
+from ai_infra_fund_api.routes.trade_journal import (
+    TradeJournalPersistenceRepository,
+    register_trade_journal_routes,
+)
 from ai_infra_fund_core.runtime.config import RuntimeConfigError, RuntimeSettings
 from ai_infra_fund_core.runtime.database import check_database_connection
 
@@ -39,6 +43,7 @@ PROJECT_NAME = "ai-infra-fund"
 SERVICE_NAME = "api"
 VERSION = "0.1.0"
 LOCAL_WEB_ORIGINS = ("http://localhost:3000", "http://127.0.0.1:3000")
+CORS_ORIGINS_ENV = "AI_INFRA_FUND_CORS_ORIGINS"
 
 ConnectionCheck = Callable[[RuntimeSettings], bool]
 SettingsProvider = Callable[[], RuntimeSettings]
@@ -59,21 +64,32 @@ def default_settings_provider() -> RuntimeSettings:
     return RuntimeSettings.from_env(os.environ, allow_defaults=True)
 
 
+def configured_web_origins(env: dict[str, str] | os._Environ[str] = os.environ) -> tuple[str, ...]:
+    configured_origins = tuple(
+        origin.strip().rstrip("/")
+        for origin in env.get(CORS_ORIGINS_ENV, "").split(",")
+        if origin.strip()
+    )
+    return tuple(dict.fromkeys((*LOCAL_WEB_ORIGINS, *configured_origins)))
+
+
 def create_app(
     *,
     connection_check: ConnectionCheck = check_database_connection,
     settings_provider: SettingsProvider = default_settings_provider,
+    web_origins: tuple[str, ...] | None = None,
     evidence_repository: ManualEvidenceRepository | None = None,
     evaluation_repository: EvaluationPersistenceRepository | None = None,
     recommendation_service: RecommendationService | None = None,
     dashboard_repository: DashboardReadRepository | None = None,
     advisory_chain_repository: AdvisoryChainReadRepository | None = None,
     run_repository: RunReadRepository | None = None,
+    trade_journal_repository: TradeJournalPersistenceRepository | None = None,
 ) -> FastAPI:
     app = FastAPI(title="AI Infrastructure Fund API", version=VERSION)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=list(LOCAL_WEB_ORIGINS),
+        allow_origins=list(web_origins or configured_web_origins()),
         allow_credentials=False,
         allow_methods=["GET", "OPTIONS"],
         allow_headers=["Content-Type"],
@@ -138,6 +154,11 @@ def create_app(
     register_run_routes(
         app,
         run_repository=run_repository,
+        settings_provider=settings_provider,
+    )
+    register_trade_journal_routes(
+        app,
+        trade_journal_repository=trade_journal_repository,
         settings_provider=settings_provider,
     )
 

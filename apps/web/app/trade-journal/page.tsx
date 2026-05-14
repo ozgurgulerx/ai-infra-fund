@@ -1,5 +1,6 @@
 import { AppShell } from "../../components/app-shell";
 import { SectionPanel } from "../../components/section-panel";
+import { TradeEntryForm } from "../../components/trade-entry-form";
 import { journalEntries } from "../../lib/portfolio-data";
 
 export default function TradeJournalPage() {
@@ -7,7 +8,15 @@ export default function TradeJournalPage() {
     <div className="control-room-shell">
       <AppShell eyebrow="Local Journal" title="Trade Journal">
         <div className="workbench-grid">
-          <SectionPanel eyebrow="Manual records" title="Trade Journal" aside={<span className="advisory-inline">Advisory-only</span>}>
+          <SectionPanel
+            eyebrow="Manual records"
+            title="Trade Journal"
+            aside={<span className="advisory-inline">Advisory-only</span>}
+          >
+            <TradeEntryForm />
+          </SectionPanel>
+
+          <SectionPanel eyebrow="Planning sample" title="Reference Trade Journal" aside={<span className="readonly-label">Static sample</span>}>
             <div className="data-table" role="table" aria-label="Trade journal">
               <div className="data-row data-header" role="row">
                 <span>Ticker</span>

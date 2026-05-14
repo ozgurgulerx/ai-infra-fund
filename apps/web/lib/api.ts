@@ -38,6 +38,29 @@ const DEFAULT_TIMEOUT_MS = 2500;
 const DASHBOARD_MODULES_ENDPOINT = "/internal/status/modules";
 const DEMO_ADVISORY_CHAIN_ENDPOINT = "/internal/advisory-chain/demo";
 const LATEST_ADVISORY_CHAIN_ENDPOINT = "/internal/advisory-chain/latest";
+const TRADE_JOURNAL_ENTRIES_ENDPOINT = "/internal/trade-journal/entries";
+const TRADE_JOURNAL_PROXY_ENDPOINT = "/api/trade-journal/entries";
+
+export type TradeJournalEntryInput = {
+  ticker: string;
+  side: "buy" | "sell";
+  quantity: string;
+  price?: string;
+  fees?: string;
+  trade_date: string;
+  settlement_date?: string;
+  account_label: string;
+  status: "intended" | "paper" | "completed" | "cancelled" | "ignored";
+  notes?: string;
+};
+
+export type TradeJournalEntry = TradeJournalEntryInput & {
+  trade_id: string;
+  source: "manual_ui" | string;
+  created_at: string;
+  journal_only: boolean;
+  advisory_only: boolean;
+};
 
 export function apiBaseUrl(): string {
   return (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000").replace(/\/$/, "");
@@ -161,6 +184,61 @@ export async function fetchLatestAdvisoryChain(): Promise<AdvisoryChainPayload> 
 
 export async function fetchDemoAdvisoryChain(): Promise<AdvisoryChainPayload> {
   return fetchAdvisoryChain(DEMO_ADVISORY_CHAIN_ENDPOINT);
+}
+
+export async function fetchTradeJournalEntries(): Promise<TradeJournalEntry[]> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(TRADE_JOURNAL_PROXY_ENDPOINT, {
+      cache: "no-store",
+      method: "GET",
+      signal: controller.signal
+    });
+    const payload = (await response.json()) as {
+      data?: {
+        entries?: TradeJournalEntry[];
+      };
+    };
+
+    if (!response.ok) {
+      return [];
+    }
+
+    return payload.data?.entries ?? [];
+  } catch {
+    return [];
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+export async function createTradeJournalEntry(input: TradeJournalEntryInput): Promise<TradeJournalEntry> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(TRADE_JOURNAL_PROXY_ENDPOINT, {
+      body: JSON.stringify(input),
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+      signal: controller.signal
+    });
+    const payload = (await response.json()) as {
+      data?: TradeJournalEntry;
+      error?: { message?: string };
+    };
+
+    if (!response.ok || !payload.data) {
+      throw new Error(payload.error?.message ?? `Trade journal write failed: HTTP ${response.status}`);
+    }
+
+    return payload.data;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 
 async function fetchAdvisoryChain(endpoint: string): Promise<AdvisoryChainPayload> {

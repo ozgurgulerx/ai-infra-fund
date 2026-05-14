@@ -178,6 +178,14 @@ class ArchitecturePolicyTests(unittest.TestCase):
         web_body = match.group("body") if match else ""
         self.assertNotIn("AI_INFRA_FUND_DATABASE_URL", web_body)
         self.assertNotIn("AZURE_AI_FOUNDRY_API_KEY", web_body)
+        self.assertIn("AI_INFRA_FUND_INTERNAL_API_BASE_URL", web_body)
+        self.assertIn("http://api:8000", web_body)
+
+    def test_trade_journal_proxy_uses_container_internal_api_url(self) -> None:
+        route = read_text("apps/web/app/api/trade-journal/entries/route.ts")
+        self.assertIn("AI_INFRA_FUND_INTERNAL_API_BASE_URL", route)
+        self.assertIn("NEXT_PUBLIC_API_BASE_URL", route)
+        self.assertIn("/internal/trade-journal/entries", route)
 
     def test_migrate_service_owns_schema_migrations(self) -> None:
         text = read_text("docker-compose.yml")
