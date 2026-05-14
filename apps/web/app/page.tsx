@@ -8,6 +8,7 @@ import {
   apiBaseUrl,
   fetchApiHealth,
   fetchApiReadiness,
+  fetchDemoAdvisoryChain,
   fetchDashboardModules
 } from "../lib/api";
 import {
@@ -16,6 +17,7 @@ import {
   applyRuntimeProbes,
   moduleStatusFromSummary,
   summarizeModules,
+  type AdvisoryChainPayload,
   type DashboardModuleSummary,
   type DashboardSummaryFeed,
   type ModuleStatus,
@@ -67,6 +69,26 @@ type DashboardEndpointConfig = {
 
 type DashboardPayload = Record<string, unknown>;
 type DashboardFeedMap = Record<DashboardFeedKey, DashboardSummaryFeed<DashboardPayload>>;
+
+const initialAdvisoryChain: AdvisoryChainPayload = {
+  status: "empty",
+  chain_id: "demo-ai-infra-nvda",
+  advisory_label: "advisory_only",
+  detail: "Demo advisory chain has not been seeded.",
+  ids: {
+    evidence_id: "evidence-demo-ai-infra-nvda",
+    chunk_id: "chunk-demo-ai-infra-nvda-0",
+    claim_id: "claim-demo-ai-infra-nvda-demand",
+    model_run_ids: ["model-run-demo-local-review"],
+    signal_bundle_id: "signal-bundle-demo-nvda",
+    target_weights_id: "target-weights-demo-ai-infra",
+    recommendation_id: "recommendation-demo-nvda",
+    audit_id: "recommendation-audit-demo-nvda",
+    backtest_run_id: "evaluation-demo-ai-infra",
+    run_artifact_id: "run-demo-advisory-chain"
+  }
+};
+const advisoryChainPath = "Evidence -> Chunk -> Claim -> SignalBundle -> TargetWeights -> Recommendation -> Audit -> Evaluation";
 
 const dashboardEndpointConfigs: DashboardEndpointConfig[] = [
   {
@@ -151,6 +173,7 @@ export default function Page() {
   const [readiness, setReadiness] = useState<RuntimeProbe>(initialReadiness);
   const [dashboardFeeds, setDashboardFeeds] = useState<DashboardFeedMap>(initialDashboardFeeds);
   const [moduleSummaries, setModuleSummaries] = useState<DashboardModuleSummary[]>([]);
+  const [advisoryChain, setAdvisoryChain] = useState<AdvisoryChainPayload>(initialAdvisoryChain);
 
   useEffect(() => {
     let cancelled = false;
@@ -180,14 +203,16 @@ export default function Page() {
     let cancelled = false;
 
     async function refreshDashboardFeeds() {
-      const [feeds, liveModules] = await Promise.all([
+      const [feeds, liveModules, chain] = await Promise.all([
         fetchDashboardFeedMap(),
-        fetchDashboardModules()
+        fetchDashboardModules(),
+        fetchDemoAdvisoryChain()
       ]);
 
       if (!cancelled) {
         setDashboardFeeds(feeds);
         setModuleSummaries(liveModules);
+        setAdvisoryChain(chain);
       }
     }
 
@@ -289,6 +314,32 @@ export default function Page() {
           </div>
         </SectionPanel>
 
+        <SectionPanel
+          eyebrow="End-to-End"
+          title="Demo Advisory Chain"
+          aside={<span className="advisory-inline">Advisory-only</span>}
+        >
+          <div className="compact-list">
+            <p className="chain-path">
+              {advisoryChainPath}
+            </p>
+            <p>
+              <strong>{chainHeadline(advisoryChain)}</strong> {chainDetail(advisoryChain)}
+            </p>
+          </div>
+          <div className="status-list chain-list">
+            <ChainLinkRow label="evidence_id" value={chainId(advisoryChain, "evidence_id")} />
+            <ChainLinkRow label="chunk_id" value={chainId(advisoryChain, "chunk_id")} />
+            <ChainLinkRow label="claim_id" value={chainId(advisoryChain, "claim_id")} />
+            <ChainLinkRow label="model_run_ids" value={chainId(advisoryChain, "model_run_ids")} />
+            <ChainLinkRow label="signal_bundle_id" value={chainId(advisoryChain, "signal_bundle_id")} />
+            <ChainLinkRow label="target_weights_id" value={chainId(advisoryChain, "target_weights_id")} />
+            <ChainLinkRow label="recommendation_id" value={chainId(advisoryChain, "recommendation_id")} />
+            <ChainLinkRow label="audit_id" value={chainId(advisoryChain, "audit_id")} />
+            <ChainLinkRow label="evaluation" value={chainEvaluation(advisoryChain)} />
+          </div>
+        </SectionPanel>
+
         <SectionPanel eyebrow="Evidence" title="Evidence Ingestion Status">
           <div className="compact-list">
             <p>
@@ -343,6 +394,50 @@ function DashboardFeedRow({ feed }: { feed: DashboardSummaryFeed<DashboardPayloa
       <span>{feed.sourceLabel}</span>
     </div>
   );
+}
+
+function ChainLinkRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="status-list-row">
+      <strong>{label}</strong>
+      <span className="chain-id">{value}</span>
+    </div>
+  );
+}
+
+function chainHeadline(chain: AdvisoryChainPayload): string {
+  if (chain.status === "available") {
+    return `${textValue(chain.recommendation, "action", "advisory")} / ${textValue(chain.recommendation, "horizon", "horizon")}`;
+  }
+  if (chain.status === "empty") {
+    return "Planned";
+  }
+  return "Degraded";
+}
+
+function chainDetail(chain: AdvisoryChainPayload): string {
+  if (chain.status === "available") {
+    return `${textValue(chain.recommendation, "advisory_label", chain.advisory_label ?? "advisory_only")} recommendation linked through ${chain.chain_id}.`;
+  }
+  return chain.detail ?? "Demo advisory chain has not been seeded.";
+}
+
+function chainId(chain: AdvisoryChainPayload, key: string): string {
+  const value = chain.ids?.[key];
+  if (Array.isArray(value)) {
+    return value.join(", ");
+  }
+  if (typeof value === "string" && value.length > 0) {
+    return value;
+  }
+  return "not reported";
+}
+
+function chainEvaluation(chain: AdvisoryChainPayload): string {
+  const backtestId = chainId(chain, "backtest_run_id");
+  const runArtifactId = chainId(chain, "run_artifact_id");
+  const status = textValue(chain.evaluation, "status", "not reported");
+  return `${backtestId} / ${runArtifactId} / ${status}`;
 }
 
 async function fetchDashboardFeedMap(): Promise<DashboardFeedMap> {
@@ -455,6 +550,11 @@ function readNumber(payload: DashboardPayload, ...keys: string[]): number {
 function readOptionalText(payload: DashboardPayload, key: string): string {
   const value = payload[key];
   return typeof value === "string" && value.length > 0 ? value : "not reported";
+}
+
+function textValue(payload: Record<string, unknown> | undefined, key: string, fallback: string): string {
+  const value = payload?.[key];
+  return typeof value === "string" && value.length > 0 ? value : fallback;
 }
 
 function formatBreakdown(value: unknown): string {

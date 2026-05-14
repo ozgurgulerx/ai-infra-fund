@@ -66,6 +66,22 @@ export type DashboardModuleSummary = {
   dependencies?: string[];
 };
 
+export type AdvisoryChainPayload = {
+  status: "available" | "empty" | "degraded" | string;
+  chain_id: string;
+  advisory_label?: string;
+  detail?: string;
+  ids?: Record<string, string | string[] | null | undefined>;
+  evidence?: Record<string, unknown>;
+  chunk?: Record<string, unknown>;
+  claim?: Record<string, unknown>;
+  signal_bundle?: Record<string, unknown>;
+  target_weights?: Record<string, unknown>;
+  recommendation?: Record<string, unknown>;
+  audit?: Record<string, unknown>;
+  evaluation?: Record<string, unknown>;
+};
+
 export const STATUS_TONE_MAP: Record<
   ModuleStatus,
   { tone: StatusTone; label: string; cssClass: string }

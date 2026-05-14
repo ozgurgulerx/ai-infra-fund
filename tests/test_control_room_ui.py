@@ -28,6 +28,11 @@ REQUIRED_DASHBOARD_TEXT = [
     "Data Quality",
     "Incidents",
     "System Architecture",
+    "Demo Advisory Chain",
+    "Evidence -> Chunk -> Claim -> SignalBundle -> TargetWeights -> Recommendation -> Audit -> Evaluation",
+    "recommendation-demo-nvda",
+    "target-weights-demo-ai-infra",
+    "signal-bundle-demo-nvda",
 ]
 
 REQUIRED_MODULE_IDS = [
@@ -62,6 +67,7 @@ READ_ONLY_DASHBOARD_ENDPOINTS = [
     "/internal/dashboard/model-run-summary",
     "/internal/dashboard/data-quality-summary",
     "/internal/dashboard/incident-summary",
+    "/internal/advisory-chain/demo",
 ]
 
 FORBIDDEN_FETCH_METHODS = ["POST", "PUT", "PATCH", "DELETE"]
@@ -146,6 +152,7 @@ class ControlRoomUiTests(unittest.TestCase):
             "fetchModelRunSummary",
             "fetchDataQualitySummary",
             "fetchIncidentSummary",
+            "fetchDemoAdvisoryChain",
         ):
             self.assertIn(summary_fetch, api)
         self.assertRegex(api, r"method:\s*[\"']GET[\"']")
@@ -196,6 +203,31 @@ class ControlRoomUiTests(unittest.TestCase):
             if re.search(rf"method:\s*[\"']{method}[\"']", combined)
         ]
         self.assertEqual([], forbidden_methods)
+
+    def test_dashboard_renders_advisory_chain_sections_from_read_only_payload(self) -> None:
+        combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())
+        required = [
+            "Demo Advisory Chain",
+            "Evidence",
+            "Chunk",
+            "Claim",
+            "SignalBundle",
+            "TargetWeights",
+            "Recommendation",
+            "Audit",
+            "Evaluation",
+            "advisory_label",
+            "model_run_ids",
+            "evidence_id",
+            "fetchDemoAdvisoryChain",
+        ]
+        missing = [text for text in required if text not in combined]
+        self.assertEqual([], missing)
+
+    def test_dashboard_has_empty_state_for_missing_advisory_chain(self) -> None:
+        combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())
+        self.assertIn("Demo advisory chain has not been seeded", combined)
+        self.assertIn("empty", combined)
 
     def test_no_order_or_broker_execution_ui_labels_exist(self) -> None:
         combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())

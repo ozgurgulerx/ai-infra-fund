@@ -1,4 +1,5 @@
 import type {
+  AdvisoryChainPayload,
   DashboardModuleSummary,
   DashboardOverviewSummary,
   DashboardSummaryFeed,
@@ -23,6 +24,7 @@ type DashboardSummaryEndpoint =
 
 const DEFAULT_TIMEOUT_MS = 2500;
 const DASHBOARD_MODULES_ENDPOINT = "/internal/status/modules";
+const DEMO_ADVISORY_CHAIN_ENDPOINT = "/internal/advisory-chain/demo";
 
 export function apiBaseUrl(): string {
   return (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000").replace(/\/$/, "");
@@ -114,6 +116,33 @@ export async function fetchDataQualitySummary(): Promise<DataQualitySummary> {
 
 export async function fetchIncidentSummary(): Promise<IncidentSummary> {
   return fetchReadOnlyDashboardSummary("/internal/dashboard/incident-summary", "Incidents");
+}
+
+export async function fetchDemoAdvisoryChain(): Promise<AdvisoryChainPayload> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${apiBaseUrl()}${DEMO_ADVISORY_CHAIN_ENDPOINT}`, {
+      cache: "no-store",
+      method: "GET",
+      signal: controller.signal
+    });
+    const payload = (await response.json()) as {
+      data?: AdvisoryChainPayload;
+    };
+
+    if (!response.ok) {
+      return unavailableDemoAdvisoryChain(`Backend unavailable: HTTP ${response.status}`);
+    }
+
+    return payload.data ?? emptyDemoAdvisoryChain();
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "request failed";
+    return unavailableDemoAdvisoryChain(`Backend unavailable: ${reason}`);
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 
 async function fetchProbe(endpoint: ProbeEndpoint): Promise<RuntimeProbe> {
@@ -221,5 +250,21 @@ function createUnavailableDashboardSummary(
     detail: `Backend unavailable: ${reason}`,
     checkedAt: new Date().toISOString(),
     sourceLabel: `API ${endpoint}`
+  };
+}
+
+function emptyDemoAdvisoryChain(): AdvisoryChainPayload {
+  return {
+    status: "empty",
+    chain_id: "demo-ai-infra-nvda",
+    detail: "Demo advisory chain has not been seeded."
+  };
+}
+
+function unavailableDemoAdvisoryChain(detail: string): AdvisoryChainPayload {
+  return {
+    ...emptyDemoAdvisoryChain(),
+    status: "degraded",
+    detail
   };
 }

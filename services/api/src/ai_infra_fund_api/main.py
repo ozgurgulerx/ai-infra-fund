@@ -7,6 +7,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from ai_infra_fund_api.routes.advisory_chain import (
+    AdvisoryChainReadRepository,
+    register_advisory_chain_routes,
+)
 from ai_infra_fund_api.routes.dashboard import (
     DashboardReadRepository,
     register_dashboard_routes,
@@ -59,6 +63,7 @@ def create_app(
     evaluation_repository: EvaluationPersistenceRepository | None = None,
     recommendation_service: RecommendationService | None = None,
     dashboard_repository: DashboardReadRepository | None = None,
+    advisory_chain_repository: AdvisoryChainReadRepository | None = None,
 ) -> FastAPI:
     app = FastAPI(title="AI Infrastructure Fund API", version=VERSION)
     app.add_middleware(
@@ -118,6 +123,11 @@ def create_app(
     register_dashboard_routes(
         app,
         dashboard_repository=dashboard_repository,
+        settings_provider=settings_provider,
+    )
+    register_advisory_chain_routes(
+        app,
+        advisory_chain_repository=advisory_chain_repository,
         settings_provider=settings_provider,
     )
 

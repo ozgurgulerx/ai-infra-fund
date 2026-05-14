@@ -278,6 +278,11 @@ textarea {
   gap: 10px;
 }
 
+.chain-id,
+.chain-path {
+  overflow-wrap: anywhere;
+}
+
 .audit-stack div,
 .status-list-row {
   border-left: 4px solid var(--violet);
