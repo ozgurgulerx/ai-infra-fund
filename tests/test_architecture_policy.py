@@ -62,6 +62,9 @@ COMPOSE_REQUIRED_SERVICES = ["web", "api", "worker", "postgres", "migrate"]
 GENERATED_PATHS_THAT_MUST_BE_IGNORED = [
     "apps/web/.next/cache/example",
     "apps/web/node_modules/example",
+    ".venv/example",
+    "venv/example",
+    "ai_infra_fund.egg-info/example",
     "packages/core/src/ai_infra_fund_core/__pycache__/example.pyc",
     "services/api/src/ai_infra_fund_api/__pycache__/example.pyc",
     "services/worker/src/ai_infra_fund_worker/__pycache__/example.pyc",

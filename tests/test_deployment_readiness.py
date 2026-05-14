@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+import tomllib
 import unittest
-from unittest.mock import Mock, patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,7 +28,9 @@ class MigrationReadinessTests(unittest.TestCase):
         self.assertTrue(migrations[0].name.startswith("0001_"))
 
     def test_initial_schema_migration_contains_phase2_foundations(self) -> None:
-        migration_path = ROOT / "services" / "api" / "migrations" / "0001_phase2_data_spine.sql"
+        migration_path = (
+            ROOT / "services" / "api" / "migrations" / "0001_phase2_data_spine.sql"
+        )
         sql = migration_path.read_text(encoding="utf-8")
 
         required_snippets = [
@@ -62,7 +64,9 @@ class MigrationReadinessTests(unittest.TestCase):
         applied: list[str] = []
 
         class FakeCursor:
-            def execute(self, statement: str, params: tuple[object, ...] | None = None) -> None:
+            def execute(
+                self, statement: str, params: tuple[object, ...] | None = None
+            ) -> None:
                 if statement.strip().startswith("INSERT INTO audit.schema_migrations"):
                     applied.append(str(params[0]) if params else "")
 
@@ -90,6 +94,40 @@ class MigrationReadinessTests(unittest.TestCase):
         migrate.apply_migrations(FakeConnection(), migration_files)
 
         self.assertEqual(["0001_first.sql", "0002_second.sql"], applied)
+
+
+class PythonPackagingReadinessTests(unittest.TestCase):
+    def test_pyproject_supports_editable_install_for_all_python_packages(self) -> None:
+        pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            "setuptools.build_meta", pyproject["build-system"]["build-backend"]
+        )
+        find_config = pyproject["tool"]["setuptools"]["packages"]["find"]
+        self.assertEqual(
+            ["packages/core/src", "services/api/src", "services/worker/src"],
+            find_config["where"],
+        )
+        self.assertEqual(
+            ["ai_infra_fund_core*", "ai_infra_fund_api*", "ai_infra_fund_worker*"],
+            find_config["include"],
+        )
+        self.assertIn(
+            "pytest==9.0.3", pyproject["project"]["optional-dependencies"]["dev"]
+        )
+        self.assertIn(
+            "httpx==0.28.1", pyproject["project"]["optional-dependencies"]["dev"]
+        )
+
+    def test_generated_python_virtualenvs_are_ignored_by_git_and_docker_contexts(
+        self,
+    ) -> None:
+        gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+        dockerignore = (ROOT / ".dockerignore").read_text(encoding="utf-8")
+
+        for ignored_path in (".venv/", "venv/", "*.egg-info/"):
+            self.assertIn(ignored_path, gitignore)
+            self.assertIn(ignored_path, dockerignore)
 
 
 class ApiReadinessTests(unittest.TestCase):
@@ -161,7 +199,9 @@ class ApiReadinessTests(unittest.TestCase):
         )
 
         self.assertEqual(200, response.status_code)
-        self.assertEqual("http://localhost:3000", response.headers.get("access-control-allow-origin"))
+        self.assertEqual(
+            "http://localhost:3000", response.headers.get("access-control-allow-origin")
+        )
 
     def test_configured_web_origin_can_read_health_endpoint(self) -> None:
         from fastapi.testclient import TestClient
@@ -187,7 +227,9 @@ class ApiReadinessTests(unittest.TestCase):
         )
 
     def test_api_cors_origins_are_configurable_for_deployed_frontend(self) -> None:
-        api_source = (ROOT / "services" / "api" / "src" / "ai_infra_fund_api" / "main.py").read_text(encoding="utf-8")
+        api_source = (
+            ROOT / "services" / "api" / "src" / "ai_infra_fund_api" / "main.py"
+        ).read_text(encoding="utf-8")
         self.assertIn("AI_INFRA_FUND_CORS_ORIGINS", api_source)
         self.assertIn("web_origins", api_source)
         self.assertIn("configured_web_origins", api_source)
@@ -229,11 +271,69 @@ class WorkerReadinessTests(unittest.TestCase):
             environment="local",
         )
 
-        self.assertEqual(0, main.run_once(settings, connection_check=lambda _settings: True))
-        self.assertEqual(2, main.run_once(settings, connection_check=lambda _settings: False))
+        self.assertEqual(
+            0, main.run_once(settings, connection_check=lambda _settings: True)
+        )
+        self.assertEqual(
+            2, main.run_once(settings, connection_check=lambda _settings: False)
+        )
 
 
 class ComposeSmokeScriptTests(unittest.TestCase):
+    def test_api_dockerfile_has_runtime_and_test_targets(self) -> None:
+        dockerfile = (ROOT / "services" / "api" / "Dockerfile").read_text(
+            encoding="utf-8"
+        )
+
+        required_snippets = [
+            "FROM python:3.12-slim AS runtime",
+            "COPY pyproject.toml /app/pyproject.toml",
+            "COPY packages/core /app/packages/core",
+            "COPY services/api /app/services/api",
+            "COPY services/worker /app/services/worker",
+            'RUN pip install --no-cache-dir -e "."',
+            "FROM runtime AS test",
+            'RUN pip install --no-cache-dir -e ".[dev]"',
+            'CMD ["python", "-m", "pytest", "tests/test_deployment_readiness.py"]',
+        ]
+
+        missing = [
+            snippet for snippet in required_snippets if snippet not in dockerfile
+        ]
+        self.assertEqual([], missing)
+
+    def test_worker_dockerfile_uses_editable_project_install(self) -> None:
+        dockerfile = (ROOT / "services" / "worker" / "Dockerfile").read_text(
+            encoding="utf-8"
+        )
+
+        required_snippets = [
+            "FROM python:3.12-slim",
+            "COPY pyproject.toml /app/pyproject.toml",
+            "COPY packages/core /app/packages/core",
+            "COPY services/api /app/services/api",
+            "COPY services/worker /app/services/worker",
+            'RUN pip install --no-cache-dir -e "."',
+        ]
+
+        missing = [
+            snippet for snippet in required_snippets if snippet not in dockerfile
+        ]
+        self.assertEqual([], missing)
+
+    def test_compose_exposes_containerized_python_test_target(self) -> None:
+        compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+
+        required_snippets = [
+            "  test:",
+            "dockerfile: services/api/Dockerfile",
+            "target: test",
+            'command: ["python", "-m", "pytest", "tests/test_deployment_readiness.py"]',
+        ]
+
+        missing = [snippet for snippet in required_snippets if snippet not in compose]
+        self.assertEqual([], missing)
+
     def test_compose_smoke_script_exists_and_checks_expected_steps(self) -> None:
         script_path = ROOT / "scripts" / "compose_smoke.sh"
         text = script_path.read_text(encoding="utf-8")

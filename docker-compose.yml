@@ -58,6 +58,17 @@ services:
     volumes:
       - ./data:/app/data
 
+  test:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+      target: test
+    env_file:
+      - .env.example
+    command: ["python", "-m", "pytest", "tests/test_deployment_readiness.py"]
+    volumes:
+      - ./data:/app/data
+
   web:
     build:
       context: .
