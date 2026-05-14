@@ -25,6 +25,7 @@ CONFIG_PATH = ROOT / "config" / "model_profiles.yaml"
 REQUIRED_TASK_ROLES = (
     "source_classification",
     "evidence_summary",
+    "evidence_claim_extraction",
     "orchestration_validation",
     "adversarial_review",
     "local_fallback",

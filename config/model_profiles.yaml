@@ -30,6 +30,7 @@ models:
     endpoint_type: azure_ai_foundry
     task_roles:
       - evidence_summary
+      - evidence_claim_extraction
       - adversarial_review
     quota_rpm: 500
     quota_tpm: 500000
@@ -55,6 +56,7 @@ models:
     task_roles:
       - source_classification
       - evidence_summary
+      - evidence_claim_extraction
       - orchestration_validation
       - adversarial_review
     quota_rpm: null
@@ -147,6 +149,7 @@ models:
     task_roles:
       - source_classification
       - evidence_summary
+      - evidence_claim_extraction
       - orchestration_validation
       - local_fallback
     quota_rpm: null

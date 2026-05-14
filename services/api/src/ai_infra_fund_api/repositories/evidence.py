@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from typing import Iterable, Protocol, TypeVar
 
 from ai_infra_fund_core.contracts.common import (
@@ -8,6 +9,7 @@ from ai_infra_fund_core.contracts.common import (
     coerce_enum,
     require_aware_datetime,
     require_content_hash,
+    require_decimal_range,
     require_text,
 )
 from ai_infra_fund_core.evidence.chunking import EvidenceChunk
@@ -28,6 +30,7 @@ class Connection(Protocol):
 
 EvidenceItemT = TypeVar("EvidenceItemT")
 EvidenceChunkT = TypeVar("EvidenceChunkT")
+EvidenceClaimT = TypeVar("EvidenceClaimT")
 
 
 INSERT_EVIDENCE_ITEM_SQL = """
@@ -70,6 +73,27 @@ INSERT INTO evidence.evidence_chunks (
 """
 
 
+INSERT_EVIDENCE_CLAIM_SQL = """
+INSERT INTO evidence.evidence_claims (
+    claim_id,
+    evidence_id,
+    chunk_id,
+    ticker_or_theme,
+    claim_type,
+    direction,
+    magnitude,
+    time_horizon,
+    confidence,
+    quote_or_span_ref,
+    extracted_by_model_run_id,
+    validated_at,
+    created_at
+) VALUES (
+    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+) ON CONFLICT (claim_id) DO NOTHING;
+"""
+
+
 class EvidenceRepository:
     def __init__(self, connection: Connection) -> None:
         self._connection = connection
@@ -105,6 +129,38 @@ class EvidenceRepository:
                 cursor.execute(INSERT_EVIDENCE_CHUNK_SQL, params)
         self._connection.commit()
         return item, chunk_records
+
+    def save_item_with_chunks_and_claims(
+        self,
+        item: EvidenceItemT,
+        chunks: Iterable[EvidenceChunkT],
+        claims: Iterable[EvidenceClaimT],
+    ) -> tuple[EvidenceItemT, tuple[EvidenceChunkT, ...], tuple[EvidenceClaimT, ...]]:
+        chunk_records = tuple(chunks)
+        claim_records = tuple(claims)
+        item_params = _item_params(item)
+        chunk_params = tuple(_chunk_params(chunk) for chunk in chunk_records)
+        claim_params = tuple(_claim_params(claim) for claim in claim_records)
+        item_id = item_params[0]
+        chunk_ids = frozenset(params[0] for params in chunk_params)
+
+        for params in chunk_params:
+            if params[1] != item_id:
+                raise ValueError("chunk evidence_id must match item evidence_id")
+        for params in claim_params:
+            if params[1] != item_id:
+                raise ValueError("claim evidence_id must match item evidence_id")
+            if params[2] not in chunk_ids:
+                raise ValueError("claim chunk_id must match a persisted evidence chunk")
+
+        with self._connection.cursor() as cursor:
+            cursor.execute(INSERT_EVIDENCE_ITEM_SQL, item_params)
+            for params in chunk_params:
+                cursor.execute(INSERT_EVIDENCE_CHUNK_SQL, params)
+            for params in claim_params:
+                cursor.execute(INSERT_EVIDENCE_CLAIM_SQL, params)
+        self._connection.commit()
+        return item, chunk_records, claim_records
 
 
 def _item_params(item: object) -> tuple[object, ...]:
@@ -167,6 +223,32 @@ def _chunk_params(chunk: object) -> tuple[object, ...]:
     )
 
 
+def _claim_params(claim: object) -> tuple[object, ...]:
+    chunk_id = _optional_text_attr(claim, "chunk_id")
+    if chunk_id is None:
+        raise ValueError("chunk_id is required for persisted evidence claims")
+
+    validated_at = getattr(claim, "validated_at", None)
+    if validated_at is not None:
+        require_aware_datetime(validated_at, "validated_at")
+
+    return (
+        _required_text_attr(claim, "claim_id"),
+        _required_text_attr(claim, "evidence_id"),
+        chunk_id,
+        _required_text_attr(claim, "ticker_or_theme"),
+        _required_text_attr(claim, "claim_type"),
+        _optional_text_attr(claim, "direction"),
+        _optional_decimal_attr(claim, "magnitude"),
+        _required_text_attr(claim, "time_horizon"),
+        _required_confidence_attr(claim),
+        _required_text_attr(claim, "quote_or_span_ref"),
+        _optional_text_attr(claim, "extracted_by_model_run_id"),
+        validated_at,
+        _required_aware_datetime_attr(claim, "created_at"),
+    )
+
+
 def _required_text_attr(record: object, field_name: str) -> str:
     return require_text(getattr(record, field_name, None), field_name)
 
@@ -184,6 +266,26 @@ def _optional_text_attr(record: object, field_name: str) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _optional_decimal_attr(record: object, field_name: str) -> Decimal | None:
+    value = getattr(record, field_name, None)
+    if value is None:
+        return None
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError) as exc:
+        raise ValueError(f"{field_name} must be numeric") from exc
+
+
+def _required_confidence_attr(record: object) -> Decimal:
+    value = getattr(record, "confidence", None)
+    if value is None:
+        raise ValueError("confidence is required")
+    try:
+        return require_decimal_range(value, "confidence", Decimal("0"), Decimal("1"))
+    except InvalidOperation as exc:
+        raise ValueError("confidence must be numeric") from exc
 
 
 def _text_array(values: object, field_name: str) -> list[str]:
