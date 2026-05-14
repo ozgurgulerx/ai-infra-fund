@@ -96,10 +96,23 @@ def read_text(relative_path: str) -> str:
 
 def existing_text_files(*roots: str) -> list[Path]:
     files: list[Path] = []
+    ignored_parts = {
+        ".next",
+        ".pytest_cache",
+        "__pycache__",
+        "build",
+        "coverage",
+        "dist",
+        "node_modules",
+    }
     for root in roots:
         base = ROOT / root
         if base.exists():
-            files.extend(path for path in base.rglob("*") if path.is_file())
+            files.extend(
+                path
+                for path in base.rglob("*")
+                if path.is_file() and not ignored_parts.intersection(path.parts)
+            )
     return files
 
 

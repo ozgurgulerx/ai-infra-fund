@@ -50,6 +50,86 @@ textarea {
   padding: 24px;
 }
 
+.content-shell > .control-room-shell {
+  min-height: 0;
+  padding: 0;
+}
+
+.app-frame {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 228px minmax(0, 1fr);
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.content-shell {
+  min-width: 0;
+}
+
+.side-nav {
+  align-self: start;
+  background: rgb(255 255 255 / 88%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  position: sticky;
+  top: 20px;
+}
+
+.brand-mark {
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 4px;
+  padding-bottom: 14px;
+}
+
+.brand-mark span {
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.brand-mark small,
+.nav-disclaimer span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.nav-list {
+  display: grid;
+  gap: 4px;
+}
+
+.nav-link {
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+  padding: 9px 10px;
+  text-decoration: none;
+}
+
+.nav-link:hover,
+.nav-link:focus-visible {
+  background: var(--surface-strong);
+  outline: 2px solid rgb(13 124 134 / 20%);
+  outline-offset: 1px;
+}
+
+.nav-disclaimer {
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+}
+
 .topbar {
   align-items: end;
   border-bottom: 1px solid var(--line);
@@ -242,6 +322,12 @@ textarea {
   overflow: hidden;
 }
 
+.holdings-table {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: auto;
+}
+
 .portfolio-row {
   align-items: center;
   display: grid;
@@ -264,6 +350,42 @@ textarea {
 }
 
 .portfolio-row span:first-child {
+  font-weight: 850;
+}
+
+.holdings-row,
+.journal-row {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 12px;
+}
+
+.holdings-row {
+  grid-template-columns: 0.55fr 1.45fr 0.6fr 0.6fr 0.55fr 1.1fr;
+}
+
+.journal-row {
+  grid-template-columns: 0.6fr 0.85fr 0.65fr 0.75fr 0.75fr 1.35fr;
+}
+
+.holdings-row:not(:last-child),
+.journal-row:not(:last-child) {
+  border-bottom: 1px solid var(--line);
+}
+
+.holdings-header,
+.journal-header {
+  background: var(--surface-strong);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.holdings-row span:first-child,
+.journal-row span:first-child {
   font-weight: 850;
 }
 
@@ -294,6 +416,165 @@ textarea {
 .ops-room {
   margin-top: 16px;
   padding: 18px;
+}
+
+.subpage-grid,
+.workbench-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0 auto;
+  max-width: 1440px;
+}
+
+.data-table {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: auto;
+}
+
+.data-row {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 0.7fr 1.4fr 0.75fr 0.7fr 0.7fr 1.15fr;
+  min-height: 44px;
+  padding: 10px 12px;
+}
+
+.data-table-three .data-row {
+  grid-template-columns: 1fr 1.5fr 0.8fr;
+}
+
+.data-table-four .data-row {
+  grid-template-columns: 0.7fr 1.7fr 0.8fr 0.65fr;
+}
+
+.data-row:not(:last-child) {
+  border-bottom: 1px solid var(--line);
+}
+
+.data-header {
+  background: var(--surface-strong);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.data-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.metric-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.metric-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+}
+
+.metric-card span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.intent-workflow {
+  display: grid;
+  gap: 16px;
+}
+
+.intent-form {
+  display: grid;
+  gap: 14px;
+}
+
+.form-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.field input,
+.field select,
+.field textarea {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  min-height: 38px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.field textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.field-full {
+  grid-column: 1 / -1;
+}
+
+.action-bar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.button-primary {
+  background: #111917;
+  border: 1px solid #111917;
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 850;
+  min-height: 38px;
+  padding: 8px 12px;
+}
+
+.button-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.intent-list {
+  display: grid;
+  gap: 10px;
+}
+
+.intent-row {
+  border-left: 4px solid var(--teal);
+  display: grid;
+  gap: 4px;
+  padding: 4px 0 4px 12px;
+}
+
+.intent-row span {
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .module-grid {
@@ -376,18 +657,40 @@ textarea {
 }
 
 @media (max-width: 1000px) {
+  .app-frame {
+    grid-template-columns: 1fr;
+  }
+
+  .side-nav {
+    position: static;
+  }
+
+  .nav-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .status-strip,
   .dashboard-grid,
-  .module-grid {
+  .module-grid,
+  .metric-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .form-grid {
     grid-template-columns: 1fr 1fr;
   }
 }
 
 @media (max-width: 700px) {
+  .app-frame {
+    padding: 14px;
+  }
+
   .control-room-shell {
     padding: 14px;
   }
 
+  .nav-list,
   .topbar,
   .section-heading,
   .status-tile-header {
@@ -397,11 +700,18 @@ textarea {
 
   .status-strip,
   .dashboard-grid,
-  .module-grid {
+  .module-grid,
+  .metric-grid,
+  .form-grid {
     grid-template-columns: 1fr;
   }
 
-  .portfolio-row {
+  .portfolio-row,
+  .holdings-row,
+  .journal-row,
+  .data-row,
+  .data-table-three .data-row,
+  .data-table-four .data-row {
     grid-template-columns: 0.7fr 1.3fr;
   }
 

@@ -7,8 +7,14 @@ import type {
   EvaluationSummary,
   EvidenceSummary,
   IncidentSummary,
+  CrawlFrontierHealth,
+  LatestAdvisoryRun,
+  LatestEquityEvents,
+  LatestSignalSnapshots,
   ModelRunSummary,
   RecommendationSummary,
+  TickerIntelligenceSummary,
+  WatchlistSummary,
   RuntimeProbe
 } from "./status-model";
 
@@ -20,11 +26,18 @@ type DashboardSummaryEndpoint =
   | "/internal/dashboard/evaluation-summary"
   | "/internal/dashboard/model-run-summary"
   | "/internal/dashboard/data-quality-summary"
-  | "/internal/dashboard/incident-summary";
+  | "/internal/dashboard/incident-summary"
+  | "/internal/dashboard/watchlist-summary"
+  | "/internal/dashboard/crawl-frontier-health"
+  | "/internal/dashboard/latest-equity-events"
+  | "/internal/dashboard/latest-signal-snapshots"
+  | "/internal/dashboard/latest-advisory-run"
+  | "/internal/dashboard/ticker-intelligence/NVDA";
 
 const DEFAULT_TIMEOUT_MS = 2500;
 const DASHBOARD_MODULES_ENDPOINT = "/internal/status/modules";
 const DEMO_ADVISORY_CHAIN_ENDPOINT = "/internal/advisory-chain/demo";
+const LATEST_ADVISORY_CHAIN_ENDPOINT = "/internal/advisory-chain/latest";
 
 export function apiBaseUrl(): string {
   return (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000").replace(/\/$/, "");
@@ -118,12 +131,44 @@ export async function fetchIncidentSummary(): Promise<IncidentSummary> {
   return fetchReadOnlyDashboardSummary("/internal/dashboard/incident-summary", "Incidents");
 }
 
+export async function fetchWatchlistSummary(): Promise<WatchlistSummary> {
+  return fetchReadOnlyDashboardSummary("/internal/dashboard/watchlist-summary", "Watchlist Status");
+}
+
+export async function fetchCrawlFrontierHealth(): Promise<CrawlFrontierHealth> {
+  return fetchReadOnlyDashboardSummary("/internal/dashboard/crawl-frontier-health", "Crawl Freshness");
+}
+
+export async function fetchLatestEquityEvents(): Promise<LatestEquityEvents> {
+  return fetchReadOnlyDashboardSummary("/internal/dashboard/latest-equity-events", "Latest Equity Events");
+}
+
+export async function fetchLatestSignalSnapshots(): Promise<LatestSignalSnapshots> {
+  return fetchReadOnlyDashboardSummary("/internal/dashboard/latest-signal-snapshots", "Sentiment / Technical / Fundamental");
+}
+
+export async function fetchLatestAdvisoryRun(): Promise<LatestAdvisoryRun> {
+  return fetchReadOnlyDashboardSummary("/internal/dashboard/latest-advisory-run", "Latest Advisory Run");
+}
+
+export async function fetchTickerIntelligenceSummary(): Promise<TickerIntelligenceSummary> {
+  return fetchReadOnlyDashboardSummary("/internal/dashboard/ticker-intelligence/NVDA", "Ticker Intelligence");
+}
+
+export async function fetchLatestAdvisoryChain(): Promise<AdvisoryChainPayload> {
+  return fetchAdvisoryChain(LATEST_ADVISORY_CHAIN_ENDPOINT);
+}
+
 export async function fetchDemoAdvisoryChain(): Promise<AdvisoryChainPayload> {
+  return fetchAdvisoryChain(DEMO_ADVISORY_CHAIN_ENDPOINT);
+}
+
+async function fetchAdvisoryChain(endpoint: string): Promise<AdvisoryChainPayload> {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${apiBaseUrl()}${DEMO_ADVISORY_CHAIN_ENDPOINT}`, {
+    const response = await fetch(`${apiBaseUrl()}${endpoint}`, {
       cache: "no-store",
       method: "GET",
       signal: controller.signal
@@ -133,13 +178,13 @@ export async function fetchDemoAdvisoryChain(): Promise<AdvisoryChainPayload> {
     };
 
     if (!response.ok) {
-      return unavailableDemoAdvisoryChain(`Backend unavailable: HTTP ${response.status}`);
+      return unavailableAdvisoryChain(`Backend unavailable: HTTP ${response.status}`);
     }
 
-    return payload.data ?? emptyDemoAdvisoryChain();
+    return payload.data ?? emptyAdvisoryChain();
   } catch (error) {
     const reason = error instanceof Error ? error.message : "request failed";
-    return unavailableDemoAdvisoryChain(`Backend unavailable: ${reason}`);
+    return unavailableAdvisoryChain(`Backend unavailable: ${reason}`);
   } finally {
     window.clearTimeout(timeout);
   }
@@ -253,17 +298,17 @@ function createUnavailableDashboardSummary(
   };
 }
 
-function emptyDemoAdvisoryChain(): AdvisoryChainPayload {
+function emptyAdvisoryChain(): AdvisoryChainPayload {
   return {
     status: "empty",
-    chain_id: "demo-ai-infra-nvda",
-    detail: "Demo advisory chain has not been seeded."
+    chain_id: "latest-local-advisory",
+    detail: "No local advisory chain has been produced."
   };
 }
 
-function unavailableDemoAdvisoryChain(detail: string): AdvisoryChainPayload {
+function unavailableAdvisoryChain(detail: string): AdvisoryChainPayload {
   return {
-    ...emptyDemoAdvisoryChain(),
+    ...emptyAdvisoryChain(),
     status: "degraded",
     detail
   };

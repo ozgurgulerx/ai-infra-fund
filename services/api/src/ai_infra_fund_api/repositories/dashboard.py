@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Protocol
+import json
 
 
 class Cursor(Protocol):
@@ -211,6 +212,192 @@ FROM incident_counts, incidents_by_severity, incidents_by_freeze_status;
 """
 
 
+WATCHLIST_SUMMARY_SQL = """
+WITH member_counts AS (
+    SELECT COUNT(*) AS total_members
+    FROM core.universe_members
+),
+members_by_status AS (
+    SELECT COALESCE(jsonb_object_agg(watchlist_status, total_count), '{}'::jsonb) AS counts
+    FROM (
+        SELECT COALESCE(watchlist_status, 'unspecified') AS watchlist_status, COUNT(*) AS total_count
+        FROM core.universe_members
+        GROUP BY COALESCE(watchlist_status, 'unspecified')
+    ) AS grouped_members
+)
+SELECT
+    member_counts.total_members,
+    members_by_status.counts AS by_watchlist_status,
+    (SELECT MAX(updated_at) FROM core.universe_members) AS latest_updated_at
+FROM member_counts, members_by_status;
+"""
+
+
+WATCHLIST_MEMBERS_SQL = """
+SELECT
+    ticker,
+    name,
+    theme,
+    role,
+    watchlist_status,
+    max_weight,
+    liquidity_floor,
+    thesis_source,
+    updated_at
+FROM core.universe_members
+ORDER BY updated_at DESC, ticker ASC
+LIMIT %s;
+"""
+
+
+CRAWL_FRONTIER_HEALTH_SQL = """
+SELECT
+    dataset_name,
+    source,
+    MAX(retrieved_at) AS latest_retrieved_at,
+    MAX(available_at) AS latest_available_at,
+    MAX(effective_at) AS latest_effective_at,
+    MAX(created_at) AS latest_created_at,
+    COUNT(*) AS snapshot_count,
+    COALESCE(SUM(row_count), 0) AS row_count
+FROM audit.data_snapshots
+GROUP BY dataset_name, source
+ORDER BY MAX(available_at) DESC, dataset_name ASC, source ASC
+LIMIT 25;
+"""
+
+
+LATEST_EQUITY_EVENTS_SQL = """
+SELECT
+    evidence_id,
+    source_uri,
+    source_type,
+    title,
+    publisher,
+    published_at,
+    ingested_at,
+    data_class,
+    tickers,
+    themes,
+    summary
+FROM evidence.evidence_items
+WHERE data_class IN ('public_market_data', 'public_evidence')
+    AND cardinality(tickers) > 0
+ORDER BY COALESCE(published_at, ingested_at, created_at) DESC, evidence_id ASC
+LIMIT %s;
+"""
+
+
+LATEST_SIGNAL_SNAPSHOTS_SQL = """
+SELECT DISTINCT ON (ticker)
+    signal_bundle_id,
+    ticker,
+    as_of,
+    strategic_thesis_score,
+    tactical_technical_score,
+    forward_indicator_score,
+    portfolio_risk_score,
+    formula_versions,
+    input_snapshot_hash,
+    created_at
+FROM signals.signal_bundles
+ORDER BY ticker ASC, as_of DESC, created_at DESC
+LIMIT %s;
+"""
+
+
+LATEST_ADVISORY_RUN_SQL = """
+SELECT
+    run_id,
+    run_type,
+    started_at,
+    completed_at,
+    artifact_uri,
+    status,
+    error_summary,
+    created_at
+FROM audit.run_artifacts
+WHERE run_type IN (%s, %s, %s)
+ORDER BY started_at DESC, created_at DESC
+LIMIT 1;
+"""
+
+
+TICKER_WATCHLIST_SQL = """
+SELECT
+    ticker,
+    name,
+    theme,
+    role,
+    watchlist_status,
+    max_weight,
+    liquidity_floor,
+    thesis_source,
+    updated_at
+FROM core.universe_members
+WHERE UPPER(ticker) = UPPER(%s)
+LIMIT 1;
+"""
+
+
+TICKER_SIGNAL_SQL = """
+SELECT
+    signal_bundle_id,
+    ticker,
+    as_of,
+    strategic_thesis_score,
+    tactical_technical_score,
+    forward_indicator_score,
+    portfolio_risk_score,
+    formula_versions,
+    input_snapshot_hash,
+    created_at
+FROM signals.signal_bundles
+WHERE UPPER(ticker) = UPPER(%s)
+ORDER BY as_of DESC, created_at DESC
+LIMIT 1;
+"""
+
+
+TICKER_RECOMMENDATION_SQL = """
+SELECT
+    recommendation_id,
+    ticker_or_portfolio,
+    advisory_label,
+    action,
+    horizon,
+    target_weights_id,
+    signal_bundle_id,
+    evidence_ids,
+    model_run_ids,
+    created_at
+FROM recommendations.recommendation_artifacts
+WHERE UPPER(ticker_or_portfolio) = UPPER(%s)
+ORDER BY created_at DESC
+LIMIT 1;
+"""
+
+
+TICKER_EVIDENCE_EVENTS_SQL = """
+SELECT
+    evidence_id,
+    source_uri,
+    source_type,
+    title,
+    publisher,
+    published_at,
+    ingested_at,
+    data_class,
+    tickers,
+    themes,
+    summary
+FROM evidence.evidence_items
+WHERE tickers @> ARRAY[%s]::text[]
+ORDER BY COALESCE(published_at, ingested_at, created_at) DESC, evidence_id ASC
+LIMIT %s;
+"""
+
+
 class DashboardRepository:
     def __init__(self, connection: Connection) -> None:
         self._connection = connection
@@ -310,6 +497,24 @@ class DashboardRepository:
     def get_incident_summary(self) -> dict[str, object]:
         return self.incident_summary()
 
+    def get_watchlist_summary(self) -> dict[str, object]:
+        return self.watchlist_summary()
+
+    def get_crawl_frontier_health(self) -> dict[str, object]:
+        return self.crawl_frontier_health()
+
+    def get_latest_equity_events(self) -> dict[str, object]:
+        return self.latest_equity_events()
+
+    def get_latest_signal_snapshots(self) -> dict[str, object]:
+        return self.latest_signal_snapshots()
+
+    def get_latest_advisory_run(self) -> dict[str, object]:
+        return self.latest_advisory_run()
+
+    def get_ticker_intelligence_summary(self, ticker: str) -> dict[str, object]:
+        return self.ticker_intelligence_summary(ticker)
+
     def evidence_summary(self) -> dict[str, object]:
         row = self._fetch_one(EVIDENCE_SUMMARY_SQL)
         total_items = _int(row.get("total_items"))
@@ -386,6 +591,85 @@ class DashboardRepository:
             "latest_created_at": _iso_or_none(row.get("latest_created_at")),
         }
 
+    def watchlist_summary(self) -> dict[str, object]:
+        row = self._fetch_one(WATCHLIST_SUMMARY_SQL)
+        members = [_watchlist_member_payload(member) for member in self._fetch_many(WATCHLIST_MEMBERS_SQL, (25,))]
+        total_members = _int(row.get("total_members"))
+        return {
+            "status": _status(total_members),
+            "total_members": total_members,
+            "by_watchlist_status": _count_map(row.get("by_watchlist_status")),
+            "latest_updated_at": _iso_or_none(row.get("latest_updated_at")),
+            "members": members,
+        }
+
+    def crawl_frontier_health(self) -> dict[str, object]:
+        rows = self._fetch_many(CRAWL_FRONTIER_HEALTH_SQL)
+        datasets = [_crawl_frontier_payload(row) for row in rows]
+        latest_available_at = _latest_iso(row.get("latest_available_at") for row in rows)
+        return {
+            "status": _status(len(datasets)),
+            "total_datasets": len(datasets),
+            "latest_available_at": latest_available_at,
+            "datasets": datasets,
+        }
+
+    def latest_equity_events(self, limit: int = 10) -> dict[str, object]:
+        rows = self._fetch_many(LATEST_EQUITY_EVENTS_SQL, (limit,))
+        events = [_equity_event_payload(row) for row in rows]
+        return {
+            "status": _status(len(events)),
+            "events": events,
+        }
+
+    def latest_signal_snapshots(self, limit: int = 10) -> dict[str, object]:
+        rows = self._fetch_many(LATEST_SIGNAL_SNAPSHOTS_SQL, (limit,))
+        snapshots = [_signal_snapshot_payload(row) for row in rows]
+        return {
+            "status": _status(len(snapshots)),
+            "snapshots": snapshots,
+        }
+
+    def latest_advisory_run(self) -> dict[str, object]:
+        row = self._fetch_one(
+            LATEST_ADVISORY_RUN_SQL,
+            ("local_advisory", "advisory_demo", "controlled_advisory_run"),
+        )
+        if not row:
+            return {
+                "status": "empty",
+                "advisory_label": "advisory_only",
+                "detail": "No local advisory run has been produced.",
+            }
+        return {
+            "status": "available",
+            "advisory_label": "advisory_only",
+            "run_id": row.get("run_id"),
+            "run_type": row.get("run_type"),
+            "started_at": _iso_or_none(row.get("started_at")),
+            "completed_at": _iso_or_none(row.get("completed_at")),
+            "artifact_uri": row.get("artifact_uri"),
+            "run_status": row.get("status"),
+            "error_summary": row.get("error_summary"),
+            "created_at": _iso_or_none(row.get("created_at")),
+        }
+
+    def ticker_intelligence_summary(self, ticker: str) -> dict[str, object]:
+        normalized_ticker = ticker.upper()
+        watchlist = self._fetch_one(TICKER_WATCHLIST_SQL, (normalized_ticker,))
+        signal = self._fetch_one(TICKER_SIGNAL_SQL, (normalized_ticker,))
+        recommendation = self._fetch_one(TICKER_RECOMMENDATION_SQL, (normalized_ticker,))
+        events = self._fetch_many(TICKER_EVIDENCE_EVENTS_SQL, (normalized_ticker, 5))
+        available_sections = sum(1 for section in (watchlist, signal, recommendation, events) if section)
+        return {
+            "status": _status(available_sections),
+            "ticker": normalized_ticker,
+            "watchlist": _watchlist_member_payload(watchlist) if watchlist else None,
+            "latest_scores": _signal_snapshot_payload(signal) if signal else None,
+            "latest_recommendation": _recommendation_trace_payload(recommendation) if recommendation else None,
+            "latest_events": [_equity_event_payload(row) for row in events],
+        }
+
     def overview(self) -> dict[str, object]:
         evidence = self.evidence_summary()
         recommendations = self.recommendation_summary()
@@ -404,14 +688,26 @@ class DashboardRepository:
             "incidents": incidents,
         }
 
-    def _fetch_one(self, statement: str) -> dict[str, object]:
-        with self._connection.cursor() as cursor:
-            cursor.execute(statement, ())
-            rows = cursor.fetchall()
-            column_names = _column_names(cursor.description)
+    def _fetch_one(
+        self,
+        statement: str,
+        params: tuple[object, ...] | None = None,
+    ) -> dict[str, object]:
+        rows = self._fetch_many(statement, params)
         if not rows:
             return {}
-        return _row_to_dict(rows[0], column_names)
+        return rows[0]
+
+    def _fetch_many(
+        self,
+        statement: str,
+        params: tuple[object, ...] | None = None,
+    ) -> list[dict[str, object]]:
+        with self._connection.cursor() as cursor:
+            cursor.execute(statement, params or ())
+            rows = cursor.fetchall()
+            column_names = _column_names(cursor.description)
+        return [_row_to_dict(row, column_names) for row in rows]
 
 
 def _overview_status(sections: tuple[dict[str, object], ...]) -> str:
@@ -441,6 +737,79 @@ def _module_summary(
     }
 
 
+def _watchlist_member_payload(row: Mapping[str, object]) -> dict[str, object]:
+    return {
+        "ticker": row.get("ticker"),
+        "name": row.get("name"),
+        "theme": row.get("theme"),
+        "role": row.get("role"),
+        "watchlist_status": row.get("watchlist_status"),
+        "max_weight": _decimal_text(row.get("max_weight")),
+        "liquidity_floor": _decimal_text(row.get("liquidity_floor")),
+        "thesis_source": row.get("thesis_source"),
+        "updated_at": _iso_or_none(row.get("updated_at")),
+    }
+
+
+def _crawl_frontier_payload(row: Mapping[str, object]) -> dict[str, object]:
+    return {
+        "dataset_name": row.get("dataset_name"),
+        "source": row.get("source"),
+        "latest_retrieved_at": _iso_or_none(row.get("latest_retrieved_at")),
+        "latest_available_at": _iso_or_none(row.get("latest_available_at")),
+        "latest_effective_at": _iso_or_none(row.get("latest_effective_at")),
+        "latest_created_at": _iso_or_none(row.get("latest_created_at")),
+        "snapshot_count": _int(row.get("snapshot_count")),
+        "row_count": _int(row.get("row_count")),
+    }
+
+
+def _equity_event_payload(row: Mapping[str, object]) -> dict[str, object]:
+    return {
+        "evidence_id": row.get("evidence_id"),
+        "source_uri": row.get("source_uri"),
+        "source_type": row.get("source_type"),
+        "title": row.get("title"),
+        "publisher": row.get("publisher"),
+        "published_at": _iso_or_none(row.get("published_at")),
+        "ingested_at": _iso_or_none(row.get("ingested_at")),
+        "data_class": row.get("data_class"),
+        "tickers": _text_list(row.get("tickers")),
+        "themes": _text_list(row.get("themes")),
+        "summary": row.get("summary"),
+    }
+
+
+def _signal_snapshot_payload(row: Mapping[str, object]) -> dict[str, object]:
+    return {
+        "signal_bundle_id": row.get("signal_bundle_id"),
+        "ticker": row.get("ticker"),
+        "as_of": _iso_or_none(row.get("as_of")),
+        "sentiment_score": _decimal_text(row.get("forward_indicator_score")),
+        "technical_score": _decimal_text(row.get("tactical_technical_score")),
+        "fundamental_score": _decimal_text(row.get("strategic_thesis_score")),
+        "portfolio_risk_score": _decimal_text(row.get("portfolio_risk_score")),
+        "formula_versions": _json_value(row.get("formula_versions")),
+        "input_snapshot_hash": row.get("input_snapshot_hash"),
+        "created_at": _iso_or_none(row.get("created_at")),
+    }
+
+
+def _recommendation_trace_payload(row: Mapping[str, object]) -> dict[str, object]:
+    return {
+        "recommendation_id": row.get("recommendation_id"),
+        "ticker_or_portfolio": row.get("ticker_or_portfolio"),
+        "advisory_label": row.get("advisory_label"),
+        "action": row.get("action"),
+        "horizon": row.get("horizon"),
+        "target_weights_id": row.get("target_weights_id"),
+        "signal_bundle_id": row.get("signal_bundle_id"),
+        "evidence_ids": _text_list(row.get("evidence_ids")),
+        "model_run_ids": _text_list(row.get("model_run_ids")),
+        "created_at": _iso_or_none(row.get("created_at")),
+    }
+
+
 def _status(total_count: int) -> str:
     if total_count <= 0:
         return "empty"
@@ -457,6 +826,39 @@ def _count_map(value: object) -> dict[str, int]:
     if not isinstance(value, Mapping):
         return {}
     return {str(key): _int(count) for key, count in value.items() if key is not None}
+
+
+def _json_value(value: object) -> object:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return json.loads(value)
+    return value
+
+
+def _text_list(value: object) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, tuple | list):
+        return [str(item) for item in value]
+    return [str(value)]
+
+
+def _decimal_text(value: object) -> str | None:
+    if value is None:
+        return None
+    return str(value)
+
+
+def _latest_iso(values: object) -> str | None:
+    latest: str | None = None
+    for value in values:  # type: ignore[assignment]
+        current = _iso_or_none(value)
+        if current is not None and (latest is None or current > latest):
+            latest = current
+    return latest
 
 
 def _iso_or_none(value: object) -> str | None:

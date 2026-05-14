@@ -65,6 +65,86 @@ INCIDENT_COLUMNS = (
     "latest_created_at",
 )
 
+WATCHLIST_COLUMNS = (
+    "total_members",
+    "by_watchlist_status",
+    "latest_updated_at",
+)
+
+WATCHLIST_MEMBER_COLUMNS = (
+    "ticker",
+    "name",
+    "theme",
+    "role",
+    "watchlist_status",
+    "max_weight",
+    "liquidity_floor",
+    "thesis_source",
+    "updated_at",
+)
+
+CRAWL_FRONTIER_COLUMNS = (
+    "dataset_name",
+    "source",
+    "latest_retrieved_at",
+    "latest_available_at",
+    "latest_effective_at",
+    "latest_created_at",
+    "snapshot_count",
+    "row_count",
+)
+
+EQUITY_EVENT_COLUMNS = (
+    "evidence_id",
+    "source_uri",
+    "source_type",
+    "title",
+    "publisher",
+    "published_at",
+    "ingested_at",
+    "data_class",
+    "tickers",
+    "themes",
+    "summary",
+)
+
+SIGNAL_SNAPSHOT_COLUMNS = (
+    "signal_bundle_id",
+    "ticker",
+    "as_of",
+    "strategic_thesis_score",
+    "tactical_technical_score",
+    "forward_indicator_score",
+    "portfolio_risk_score",
+    "formula_versions",
+    "input_snapshot_hash",
+    "created_at",
+)
+
+ADVISORY_RUN_COLUMNS = (
+    "run_id",
+    "run_type",
+    "started_at",
+    "completed_at",
+    "artifact_uri",
+    "status",
+    "error_summary",
+    "created_at",
+)
+
+TICKER_RECOMMENDATION_COLUMNS = (
+    "recommendation_id",
+    "ticker_or_portfolio",
+    "advisory_label",
+    "action",
+    "horizon",
+    "target_weights_id",
+    "signal_bundle_id",
+    "evidence_ids",
+    "model_run_ids",
+    "created_at",
+)
+
 
 class DashboardRepositoryTests(unittest.TestCase):
     def test_returns_zero_default_summaries_on_empty_database(self) -> None:
@@ -280,6 +360,259 @@ class DashboardRepositoryTests(unittest.TestCase):
         self.assertEqual("empty", summary["status"])
         self.assertEqual(0, summary["evidence"]["total_items"])
         self.assertEqual(0, summary["recommendations"]["total_recommendations"])
+
+    def test_phase10_watchlist_summary_reads_universe_members_only(self) -> None:
+        connection = FakeConnection(
+            result_sets=[
+                ResultSet([(2, {"active": 1, "watch": 1}, LATER)], WATCHLIST_COLUMNS),
+                ResultSet(
+                    [
+                        (
+                            "NVDA",
+                            "NVIDIA",
+                            "ai_accelerators",
+                            "core",
+                            "active",
+                            "0.20",
+                            "1000000",
+                            "manual thesis",
+                            LATER,
+                        )
+                    ],
+                    WATCHLIST_MEMBER_COLUMNS,
+                ),
+            ],
+        )
+
+        summary = DashboardRepository(connection).watchlist_summary()
+
+        self.assertEqual("available", summary["status"])
+        self.assertEqual(2, summary["total_members"])
+        self.assertEqual({"active": 1, "watch": 1}, summary["by_watchlist_status"])
+        self.assertEqual("NVDA", summary["members"][0]["ticker"])
+        self.assertEqual("0.20", summary["members"][0]["max_weight"])
+        self.assertEqual(2, len(connection.cursor_instance.executions))
+        statement, params = connection.cursor_instance.executions[0]
+        self.assertIn("FROM core.universe_members", statement)
+        self.assertNotIn("INSERT", statement.upper())
+        self.assertEqual((), params)
+
+    def test_phase10_empty_watchlist_summary_is_defensive(self) -> None:
+        connection = FakeConnection(
+            result_sets=[
+                ResultSet([(0, {}, None)], WATCHLIST_COLUMNS),
+                ResultSet([], WATCHLIST_MEMBER_COLUMNS),
+            ],
+        )
+
+        summary = DashboardRepository(connection).watchlist_summary()
+
+        self.assertEqual("empty", summary["status"])
+        self.assertEqual(0, summary["total_members"])
+        self.assertEqual([], summary["members"])
+
+    def test_phase10_crawl_frontier_health_reads_data_snapshots(self) -> None:
+        connection = FakeConnection(
+            result_sets=[
+                ResultSet(
+                    [("equity_events", "local", NOW, LATER, NOW, LATER, 3, 42)],
+                    CRAWL_FRONTIER_COLUMNS,
+                )
+            ],
+        )
+
+        summary = DashboardRepository(connection).crawl_frontier_health()
+
+        statement, params = connection.cursor_instance.executions[0]
+        self.assertIn("FROM audit.data_snapshots", statement)
+        self.assertEqual((), params)
+        self.assertEqual("available", summary["status"])
+        self.assertEqual("2026-05-14T13:00:00+00:00", summary["latest_available_at"])
+        self.assertEqual(1, len(summary["datasets"]))
+        self.assertEqual("equity_events", summary["datasets"][0]["dataset_name"])
+
+    def test_phase10_latest_equity_events_excludes_raw_evidence_body(self) -> None:
+        connection = FakeConnection(
+            result_sets=[
+                ResultSet(
+                    [
+                        (
+                            "evidence-nvda",
+                            "https://example.test/nvda",
+                            "news",
+                            "NVIDIA event",
+                            "Example",
+                            NOW,
+                            LATER,
+                            "public_evidence",
+                            ["NVDA"],
+                            ["ai_accelerators"],
+                            "Demand signal",
+                        )
+                    ],
+                    EQUITY_EVENT_COLUMNS,
+                )
+            ],
+        )
+
+        summary = DashboardRepository(connection).latest_equity_events()
+
+        statement, params = connection.cursor_instance.executions[0]
+        self.assertIn("FROM evidence.evidence_items", statement)
+        self.assertNotIn("chunk_text", statement)
+        self.assertEqual((10,), params)
+        self.assertEqual("available", summary["status"])
+        self.assertEqual("evidence-nvda", summary["events"][0]["evidence_id"])
+        self.assertNotIn("content", summary["events"][0])
+
+    def test_phase10_latest_signal_snapshots_maps_score_cards(self) -> None:
+        connection = FakeConnection(
+            result_sets=[
+                ResultSet(
+                    [
+                        (
+                            "signal-bundle-nvda",
+                            "NVDA",
+                            LATER,
+                            "0.84",
+                            "0.61",
+                            "0.72",
+                            "0.32",
+                            {"strategic_thesis_score": "v1"},
+                            "c" * 64,
+                            LATER,
+                        )
+                    ],
+                    SIGNAL_SNAPSHOT_COLUMNS,
+                )
+            ],
+        )
+
+        summary = DashboardRepository(connection).latest_signal_snapshots()
+
+        statement, params = connection.cursor_instance.executions[0]
+        self.assertIn("FROM signals.signal_bundles", statement)
+        self.assertEqual((10,), params)
+        self.assertEqual("available", summary["status"])
+        snapshot = summary["snapshots"][0]
+        self.assertEqual("0.72", snapshot["sentiment_score"])
+        self.assertEqual("0.61", snapshot["technical_score"])
+        self.assertEqual("0.84", snapshot["fundamental_score"])
+
+    def test_phase10_latest_advisory_run_is_read_only_and_advisory_labeled(self) -> None:
+        connection = FakeConnection(
+            result_sets=[
+                ResultSet(
+                    [
+                        (
+                            "run-local-advisory-1",
+                            "local_advisory",
+                            NOW,
+                            LATER,
+                            "artifact://local/advisory-run/run-local-advisory-1?advisory_label=advisory_only",
+                            "succeeded",
+                            None,
+                            LATER,
+                        )
+                    ],
+                    ADVISORY_RUN_COLUMNS,
+                )
+            ],
+        )
+
+        summary = DashboardRepository(connection).latest_advisory_run()
+
+        statement, params = connection.cursor_instance.executions[0]
+        self.assertIn("FROM audit.run_artifacts", statement)
+        self.assertIn("local_advisory", params)
+        self.assertEqual("available", summary["status"])
+        self.assertEqual("advisory_only", summary["advisory_label"])
+        self.assertEqual("run-local-advisory-1", summary["run_id"])
+
+    def test_phase10_ticker_intelligence_combines_latest_read_models(self) -> None:
+        connection = FakeConnection(
+            result_sets=[
+                ResultSet(
+                    [
+                        (
+                            "NVDA",
+                            "NVIDIA",
+                            "ai_accelerators",
+                            "core",
+                            "active",
+                            "0.20",
+                            "1000000",
+                            "manual thesis",
+                            LATER,
+                        )
+                    ],
+                    WATCHLIST_MEMBER_COLUMNS,
+                ),
+                ResultSet(
+                    [
+                        (
+                            "signal-bundle-nvda",
+                            "NVDA",
+                            LATER,
+                            "0.84",
+                            "0.61",
+                            "0.72",
+                            "0.32",
+                            {"strategic_thesis_score": "v1"},
+                            "c" * 64,
+                            LATER,
+                        )
+                    ],
+                    SIGNAL_SNAPSHOT_COLUMNS,
+                ),
+                ResultSet(
+                    [
+                        (
+                            "recommendation-nvda",
+                            "NVDA",
+                            "advisory_only",
+                            "accumulate",
+                            "medium_term",
+                            "target-weights-nvda",
+                            "signal-bundle-nvda",
+                            ["evidence-nvda"],
+                            ["model-run-nvda"],
+                            LATER,
+                        )
+                    ],
+                    TICKER_RECOMMENDATION_COLUMNS,
+                ),
+                ResultSet(
+                    [
+                        (
+                            "evidence-nvda",
+                            "https://example.test/nvda",
+                            "news",
+                            "NVIDIA event",
+                            "Example",
+                            NOW,
+                            LATER,
+                            "public_evidence",
+                            ["NVDA"],
+                            ["ai_accelerators"],
+                            "Demand signal",
+                        )
+                    ],
+                    EQUITY_EVENT_COLUMNS,
+                ),
+            ],
+        )
+
+        summary = DashboardRepository(connection).ticker_intelligence_summary("nvda")
+
+        self.assertEqual("available", summary["status"])
+        self.assertEqual("NVDA", summary["ticker"])
+        self.assertEqual("active", summary["watchlist"]["watchlist_status"])
+        self.assertEqual("0.61", summary["latest_scores"]["technical_score"])
+        self.assertEqual("advisory_only", summary["latest_recommendation"]["advisory_label"])
+        self.assertEqual("evidence-nvda", summary["latest_events"][0]["evidence_id"])
+        for _statement, params in connection.cursor_instance.executions:
+            self.assertIn("NVDA", params)
 
 
 class ResultSet:

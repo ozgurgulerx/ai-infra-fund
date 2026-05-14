@@ -8,11 +8,24 @@ WEB_ROOT = ROOT / "apps" / "web"
 
 REQUIRED_UI_FILES = [
     "app/page.tsx",
+    "app/portfolio/page.tsx",
+    "app/trade-intents/page.tsx",
+    "app/trade-journal/page.tsx",
+    "app/watchlist/page.tsx",
+    "app/ticker/[ticker]/page.tsx",
+    "app/evidence/page.tsx",
+    "app/signals/page.tsx",
+    "app/runs/page.tsx",
+    "app/evaluation/page.tsx",
+    "app/ops/page.tsx",
+    "app/incidents/page.tsx",
     "app/globals.css",
+    "components/app-shell.tsx",
     "components/status-tile.tsx",
     "components/module-grid.tsx",
     "components/section-panel.tsx",
     "lib/api.ts",
+    "lib/portfolio-data.ts",
     "lib/status-model.ts",
 ]
 
@@ -28,7 +41,21 @@ REQUIRED_DASHBOARD_TEXT = [
     "Data Quality",
     "Incidents",
     "System Architecture",
-    "Demo Advisory Chain",
+    "Watchlist Status",
+    "Crawl Freshness",
+    "Latest Equity Events",
+    "Sentiment / Technical / Fundamental",
+    "Latest Advisory Run",
+    "Ticker Intelligence",
+    "Evidence And Audit Trace",
+    "Portfolio Workbench",
+    "Manual Trade Intents",
+    "Trade Journal",
+    "Ticker Workbench",
+    "Signals",
+    "Runs",
+    "Ops Room",
+    "Latest Advisory Chain",
     "Evidence -> Chunk -> Claim -> SignalBundle -> TargetWeights -> Recommendation -> Audit -> Evaluation",
     "recommendation-demo-nvda",
     "target-weights-demo-ai-infra",
@@ -67,6 +94,13 @@ READ_ONLY_DASHBOARD_ENDPOINTS = [
     "/internal/dashboard/model-run-summary",
     "/internal/dashboard/data-quality-summary",
     "/internal/dashboard/incident-summary",
+    "/internal/dashboard/watchlist-summary",
+    "/internal/dashboard/crawl-frontier-health",
+    "/internal/dashboard/latest-equity-events",
+    "/internal/dashboard/latest-signal-snapshots",
+    "/internal/dashboard/latest-advisory-run",
+    "/internal/dashboard/ticker-intelligence/NVDA",
+    "/internal/advisory-chain/latest",
     "/internal/advisory-chain/demo",
 ]
 
@@ -152,6 +186,13 @@ class ControlRoomUiTests(unittest.TestCase):
             "fetchModelRunSummary",
             "fetchDataQualitySummary",
             "fetchIncidentSummary",
+            "fetchWatchlistSummary",
+            "fetchCrawlFrontierHealth",
+            "fetchLatestEquityEvents",
+            "fetchLatestSignalSnapshots",
+            "fetchLatestAdvisoryRun",
+            "fetchTickerIntelligenceSummary",
+            "fetchLatestAdvisoryChain",
             "fetchDemoAdvisoryChain",
         ):
             self.assertIn(summary_fetch, api)
@@ -207,7 +248,7 @@ class ControlRoomUiTests(unittest.TestCase):
     def test_dashboard_renders_advisory_chain_sections_from_read_only_payload(self) -> None:
         combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())
         required = [
-            "Demo Advisory Chain",
+            "Latest Advisory Chain",
             "Evidence",
             "Chunk",
             "Claim",
@@ -219,15 +260,72 @@ class ControlRoomUiTests(unittest.TestCase):
             "advisory_label",
             "model_run_ids",
             "evidence_id",
-            "fetchDemoAdvisoryChain",
+            "fetchLatestAdvisoryChain",
+        ]
+        missing = [text for text in required if text not in combined]
+        self.assertEqual([], missing)
+
+    def test_dashboard_renders_phase10_read_only_intelligence_sections(self) -> None:
+        combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())
+        required = [
+            "Watchlist Status",
+            "Crawl Freshness",
+            "Latest Equity Events",
+            "Sentiment / Technical / Fundamental",
+            "Latest Advisory Run",
+            "Ticker Intelligence",
+            "Evidence And Audit Trace",
+            "sentiment_score",
+            "technical_score",
+            "fundamental_score",
+            "advisory_label",
+            "evidence_ids",
+            "model_run_ids",
+            "audit_id",
         ]
         missing = [text for text in required if text not in combined]
         self.assertEqual([], missing)
 
     def test_dashboard_has_empty_state_for_missing_advisory_chain(self) -> None:
         combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())
-        self.assertIn("Demo advisory chain has not been seeded", combined)
+        self.assertIn("No local advisory chain has been produced", combined)
         self.assertIn("empty", combined)
+
+    def test_frontend_has_multi_page_control_room_routes(self) -> None:
+        for relative_path in (
+            "app/portfolio/page.tsx",
+            "app/trade-intents/page.tsx",
+            "app/trade-journal/page.tsx",
+            "app/watchlist/page.tsx",
+            "app/ticker/[ticker]/page.tsx",
+            "app/evidence/page.tsx",
+            "app/signals/page.tsx",
+            "app/runs/page.tsx",
+            "app/evaluation/page.tsx",
+            "app/ops/page.tsx",
+            "app/incidents/page.tsx",
+        ):
+            self.assertTrue((WEB_ROOT / relative_path).is_file(), relative_path)
+
+    def test_manual_trade_intent_workflow_is_local_and_advisory_only(self) -> None:
+        combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())
+        required = [
+            "Manual Trade Intents",
+            "Read-Only Planning Placeholder",
+            "Intent capture remains disabled",
+            "No local save action",
+            "does not write browser storage",
+            "recommendation_id",
+            "evidence_ids",
+            "model_run_ids",
+            "audit_id",
+            "Local journal only",
+            "No broker connection",
+        ]
+        missing = [text for text in required if text not in combined]
+        self.assertEqual([], missing)
+        self.assertNotIn("localStorage.setItem", combined)
+        self.assertNotIn("Save Trade Intent", combined)
 
     def test_no_order_or_broker_execution_ui_labels_exist(self) -> None:
         combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())

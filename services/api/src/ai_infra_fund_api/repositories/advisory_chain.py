@@ -9,6 +9,8 @@ from typing import Protocol
 
 DEMO_CHAIN_ID = "demo-ai-infra-nvda"
 DEMO_RECOMMENDATION_ID = "recommendation-demo-nvda"
+LATEST_LOCAL_CHAIN_ID = "latest-local-advisory"
+LOCAL_ADVISORY_RUN_TYPE = "local_advisory"
 
 
 class Cursor(Protocol):
@@ -115,6 +117,96 @@ LIMIT 1;
 """
 
 
+SELECT_LATEST_LOCAL_ADVISORY_CHAIN_SQL = """
+SELECT
+    evidence_item.evidence_id,
+    evidence_item.source_uri,
+    evidence_item.source_type,
+    evidence_item.title,
+    evidence_item.license_label,
+    evidence_item.data_class,
+    evidence_item.content_hash,
+    evidence_item.ingested_at,
+    evidence_item.tickers,
+    evidence_item.themes,
+    evidence_chunk.chunk_id,
+    evidence_chunk.chunk_index,
+    evidence_chunk.span_ref,
+    evidence_chunk.content_hash AS chunk_content_hash,
+    evidence_claim.claim_id,
+    evidence_claim.ticker_or_theme,
+    evidence_claim.claim_type,
+    evidence_claim.direction,
+    evidence_claim.magnitude,
+    evidence_claim.time_horizon,
+    evidence_claim.confidence,
+    evidence_claim.quote_or_span_ref,
+    evidence_claim.extracted_by_model_run_id,
+    signal_bundle.signal_bundle_id,
+    signal_bundle.ticker,
+    signal_bundle.as_of,
+    signal_bundle.strategic_thesis_score,
+    signal_bundle.tactical_technical_score,
+    signal_bundle.forward_indicator_score,
+    signal_bundle.portfolio_risk_score,
+    signal_bundle.formula_versions,
+    signal_bundle.input_snapshot_hash,
+    target_weights.target_weights_id,
+    target_weights.cash_weight,
+    target_weights.weights_json,
+    target_weights.constraints_json,
+    target_weights.generated_by,
+    target_weights.validation_status,
+    recommendation.recommendation_id,
+    recommendation.ticker_or_portfolio,
+    recommendation.advisory_label,
+    recommendation.action,
+    recommendation.horizon,
+    recommendation.score_breakdown_json,
+    recommendation.evidence_ids,
+    recommendation.model_run_ids,
+    recommendation.risks_json,
+    recommendation.contradictions_json,
+    recommendation.final_payload_json,
+    recommendation_audit.audit_id,
+    recommendation_audit.deterministic_checks_json,
+    recommendation_audit.reviewer_findings_json,
+    recommendation_audit.schema_valid,
+    backtest.backtest_run_id,
+    backtest.strategy_id,
+    backtest.dataset_snapshot_ids,
+    backtest.summary_metrics_json,
+    backtest.transaction_cost_model_json,
+    backtest.status AS evaluation_status,
+    run_artifact.run_id,
+    run_artifact.run_type,
+    run_artifact.artifact_uri,
+    run_artifact.status AS run_status
+FROM audit.run_artifacts AS run_artifact
+JOIN audit.backtest_runs AS backtest
+    ON backtest.summary_metrics_json ->> 'local_run_artifact_id' = run_artifact.run_id
+JOIN recommendations.recommendation_artifacts AS recommendation
+    ON recommendation.recommendation_id = backtest.summary_metrics_json ->> 'recommendation_id'
+JOIN signals.signal_bundles AS signal_bundle
+    ON signal_bundle.signal_bundle_id = recommendation.signal_bundle_id
+JOIN recommendations.target_weights AS target_weights
+    ON target_weights.target_weights_id = recommendation.target_weights_id
+JOIN evidence.evidence_items AS evidence_item
+    ON evidence_item.evidence_id = recommendation.evidence_ids[1]
+JOIN evidence.evidence_chunks AS evidence_chunk
+    ON evidence_chunk.evidence_id = evidence_item.evidence_id
+JOIN evidence.evidence_claims AS evidence_claim
+    ON evidence_claim.evidence_id = evidence_item.evidence_id
+    AND evidence_claim.chunk_id = evidence_chunk.chunk_id
+JOIN recommendations.recommendation_audits AS recommendation_audit
+    ON recommendation_audit.recommendation_id = recommendation.recommendation_id
+WHERE run_artifact.run_type = %s
+    AND run_artifact.status = 'succeeded'
+ORDER BY run_artifact.started_at DESC, run_artifact.created_at DESC, evidence_chunk.chunk_index ASC
+LIMIT 1;
+"""
+
+
 class AdvisoryChainRepository:
     def __init__(self, connection: Connection) -> None:
         self._connection = connection
@@ -132,15 +224,26 @@ class AdvisoryChainRepository:
                 "detail": "Demo advisory chain has not been seeded.",
             }
 
-        return _chain_payload(_row_to_dict(rows[0], column_names))
+        return _chain_payload(_row_to_dict(rows[0], column_names), chain_id=DEMO_CHAIN_ID)
+
+    def get_latest_chain(self) -> dict[str, object]:
+        with self._connection.cursor() as cursor:
+            cursor.execute(SELECT_LATEST_LOCAL_ADVISORY_CHAIN_SQL, (LOCAL_ADVISORY_RUN_TYPE,))
+            rows = cursor.fetchall()
+            column_names = _column_names(cursor.description)
+
+        if rows:
+            return _chain_payload(_row_to_dict(rows[0], column_names), chain_id=LATEST_LOCAL_CHAIN_ID)
+
+        return self.get_demo_chain()
 
 
-def _chain_payload(row: Mapping[str, object]) -> dict[str, object]:
+def _chain_payload(row: Mapping[str, object], *, chain_id: str) -> dict[str, object]:
     evidence_ids = _text_list(row.get("evidence_ids"))
     model_run_ids = _text_list(row.get("model_run_ids"))
     return {
         "status": "available",
-        "chain_id": DEMO_CHAIN_ID,
+        "chain_id": chain_id,
         "advisory_label": row["advisory_label"],
         "ids": {
             "evidence_id": row["evidence_id"],

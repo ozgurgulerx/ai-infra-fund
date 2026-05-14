@@ -83,80 +83,56 @@ CHAIN_COLUMNS = (
 
 
 class AdvisoryChainRepositoryTests(unittest.TestCase):
+    def test_latest_chain_prefers_real_local_run_over_demo(self) -> None:
+        from ai_infra_fund_api.repositories.advisory_chain import AdvisoryChainRepository
+
+        local_row = chain_row(
+            recommendation_id="recommendation-local-nvda",
+            run_id="run-local-advisory-1",
+            run_type="local_advisory",
+            artifact_uri="artifact://local/advisory-run/run-local-advisory-1",
+        )
+        connection = FakeConnection(
+            [
+                ResultSet([local_row], CHAIN_COLUMNS),
+                ResultSet([chain_row()], CHAIN_COLUMNS),
+            ]
+        )
+
+        payload = AdvisoryChainRepository(connection).get_latest_chain()
+
+        self.assertEqual("available", payload["status"])
+        self.assertEqual("latest-local-advisory", payload["chain_id"])
+        self.assertEqual("recommendation-local-nvda", payload["recommendation"]["recommendation_id"])
+        self.assertEqual("run-local-advisory-1", payload["evaluation"]["run_artifact"]["run_id"])
+        self.assertEqual(1, len(connection.cursor_instance.executions))
+        statement, params = connection.cursor_instance.executions[0]
+        self.assertIn("WHERE run_artifact.run_type = %s", statement)
+        self.assertIn("ORDER BY run_artifact.started_at DESC", statement)
+        self.assertEqual(("local_advisory",), params)
+
+    def test_latest_chain_falls_back_to_demo_when_no_real_local_run_exists(self) -> None:
+        from ai_infra_fund_api.repositories.advisory_chain import AdvisoryChainRepository
+
+        connection = FakeConnection(
+            [
+                ResultSet([], CHAIN_COLUMNS),
+                ResultSet([chain_row()], CHAIN_COLUMNS),
+            ]
+        )
+
+        payload = AdvisoryChainRepository(connection).get_latest_chain()
+
+        self.assertEqual("available", payload["status"])
+        self.assertEqual("demo-ai-infra-nvda", payload["chain_id"])
+        self.assertEqual("recommendation-demo-nvda", payload["recommendation"]["recommendation_id"])
+        self.assertEqual(2, len(connection.cursor_instance.executions))
+
     def test_returns_complete_linked_demo_chain_without_raw_chunk_text(self) -> None:
         from ai_infra_fund_api.repositories.advisory_chain import AdvisoryChainRepository
 
         connection = FakeConnection(
-            ResultSet(
-                [
-                    (
-                        "evidence-demo-ai-infra-nvda",
-                        "demo://situational-awareness/ai-infra",
-                        "manual_report",
-                        "Demo AI Infrastructure Thesis",
-                        "demo_public",
-                        "public_evidence",
-                        "a" * 64,
-                        NOW,
-                        ["NVDA"],
-                        ["ai_accelerators"],
-                        "chunk-demo-ai-infra-nvda-0",
-                        0,
-                        "chars:0-240",
-                        "b" * 64,
-                        "claim-demo-ai-infra-nvda-demand",
-                        "NVDA",
-                        "supply_demand",
-                        "positive",
-                        "0.82",
-                        "medium_term",
-                        "0.86",
-                        "chars:38-160",
-                        "model-run-demo-local-review",
-                        "signal-bundle-demo-nvda",
-                        "NVDA",
-                        NOW,
-                        "0.84",
-                        "0.61",
-                        "0.72",
-                        "0.32",
-                        {"strategic": "v1"},
-                        "c" * 64,
-                        "target-weights-demo-ai-infra",
-                        "0.40",
-                        {"NVDA": "0.12", "MSFT": "0.18"},
-                        {"max_single_name_weight": "0.25"},
-                        "deterministic_demo_seed",
-                        "validated",
-                        "recommendation-demo-nvda",
-                        "NVDA",
-                        "advisory_only",
-                        "accumulate",
-                        "medium_term",
-                        {"combined_score": "0.74"},
-                        ["evidence-demo-ai-infra-nvda"],
-                        ["model-run-demo-local-review"],
-                        ["valuation", "supply chain"],
-                        ["capacity normalization"],
-                        {"summary": "Accumulate advisory-only."},
-                        "recommendation-audit-demo-nvda",
-                        {"checks_passed": True},
-                        {"status": "deterministic_seed"},
-                        True,
-                        "evaluation-demo-ai-infra",
-                        "strategy-demo-ai-infra",
-                        ["dataset-snapshot-demo-ai-infra"],
-                        {"benchmark_version": "demo-benchmark-v1"},
-                        {"slippage_bps": "5"},
-                        "succeeded",
-                        "run-demo-advisory-chain",
-                        "evaluation",
-                        "artifact://demo/advisory-chain",
-                        "succeeded",
-                    )
-                ],
-                CHAIN_COLUMNS,
-            )
+            ResultSet([chain_row()], CHAIN_COLUMNS)
         )
 
         payload = AdvisoryChainRepository(connection).get_demo_chain()
@@ -205,16 +181,17 @@ class ResultSet:
 
 
 class FakeCursor:
-    def __init__(self, result_set: ResultSet) -> None:
-        self._result_set = result_set
+    def __init__(self, result_sets: list[ResultSet]) -> None:
+        self._result_sets = result_sets
         self.executions: list[tuple[str, tuple[object, ...]]] = []
         self.description: tuple[tuple[str], ...] = ()
         self.rows: list[tuple[object, ...]] = []
 
     def execute(self, statement: str, params: tuple[object, ...] | None = None) -> None:
         self.executions.append((statement, params if params is not None else ()))
-        self.rows = self._result_set.rows
-        self.description = tuple((column,) for column in self._result_set.columns)
+        result_set = self._result_sets[min(len(self.executions) - 1, len(self._result_sets) - 1)]
+        self.rows = result_set.rows
+        self.description = tuple((column,) for column in result_set.columns)
 
     def fetchall(self) -> list[tuple[object, ...]]:
         return self.rows
@@ -227,11 +204,82 @@ class FakeCursor:
 
 
 class FakeConnection:
-    def __init__(self, result_set: ResultSet) -> None:
-        self.cursor_instance = FakeCursor(result_set)
+    def __init__(self, result_set: ResultSet | list[ResultSet]) -> None:
+        result_sets = result_set if isinstance(result_set, list) else [result_set]
+        self.cursor_instance = FakeCursor(result_sets)
 
     def cursor(self) -> FakeCursor:
         return self.cursor_instance
+
+
+def chain_row(**overrides: object) -> tuple[object, ...]:
+    row = {
+        "evidence_id": "evidence-demo-ai-infra-nvda",
+        "source_uri": "demo://situational-awareness/ai-infra",
+        "source_type": "manual_report",
+        "title": "Demo AI Infrastructure Thesis",
+        "license_label": "demo_public",
+        "data_class": "public_evidence",
+        "content_hash": "a" * 64,
+        "ingested_at": NOW,
+        "tickers": ["NVDA"],
+        "themes": ["ai_accelerators"],
+        "chunk_id": "chunk-demo-ai-infra-nvda-0",
+        "chunk_index": 0,
+        "span_ref": "chars:0-240",
+        "chunk_content_hash": "b" * 64,
+        "claim_id": "claim-demo-ai-infra-nvda-demand",
+        "ticker_or_theme": "NVDA",
+        "claim_type": "supply_demand",
+        "direction": "positive",
+        "magnitude": "0.82",
+        "time_horizon": "medium_term",
+        "confidence": "0.86",
+        "quote_or_span_ref": "chars:38-160",
+        "extracted_by_model_run_id": "model-run-demo-local-review",
+        "signal_bundle_id": "signal-bundle-demo-nvda",
+        "ticker": "NVDA",
+        "as_of": NOW,
+        "strategic_thesis_score": "0.84",
+        "tactical_technical_score": "0.61",
+        "forward_indicator_score": "0.72",
+        "portfolio_risk_score": "0.32",
+        "formula_versions": {"strategic": "v1"},
+        "input_snapshot_hash": "c" * 64,
+        "target_weights_id": "target-weights-demo-ai-infra",
+        "cash_weight": "0.40",
+        "weights_json": {"NVDA": "0.12", "MSFT": "0.18"},
+        "constraints_json": {"max_single_name_weight": "0.25"},
+        "generated_by": "deterministic_demo_seed",
+        "validation_status": "validated",
+        "recommendation_id": "recommendation-demo-nvda",
+        "ticker_or_portfolio": "NVDA",
+        "advisory_label": "advisory_only",
+        "action": "accumulate",
+        "horizon": "medium_term",
+        "score_breakdown_json": {"combined_score": "0.74"},
+        "evidence_ids": ["evidence-demo-ai-infra-nvda"],
+        "model_run_ids": ["model-run-demo-local-review"],
+        "risks_json": ["valuation", "supply chain"],
+        "contradictions_json": ["capacity normalization"],
+        "final_payload_json": {"summary": "Accumulate advisory-only."},
+        "audit_id": "recommendation-audit-demo-nvda",
+        "deterministic_checks_json": {"checks_passed": True},
+        "reviewer_findings_json": {"status": "deterministic_seed"},
+        "schema_valid": True,
+        "backtest_run_id": "evaluation-demo-ai-infra",
+        "strategy_id": "strategy-demo-ai-infra",
+        "dataset_snapshot_ids": ["dataset-snapshot-demo-ai-infra"],
+        "summary_metrics_json": {"benchmark_version": "demo-benchmark-v1"},
+        "transaction_cost_model_json": {"slippage_bps": "5"},
+        "evaluation_status": "succeeded",
+        "run_id": "run-demo-advisory-chain",
+        "run_type": "evaluation",
+        "artifact_uri": "artifact://demo/advisory-chain",
+        "run_status": "succeeded",
+    }
+    row.update(overrides)
+    return tuple(row[column] for column in CHAIN_COLUMNS)
 
 
 if __name__ == "__main__":

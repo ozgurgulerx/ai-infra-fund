@@ -1,0 +1,135 @@
+version: 1
+
+entries:
+  - ticker: NVDA
+    company_name: NVIDIA
+    themes:
+      - ai_accelerators
+      - accelerated_compute
+      - data_center_capex
+    sector_tags:
+      - semiconductors
+      - ai_infrastructure
+    source_urls:
+      - https://www.nvidia.com/en-us/data-center/
+      - https://investor.nvidia.com/
+    priority: critical
+
+  - ticker: MSFT
+    company_name: Microsoft
+    themes:
+      - ai_cloud
+      - enterprise_ai
+      - model_platforms
+    sector_tags:
+      - cloud_platforms
+      - software
+    source_urls:
+      - https://azure.microsoft.com/en-us/products/ai-services
+      - https://www.microsoft.com/en-us/investor
+    priority: critical
+
+  - ticker: GOOGL
+    company_name: Alphabet
+    themes:
+      - ai_cloud
+      - ai_research
+      - tensor_processing
+    sector_tags:
+      - cloud_platforms
+      - internet_platforms
+    source_urls:
+      - https://cloud.google.com/ai
+      - https://abc.xyz/investor/
+    priority: high
+
+  - ticker: AMD
+    company_name: Advanced Micro Devices
+    themes:
+      - ai_accelerators
+      - compute_supply_chain
+    sector_tags:
+      - semiconductors
+      - ai_infrastructure
+    source_urls:
+      - https://www.amd.com/en/solutions/data-center/ai.html
+      - https://ir.amd.com/
+    priority: high
+
+  - ticker: TSM
+    company_name: Taiwan Semiconductor Manufacturing
+    themes:
+      - advanced_packaging
+      - compute_supply_chain
+      - foundry_capacity
+    sector_tags:
+      - semiconductors
+      - manufacturing
+    source_urls:
+      - https://www.tsmc.com/english
+      - https://investor.tsmc.com/english
+    priority: high
+
+  - ticker: ASML
+    company_name: ASML Holding
+    themes:
+      - lithography
+      - compute_supply_chain
+      - semiconductor_equipment
+    sector_tags:
+      - semiconductor_equipment
+      - manufacturing
+    source_urls:
+      - https://www.asml.com/en/investors
+    priority: high
+
+  - ticker: AVGO
+    company_name: Broadcom
+    themes:
+      - ai_networking
+      - custom_silicon
+      - infrastructure_software
+    sector_tags:
+      - semiconductors
+      - networking
+      - software
+    source_urls:
+      - https://investors.broadcom.com/
+    priority: high
+
+  - ticker: ANET
+    company_name: Arista Networks
+    themes:
+      - ai_networking
+      - data_center_fabrics
+    sector_tags:
+      - networking
+      - ai_infrastructure
+    source_urls:
+      - https://investors.arista.com/
+    priority: medium
+
+  - ticker: VRT
+    company_name: Vertiv
+    themes:
+      - data_center_power
+      - cooling
+      - ai_data_centers
+    sector_tags:
+      - electrical_equipment
+      - data_center_infrastructure
+    source_urls:
+      - https://investors.vertiv.com/
+    priority: medium
+
+  - ticker: IONQ
+    company_name: IonQ
+    themes:
+      - quantum_compute
+      - frontier_compute
+    sector_tags:
+      - quantum_technology
+      - deep_tech
+    source_urls:
+      - https://investors.ionq.com/
+    priority: low

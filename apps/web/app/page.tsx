@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { AppShell } from "../components/app-shell";
 import { ModuleGrid } from "../components/module-grid";
 import { SectionPanel } from "../components/section-panel";
 import { StatusTile } from "../components/status-tile";
@@ -8,7 +9,7 @@ import {
   apiBaseUrl,
   fetchApiHealth,
   fetchApiReadiness,
-  fetchDemoAdvisoryChain,
+  fetchLatestAdvisoryChain,
   fetchDashboardModules
 } from "../lib/api";
 import {
@@ -23,6 +24,7 @@ import {
   type ModuleStatus,
   type RuntimeProbe
 } from "../lib/status-model";
+import { portfolioRows } from "../lib/portfolio-data";
 
 const initialHealth: RuntimeProbe = {
   state: "unavailable",
@@ -40,14 +42,6 @@ const initialReadiness: RuntimeProbe = {
   sourceLabel: "API /ready"
 };
 
-const portfolioRows = [
-  ["MSFT", "AI platform and cloud capex", "Core", "23.19%"],
-  ["NVDA", "AI accelerator leader", "Core", "9.67%"],
-  ["SMCI", "AI server hardware", "Active risk", "5.21%"],
-  ["ARM", "CPU/IP layer", "Satellite", "7.89%"],
-  ["Cash", "Dry powder and risk buffer", "Reserve", "51.38%"]
-];
-
 type DashboardFeedKey =
   | "overview"
   | "evidence"
@@ -55,7 +49,13 @@ type DashboardFeedKey =
   | "evaluation"
   | "modelRuns"
   | "dataQuality"
-  | "incidents";
+  | "incidents"
+  | "watchlist"
+  | "crawlFreshness"
+  | "equityEvents"
+  | "signalSnapshots"
+  | "advisoryRun"
+  | "tickerIntelligence";
 
 type DashboardEndpointConfig = {
   key: DashboardFeedKey;
@@ -72,9 +72,9 @@ type DashboardFeedMap = Record<DashboardFeedKey, DashboardSummaryFeed<DashboardP
 
 const initialAdvisoryChain: AdvisoryChainPayload = {
   status: "empty",
-  chain_id: "demo-ai-infra-nvda",
+  chain_id: "latest-local-advisory",
   advisory_label: "advisory_only",
-  detail: "Demo advisory chain has not been seeded.",
+  detail: "No local advisory chain has been produced.",
   ids: {
     evidence_id: "evidence-demo-ai-infra-nvda",
     chunk_id: "chunk-demo-ai-infra-nvda-0",
@@ -158,6 +158,55 @@ const dashboardEndpointConfigs: DashboardEndpointConfig[] = [
       `${readNumber(payload, "open_incidents")} open / ${readNumber(payload, "total_incidents")} total`,
     buildDetail: (payload) =>
       `Severity ${formatBreakdown(payload.incidents_by_severity)}; freeze ${formatBreakdown(payload.incidents_by_freeze_status)}.`
+  },
+  {
+    key: "watchlist",
+    endpoint: "/internal/dashboard/watchlist-summary",
+    title: "Watchlist Status",
+    plannedDetail: "Watchlist universe is reachable, but no tickers are registered yet.",
+    buildVisibleValue: (payload) => `${readNumber(payload, "total_members")} tickers`,
+    buildDetail: (payload) => `Status mix: ${formatBreakdown(payload.by_watchlist_status)}.`
+  },
+  {
+    key: "crawlFreshness",
+    endpoint: "/internal/dashboard/crawl-frontier-health",
+    title: "Crawl Freshness",
+    plannedDetail: "No data snapshot frontier has reported freshness yet.",
+    buildVisibleValue: (payload) => `${readNumber(payload, "total_datasets")} datasets`,
+    buildDetail: (payload) => `Latest available ${readOptionalText(payload, "latest_available_at")}.`
+  },
+  {
+    key: "equityEvents",
+    endpoint: "/internal/dashboard/latest-equity-events",
+    title: "Latest Equity Events",
+    plannedDetail: "No equity evidence events are available in the local feed.",
+    buildVisibleValue: (payload) => `${readArray(payload, "events").length} events`,
+    buildDetail: (payload) => eventHeadline(readArray(payload, "events"))
+  },
+  {
+    key: "signalSnapshots",
+    endpoint: "/internal/dashboard/latest-signal-snapshots",
+    title: "Sentiment / Technical / Fundamental",
+    plannedDetail: "No deterministic signal snapshots are available yet.",
+    buildVisibleValue: (payload) => `${readArray(payload, "snapshots").length} score cards`,
+    buildDetail: (payload) => signalHeadline(readArray(payload, "snapshots"))
+  },
+  {
+    key: "advisoryRun",
+    endpoint: "/internal/dashboard/latest-advisory-run",
+    title: "Latest Advisory Run",
+    plannedDetail: "No local advisory run has been produced.",
+    buildVisibleValue: (payload) => readOptionalText(payload, "run_status"),
+    buildDetail: (payload) =>
+      `${readOptionalText(payload, "run_id")} / advisory_label ${readOptionalText(payload, "advisory_label")}.`
+  },
+  {
+    key: "tickerIntelligence",
+    endpoint: "/internal/dashboard/ticker-intelligence/NVDA",
+    title: "Ticker Intelligence",
+    plannedDetail: "No local intelligence summary exists for NVDA yet.",
+    buildVisibleValue: (payload) => readOptionalText(payload, "ticker"),
+    buildDetail: (payload) => tickerTraceHeadline(payload)
   }
 ];
 
@@ -206,7 +255,7 @@ export default function Page() {
       const [feeds, liveModules, chain] = await Promise.all([
         fetchDashboardFeedMap(),
         fetchDashboardModules(),
-        fetchDemoAdvisoryChain()
+        fetchLatestAdvisoryChain()
       ]);
 
       if (!cancelled) {
@@ -232,15 +281,8 @@ export default function Page() {
   const summary = summarizeModules(modules);
 
   return (
-    <main className="control-room-shell">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">Local Read-Only Dashboard</p>
-          <h1>AI Infrastructure Fund Control Room</h1>
-        </div>
-        <div className="advisory-badge">Advisory-only</div>
-      </header>
-
+    <AppShell eyebrow="Local Read-Only Dashboard" title="AI Infrastructure Fund Control Room">
+      <div className="control-room-shell">
       <section className="status-strip" aria-label="System Status">
         <StatusTile
           title="System Status"
@@ -308,15 +350,15 @@ export default function Page() {
               <span>No recommendation generation from the browser; artifacts remain read-only.</span>
             </div>
             <div>
-              <strong>Execution boundary</strong>
-              <span>No routing controls, venue links, credentials, or transaction submission surface.</span>
+              <strong>Read-only boundary</strong>
+              <span>No transaction controls, venue links, credentials, or submission surface.</span>
             </div>
           </div>
         </SectionPanel>
 
         <SectionPanel
           eyebrow="End-to-End"
-          title="Demo Advisory Chain"
+          title="Latest Advisory Chain"
           aside={<span className="advisory-inline">Advisory-only</span>}
         >
           <div className="compact-list">
@@ -337,6 +379,74 @@ export default function Page() {
             <ChainLinkRow label="recommendation_id" value={chainId(advisoryChain, "recommendation_id")} />
             <ChainLinkRow label="audit_id" value={chainId(advisoryChain, "audit_id")} />
             <ChainLinkRow label="evaluation" value={chainEvaluation(advisoryChain)} />
+          </div>
+        </SectionPanel>
+
+        <SectionPanel eyebrow="Universe" title="Watchlist Status">
+          <div className="compact-list">
+            <p>
+              <strong>{dashboardFeeds.watchlist.visibleValue}</strong> {dashboardFeeds.watchlist.detail}
+            </p>
+            <p>{dashboardFeeds.watchlist.sourceLabel}</p>
+          </div>
+        </SectionPanel>
+
+        <SectionPanel eyebrow="Freshness" title="Crawl Freshness">
+          <div className="compact-list">
+            <p>
+              <strong>{dashboardFeeds.crawlFreshness.visibleValue}</strong> {dashboardFeeds.crawlFreshness.detail}
+            </p>
+            <p>{dashboardFeeds.crawlFreshness.sourceLabel}</p>
+          </div>
+        </SectionPanel>
+
+        <SectionPanel eyebrow="Events" title="Latest Equity Events">
+          <div className="compact-list">
+            <p>
+              <strong>{dashboardFeeds.equityEvents.visibleValue}</strong> {dashboardFeeds.equityEvents.detail}
+            </p>
+            <p>{dashboardFeeds.equityEvents.sourceLabel}</p>
+          </div>
+        </SectionPanel>
+
+        <SectionPanel eyebrow="Scores" title="Sentiment / Technical / Fundamental">
+          <div className="status-list">
+            {scoreCards(dashboardFeeds.signalSnapshots.payload).map((card) => (
+              <div className="status-list-row" key={card.label}>
+                <strong>{card.label}</strong>
+                <span>{card.value}</span>
+              </div>
+            ))}
+          </div>
+        </SectionPanel>
+
+        <SectionPanel
+          eyebrow="Advisory"
+          title="Latest Advisory Run"
+          aside={<span className="advisory-inline">Advisory-only</span>}
+        >
+          <div className="compact-list">
+            <p>
+              <strong>{dashboardFeeds.advisoryRun.visibleValue}</strong> {dashboardFeeds.advisoryRun.detail}
+            </p>
+            <p>{dashboardFeeds.advisoryRun.sourceLabel}</p>
+          </div>
+        </SectionPanel>
+
+        <SectionPanel eyebrow="Ticker" title="Ticker Intelligence">
+          <div className="compact-list">
+            <p>
+              <strong>{dashboardFeeds.tickerIntelligence.visibleValue}</strong> {dashboardFeeds.tickerIntelligence.detail}
+            </p>
+            <p>{dashboardFeeds.tickerIntelligence.sourceLabel}</p>
+          </div>
+        </SectionPanel>
+
+        <SectionPanel eyebrow="Traceability" title="Evidence And Audit Trace">
+          <div className="status-list">
+            <TraceRow label="evidence_ids" value={traceValue(dashboardFeeds.tickerIntelligence.payload, "evidence_ids")} />
+            <TraceRow label="model_run_ids" value={traceValue(dashboardFeeds.tickerIntelligence.payload, "model_run_ids")} />
+            <TraceRow label="audit_id" value={chainId(advisoryChain, "audit_id")} />
           </div>
         </SectionPanel>
 
@@ -380,7 +490,8 @@ export default function Page() {
         </div>
         <ModuleGrid modules={modules} />
       </section>
-    </main>
+      </div>
+    </AppShell>
   );
 }
 
@@ -405,6 +516,15 @@ function ChainLinkRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function TraceRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="status-list-row">
+      <strong>{label}</strong>
+      <span className="chain-id">{value}</span>
+    </div>
+  );
+}
+
 function chainHeadline(chain: AdvisoryChainPayload): string {
   if (chain.status === "available") {
     return `${textValue(chain.recommendation, "action", "advisory")} / ${textValue(chain.recommendation, "horizon", "horizon")}`;
@@ -419,7 +539,7 @@ function chainDetail(chain: AdvisoryChainPayload): string {
   if (chain.status === "available") {
     return `${textValue(chain.recommendation, "advisory_label", chain.advisory_label ?? "advisory_only")} recommendation linked through ${chain.chain_id}.`;
   }
-  return chain.detail ?? "Demo advisory chain has not been seeded.";
+  return chain.detail ?? "No local advisory chain has been produced.";
 }
 
 function chainId(chain: AdvisoryChainPayload, key: string): string {
@@ -552,9 +672,54 @@ function readOptionalText(payload: DashboardPayload, key: string): string {
   return typeof value === "string" && value.length > 0 ? value : "not reported";
 }
 
+function readArray(payload: DashboardPayload, key: string): Record<string, unknown>[] {
+  const value = payload[key];
+  return Array.isArray(value) ? value.filter(isRecord) : [];
+}
+
 function textValue(payload: Record<string, unknown> | undefined, key: string, fallback: string): string {
   const value = payload?.[key];
   return typeof value === "string" && value.length > 0 ? value : fallback;
+}
+
+function eventHeadline(events: Record<string, unknown>[]): string {
+  const first = events[0];
+  return first ? `${textValue(first, "title", "Untitled event")} / ${textValue(first, "evidence_id", "no evidence_id")}.` : "No events reported.";
+}
+
+function signalHeadline(snapshots: Record<string, unknown>[]): string {
+  const first = snapshots[0];
+  return first
+    ? `${textValue(first, "ticker", "ticker")} sentiment_score ${textValue(first, "sentiment_score", "n/a")}, technical_score ${textValue(first, "technical_score", "n/a")}, fundamental_score ${textValue(first, "fundamental_score", "n/a")}.`
+    : "No score cards reported.";
+}
+
+function tickerTraceHeadline(payload: DashboardPayload): string {
+  const recommendation = isRecord(payload.latest_recommendation) ? payload.latest_recommendation : undefined;
+  return recommendation
+    ? `${textValue(recommendation, "action", "action")} / advisory_label ${textValue(recommendation, "advisory_label", "advisory_only")}.`
+    : "No advisory recommendation trace reported.";
+}
+
+function scoreCards(payload: DashboardPayload | undefined) {
+  const snapshot = payload ? readArray(payload, "snapshots")[0] : undefined;
+  return [
+    { label: "sentiment_score", value: textValue(snapshot, "sentiment_score", "not reported") },
+    { label: "technical_score", value: textValue(snapshot, "technical_score", "not reported") },
+    { label: "fundamental_score", value: textValue(snapshot, "fundamental_score", "not reported") }
+  ];
+}
+
+function traceValue(payload: DashboardPayload | undefined, key: string): string {
+  const recommendation = payload && isRecord(payload.latest_recommendation) ? payload.latest_recommendation : undefined;
+  const value = recommendation?.[key];
+  if (Array.isArray(value)) {
+    return value.join(", ");
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  return "not reported";
 }
 
 function formatBreakdown(value: unknown): string {

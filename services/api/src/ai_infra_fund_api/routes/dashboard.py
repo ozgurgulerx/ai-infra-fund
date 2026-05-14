@@ -37,6 +37,24 @@ class DashboardReadRepository(Protocol):
     def get_incident_summary(self) -> dict[str, object]:
         ...
 
+    def get_watchlist_summary(self) -> dict[str, object]:
+        ...
+
+    def get_crawl_frontier_health(self) -> dict[str, object]:
+        ...
+
+    def get_latest_equity_events(self) -> dict[str, object]:
+        ...
+
+    def get_latest_signal_snapshots(self) -> dict[str, object]:
+        ...
+
+    def get_latest_advisory_run(self) -> dict[str, object]:
+        ...
+
+    def get_ticker_intelligence_summary(self, ticker: str) -> dict[str, object]:
+        ...
+
 
 class DashboardRepositoryUnavailable(RuntimeError):
     pass
@@ -70,6 +88,24 @@ class PostgresDashboardReadRepository:
     def get_incident_summary(self) -> dict[str, object]:
         return self._read("get_incident_summary")
 
+    def get_watchlist_summary(self) -> dict[str, object]:
+        return self._read("get_watchlist_summary")
+
+    def get_crawl_frontier_health(self) -> dict[str, object]:
+        return self._read("get_crawl_frontier_health")
+
+    def get_latest_equity_events(self) -> dict[str, object]:
+        return self._read("get_latest_equity_events")
+
+    def get_latest_signal_snapshots(self) -> dict[str, object]:
+        return self._read("get_latest_signal_snapshots")
+
+    def get_latest_advisory_run(self) -> dict[str, object]:
+        return self._read("get_latest_advisory_run")
+
+    def get_ticker_intelligence_summary(self, ticker: str) -> dict[str, object]:
+        return self._read_with_argument("get_ticker_intelligence_summary", ticker.upper())
+
     def _read(self, method_name: str) -> dict[str, object]:
         try:
             import psycopg
@@ -82,6 +118,19 @@ class PostgresDashboardReadRepository:
             repository = DashboardRepository(connection)
             read_method = getattr(repository, method_name)
             return read_method()
+
+    def _read_with_argument(self, method_name: str, argument: str) -> dict[str, object]:
+        try:
+            import psycopg
+            from ai_infra_fund_api.repositories.dashboard import DashboardRepository
+        except ImportError as error:
+            raise DashboardRepositoryUnavailable("dashboard repository is not configured") from error
+
+        settings = self.settings_provider()
+        with psycopg.connect(settings.database_url) as connection:
+            repository = DashboardRepository(connection)
+            read_method = getattr(repository, method_name)
+            return read_method(argument)
 
 
 def register_dashboard_routes(
@@ -124,6 +173,30 @@ def register_dashboard_routes(
     @router.get("/internal/dashboard/incident-summary")
     def incident_summary() -> JSONResponse:
         return _read_summary(repository.get_incident_summary)
+
+    @router.get("/internal/dashboard/watchlist-summary")
+    def watchlist_summary() -> JSONResponse:
+        return _read_summary(repository.get_watchlist_summary)
+
+    @router.get("/internal/dashboard/crawl-frontier-health")
+    def crawl_frontier_health() -> JSONResponse:
+        return _read_summary(repository.get_crawl_frontier_health)
+
+    @router.get("/internal/dashboard/latest-equity-events")
+    def latest_equity_events() -> JSONResponse:
+        return _read_summary(repository.get_latest_equity_events)
+
+    @router.get("/internal/dashboard/latest-signal-snapshots")
+    def latest_signal_snapshots() -> JSONResponse:
+        return _read_summary(repository.get_latest_signal_snapshots)
+
+    @router.get("/internal/dashboard/latest-advisory-run")
+    def latest_advisory_run() -> JSONResponse:
+        return _read_summary(repository.get_latest_advisory_run)
+
+    @router.get("/internal/dashboard/ticker-intelligence/{ticker}")
+    def ticker_intelligence(ticker: str) -> JSONResponse:
+        return _read_summary(lambda: repository.get_ticker_intelligence_summary(ticker.upper()))
 
     app.include_router(router)
 

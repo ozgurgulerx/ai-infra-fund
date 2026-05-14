@@ -48,6 +48,12 @@ export type EvaluationSummary = DashboardSummaryFeed;
 export type ModelRunSummary = DashboardSummaryFeed;
 export type DataQualitySummary = DashboardSummaryFeed;
 export type IncidentSummary = DashboardSummaryFeed;
+export type WatchlistSummary = DashboardSummaryFeed;
+export type CrawlFrontierHealth = DashboardSummaryFeed;
+export type LatestEquityEvents = DashboardSummaryFeed;
+export type LatestSignalSnapshots = DashboardSummaryFeed;
+export type LatestAdvisoryRun = DashboardSummaryFeed;
+export type TickerIntelligenceSummary = DashboardSummaryFeed;
 
 export type DashboardModuleSummary = {
   id: string;

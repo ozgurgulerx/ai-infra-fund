@@ -19,6 +19,11 @@ SUMMARY_ENDPOINTS = {
     "/internal/dashboard/model-run-summary": "get_model_run_summary",
     "/internal/dashboard/data-quality-summary": "get_data_quality_summary",
     "/internal/dashboard/incident-summary": "get_incident_summary",
+    "/internal/dashboard/watchlist-summary": "get_watchlist_summary",
+    "/internal/dashboard/crawl-frontier-health": "get_crawl_frontier_health",
+    "/internal/dashboard/latest-equity-events": "get_latest_equity_events",
+    "/internal/dashboard/latest-signal-snapshots": "get_latest_signal_snapshots",
+    "/internal/dashboard/latest-advisory-run": "get_latest_advisory_run",
 }
 
 
@@ -71,6 +76,20 @@ class DashboardApiTests(unittest.TestCase):
                 response = request(endpoint)
 
                 self.assertEqual(405, response.status_code)
+
+    def test_ticker_intelligence_endpoint_returns_read_only_ticker_payload(self) -> None:
+        from fastapi.testclient import TestClient
+
+        from ai_infra_fund_api import main
+
+        repository = FakeDashboardRepository()
+        client = TestClient(main.create_app(dashboard_repository=repository))
+
+        response = client.get("/internal/dashboard/ticker-intelligence/NVDA")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual({"data": repository.responses["get_ticker_intelligence_summary"]}, response.json())
+        self.assertEqual([("get_ticker_intelligence_summary", "NVDA")], repository.ticker_calls)
 
     def test_dashboard_routes_do_not_expose_broker_order_or_execution_names(self) -> None:
         from ai_infra_fund_api import main
@@ -145,7 +164,38 @@ class FakeDashboardRepository:
                 "open_incidents": 0,
                 "latest_incident_id": None,
             },
+            "get_watchlist_summary": {
+                "status": "available",
+                "total_members": 3,
+                "by_watchlist_status": {"active": 2, "watch": 1},
+                "members": [{"ticker": "NVDA", "watchlist_status": "active"}],
+            },
+            "get_crawl_frontier_health": {
+                "status": "available",
+                "latest_available_at": "2026-05-14T10:00:00+00:00",
+                "datasets": [{"dataset_name": "equity_events", "source": "local"}],
+            },
+            "get_latest_equity_events": {
+                "status": "available",
+                "events": [{"evidence_id": "evidence-nvda", "tickers": ["NVDA"]}],
+            },
+            "get_latest_signal_snapshots": {
+                "status": "available",
+                "snapshots": [{"ticker": "NVDA", "technical_score": "0.61"}],
+            },
+            "get_latest_advisory_run": {
+                "status": "available",
+                "run_id": "run-local-advisory-20260514",
+                "advisory_label": "advisory_only",
+            },
+            "get_ticker_intelligence_summary": {
+                "status": "available",
+                "ticker": "NVDA",
+                "watchlist_status": "active",
+                "latest_recommendation": {"advisory_label": "advisory_only"},
+            },
         }
+        self.ticker_calls: list[tuple[str, str]] = []
 
     def get_status_overview(self) -> dict[str, object]:
         return self._record("get_status_overview")
@@ -170,6 +220,25 @@ class FakeDashboardRepository:
 
     def get_incident_summary(self) -> dict[str, object]:
         return self._record("get_incident_summary")
+
+    def get_watchlist_summary(self) -> dict[str, object]:
+        return self._record("get_watchlist_summary")
+
+    def get_crawl_frontier_health(self) -> dict[str, object]:
+        return self._record("get_crawl_frontier_health")
+
+    def get_latest_equity_events(self) -> dict[str, object]:
+        return self._record("get_latest_equity_events")
+
+    def get_latest_signal_snapshots(self) -> dict[str, object]:
+        return self._record("get_latest_signal_snapshots")
+
+    def get_latest_advisory_run(self) -> dict[str, object]:
+        return self._record("get_latest_advisory_run")
+
+    def get_ticker_intelligence_summary(self, ticker: str) -> dict[str, object]:
+        self.ticker_calls.append(("get_ticker_intelligence_summary", ticker))
+        return self.responses["get_ticker_intelligence_summary"]
 
     def _record(self, method_name: str) -> dict[str, object]:
         self.calls.append(method_name)
