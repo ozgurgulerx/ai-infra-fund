@@ -6,6 +6,10 @@ from typing import Callable
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
+from ai_infra_fund_api.routes.evidence import (
+    ManualEvidenceRepository,
+    register_evidence_routes,
+)
 from ai_infra_fund_core.runtime.config import RuntimeConfigError, RuntimeSettings
 from ai_infra_fund_core.runtime.database import check_database_connection
 
@@ -37,6 +41,7 @@ def create_app(
     *,
     connection_check: ConnectionCheck = check_database_connection,
     settings_provider: SettingsProvider = default_settings_provider,
+    evidence_repository: ManualEvidenceRepository | None = None,
 ) -> FastAPI:
     app = FastAPI(title="AI Infrastructure Fund API", version=VERSION)
 
@@ -71,6 +76,12 @@ def create_app(
                 "checks": {"database": "ok"},
             }
         )
+
+    register_evidence_routes(
+        app,
+        evidence_repository=evidence_repository,
+        settings_provider=settings_provider,
+    )
 
     return app
 
