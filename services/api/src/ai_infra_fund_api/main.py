@@ -27,6 +27,10 @@ from ai_infra_fund_api.routes.recommendations import (
     RecommendationService,
     register_recommendation_routes,
 )
+from ai_infra_fund_api.routes.runs import (
+    RunReadRepository,
+    register_run_routes,
+)
 from ai_infra_fund_core.runtime.config import RuntimeConfigError, RuntimeSettings
 from ai_infra_fund_core.runtime.database import check_database_connection
 
@@ -64,6 +68,7 @@ def create_app(
     recommendation_service: RecommendationService | None = None,
     dashboard_repository: DashboardReadRepository | None = None,
     advisory_chain_repository: AdvisoryChainReadRepository | None = None,
+    run_repository: RunReadRepository | None = None,
 ) -> FastAPI:
     app = FastAPI(title="AI Infrastructure Fund API", version=VERSION)
     app.add_middleware(
@@ -128,6 +133,11 @@ def create_app(
     register_advisory_chain_routes(
         app,
         advisory_chain_repository=advisory_chain_repository,
+        settings_provider=settings_provider,
+    )
+    register_run_routes(
+        app,
+        run_repository=run_repository,
         settings_provider=settings_provider,
     )
 
