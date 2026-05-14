@@ -5,7 +5,9 @@ export type ValueChainStationId =
   | "power"
   | "grid_dc_build"
   | "networking"
-  | "hyperscalers";
+  | "hyperscalers"
+  | "frontier_adjacent"
+  | "geopolitical_adjacent";
 
 export type ValueChainStation = {
   id: ValueChainStationId;
@@ -226,7 +228,7 @@ export const valueChain: ValueChainStation[] = [
 
 export const adjacentStations: ValueChainStation[] = [
   {
-    id: "compute",
+    id: "frontier_adjacent",
     index: "α",
     label: "Frontier Compute",
     caption: "Beyond classical silicon — held at arm's length.",
@@ -244,7 +246,7 @@ export const adjacentStations: ValueChainStation[] = [
     ],
   },
   {
-    id: "compute",
+    id: "geopolitical_adjacent",
     index: "β",
     label: "Geopolitical",
     caption: "China AI competition and export-control surface.",
@@ -264,17 +266,3 @@ export const adjacentStations: ValueChainStation[] = [
     ],
   },
 ];
-
-export function stationForTheme(theme: string): ValueChainStation | null {
-  for (const station of valueChain) {
-    if (station.subthemes.some((sub) => sub.tag === theme)) {
-      return station;
-    }
-  }
-  for (const station of adjacentStations) {
-    if (station.subthemes.some((sub) => sub.tag === theme)) {
-      return station;
-    }
-  }
-  return null;
-}
