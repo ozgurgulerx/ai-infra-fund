@@ -17,6 +17,7 @@ from .scoring import (
 )
 from .sentiment import SentimentEvidence, SentimentSnapshot, compute_sentiment_snapshot
 from .technical import MarketPoint, TechnicalSnapshot, compute_technical_snapshot
+from .valuation import ValuationInputs, ValuationSnapshot, compute_valuation_snapshot
 
 __all__ = [
     "FORMULA_VERSIONS",
@@ -32,11 +33,14 @@ __all__ = [
     "StrategicThesisInputs",
     "TacticalTechnicalInputs",
     "TechnicalSnapshot",
+    "ValuationInputs",
+    "ValuationSnapshot",
     "combine_signal_components",
     "compute_fundamental_snapshot",
     "compute_sentiment_snapshot",
     "compute_signal_bundle",
     "compute_technical_snapshot",
+    "compute_valuation_snapshot",
     "score_forward_indicator",
     "score_portfolio_risk",
     "score_strategic_thesis",

@@ -52,6 +52,19 @@ FRONTIER_COLUMNS = (
     "updated_at",
 )
 
+QUEUE_COLUMNS = (
+    "queue_id",
+    "frontier_url_id",
+    "ticker",
+    "priority",
+    "status",
+    "next_attempt_at",
+    "leased_by",
+    "lease_expires_at",
+    "created_at",
+    "updated_at",
+)
+
 LATEST_SUMMARY_COLUMNS = (
     "ticker",
     "latest_event_at",
@@ -229,6 +242,67 @@ WHERE frontier_url_id = %s;
 """
 
 
+UPSERT_CRAWL_QUEUE_ITEM_SQL = """
+INSERT INTO evidence.crawl_frontier_queue (
+    queue_id,
+    frontier_url_id,
+    ticker,
+    priority,
+    status,
+    next_attempt_at,
+    created_at,
+    updated_at
+) VALUES (
+    %s, %s, %s, %s, %s, %s, %s, %s
+) ON CONFLICT (frontier_url_id) DO UPDATE SET
+    priority = GREATEST(evidence.crawl_frontier_queue.priority, EXCLUDED.priority),
+    status = CASE
+        WHEN evidence.crawl_frontier_queue.status IN ('captured', 'failed', 'skipped') THEN evidence.crawl_frontier_queue.status
+        ELSE EXCLUDED.status
+    END,
+    next_attempt_at = LEAST(evidence.crawl_frontier_queue.next_attempt_at, EXCLUDED.next_attempt_at),
+    updated_at = EXCLUDED.updated_at;
+"""
+
+
+LEASE_DUE_CRAWL_QUEUE_ITEMS_SQL = """
+WITH lease_input AS (
+    SELECT
+        %s::text AS worker_id,
+        %s::timestamptz AS lease_expires_at,
+        %s::timestamptz AS now_at
+),
+due_items AS (
+    SELECT queue_id
+    FROM evidence.crawl_frontier_queue
+    WHERE status IN ('queued', 'retry')
+        AND next_attempt_at <= (SELECT now_at FROM lease_input)
+    ORDER BY priority DESC, next_attempt_at ASC, queue_id ASC
+    LIMIT %s
+    FOR UPDATE SKIP LOCKED
+)
+UPDATE evidence.crawl_frontier_queue AS queue
+SET
+    status = 'leased',
+    leased_by = lease_input.worker_id,
+    lease_expires_at = lease_input.lease_expires_at,
+    updated_at = lease_input.now_at
+FROM due_items, lease_input
+WHERE queue.queue_id = due_items.queue_id
+RETURNING
+    queue.queue_id,
+    queue.frontier_url_id,
+    queue.ticker,
+    queue.priority,
+    queue.status,
+    queue.next_attempt_at,
+    queue.leased_by,
+    queue.lease_expires_at,
+    queue.created_at,
+    queue.updated_at;
+"""
+
+
 UPSERT_REFRESH_JOB_SQL = """
 INSERT INTO evidence.source_refresh_jobs (
     refresh_job_id,
@@ -294,22 +368,30 @@ INSERT INTO signals.equity_events (
     ticker,
     event_type,
     event_time,
+    available_at,
     source_capture_id,
     summary,
     severity,
     evidence_ids,
+    evidence_claim_ids,
+    model_run_ids,
+    review_status,
     metadata_json,
     content_hash,
     created_at
 ) VALUES (
-    %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s
+    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s
 ) ON CONFLICT (content_hash) DO UPDATE SET
     event_type = EXCLUDED.event_type,
     event_time = EXCLUDED.event_time,
+    available_at = EXCLUDED.available_at,
     source_capture_id = EXCLUDED.source_capture_id,
     summary = EXCLUDED.summary,
     severity = EXCLUDED.severity,
     evidence_ids = EXCLUDED.evidence_ids,
+    evidence_claim_ids = EXCLUDED.evidence_claim_ids,
+    model_run_ids = EXCLUDED.model_run_ids,
+    review_status = EXCLUDED.review_status,
     metadata_json = EXCLUDED.metadata_json;
 """
 
@@ -535,6 +617,32 @@ class EquityIntelligenceRepository:
             cursor.execute(COMPLETE_FRONTIER_URL_SQL, (now, require_text(frontier_url_id, "frontier_url_id")))
         self._connection.commit()
 
+    def upsert_crawl_queue_item(self, queue_item: object) -> object:
+        with self._connection.cursor() as cursor:
+            cursor.execute(UPSERT_CRAWL_QUEUE_ITEM_SQL, _crawl_queue_item_params(queue_item))
+        self._connection.commit()
+        return queue_item
+
+    def lease_due_crawl_queue_items(
+        self,
+        *,
+        worker_id: str,
+        lease_expires_at: datetime,
+        limit: int,
+        now: datetime,
+    ) -> list[dict[str, object]]:
+        normalized_limit = _positive_int(limit, "limit")
+        require_aware_datetime(lease_expires_at, "lease_expires_at")
+        require_aware_datetime(now, "now")
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                LEASE_DUE_CRAWL_QUEUE_ITEMS_SQL,
+                (require_text(worker_id, "worker_id"), lease_expires_at, now, normalized_limit),
+            )
+            rows = cursor.fetchall()
+            column_names = _column_names(cursor.description) or QUEUE_COLUMNS
+        return [_row_to_dict(row, column_names) for row in rows]
+
     def boost_refresh_priority(self, refresh_job: object) -> object:
         params = _refresh_job_params(refresh_job)
         with self._connection.cursor() as cursor:
@@ -645,6 +753,21 @@ def _refresh_job_params(job: object) -> tuple[object, ...]:
     )
 
 
+def _crawl_queue_item_params(queue_item: object) -> tuple[object, ...]:
+    status = _required_text_attr(queue_item, "status")
+    _require_member(status, FRONTIER_STATUSES, "status")
+    return (
+        _required_text_attr(queue_item, "queue_id"),
+        _required_text_attr(queue_item, "frontier_url_id"),
+        _required_text_attr(queue_item, "ticker"),
+        _int_attr(queue_item, "priority"),
+        status,
+        _required_aware_datetime_attr(queue_item, "next_attempt_at"),
+        _required_aware_datetime_attr(queue_item, "created_at"),
+        _required_aware_datetime_attr(queue_item, "updated_at"),
+    )
+
+
 def _capture_params(capture: object) -> tuple[object, ...]:
     return (
         _required_text_attr(capture, "capture_id"),
@@ -670,10 +793,14 @@ def _event_params(event: object) -> tuple[object, ...]:
         _required_text_attr(event, "ticker"),
         _required_text_attr(event, "event_type"),
         _required_aware_datetime_attr(event, "event_time"),
+        _required_aware_datetime_attr(event, "available_at"),
         _optional_text_attr(event, "source_capture_id"),
         _required_text_attr(event, "summary"),
         severity,
         _text_array(getattr(event, "evidence_ids", ()), "evidence_ids"),
+        _text_array(getattr(event, "evidence_claim_ids", ()), "evidence_claim_ids"),
+        _text_array(getattr(event, "model_run_ids", ()), "model_run_ids"),
+        _required_text_attr(event, "review_status"),
         _json_param(getattr(event, "metadata", {})),
         require_content_hash(getattr(event, "content_hash", None)),
         _required_aware_datetime_attr(event, "created_at"),

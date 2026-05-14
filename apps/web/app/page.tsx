@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "../components/app-shell";
+import { HedgeFundComponentMap } from "../components/hedge-fund-component-map";
 import { ModuleGrid } from "../components/module-grid";
 import { SectionPanel } from "../components/section-panel";
 import { StatusTile } from "../components/status-tile";
@@ -488,6 +489,10 @@ export default function Page() {
             {summary.passing} passing / {summary.degraded} degraded / {summary.failing} failing / {summary.planned} planned
           </span>
         </div>
+        <HedgeFundComponentMap
+          modules={modules}
+          sourceSummary="Auto-updates from live module summaries"
+        />
         <ModuleGrid modules={modules} />
       </section>
       </div>

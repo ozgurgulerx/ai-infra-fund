@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 import hashlib
 import json
 import os
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Protocol
 from urllib.parse import urlencode
 from uuid import NAMESPACE_URL, uuid5
@@ -33,6 +34,8 @@ from ai_infra_fund_core.portfolio.target_weights import generate_target_weights
 from ai_infra_fund_core.recommendations.builder import build_recommendation
 from ai_infra_fund_core.recommendations.policies import RecommendationPolicyContext
 from ai_infra_fund_core.runtime.config import RuntimeConfigError, RuntimeSettings
+from ai_infra_fund_core.signals.fundamental import FundamentalPeriodSnapshot, compute_fundamental_snapshot
+from ai_infra_fund_core.signals.sentiment import SentimentEvidence, compute_sentiment_snapshot
 from ai_infra_fund_core.signals.scoring import (
     ForwardIndicatorInputs,
     PortfolioRiskInputs,
@@ -41,6 +44,7 @@ from ai_infra_fund_core.signals.scoring import (
     TacticalTechnicalInputs,
     compute_signal_bundle,
 )
+from ai_infra_fund_core.signals.technical import MarketPoint, compute_technical_snapshot
 
 
 RUN_TYPE = "local_advisory"
@@ -120,6 +124,7 @@ class _SuccessResult:
         chunks: tuple[EvidenceChunk, ...],
         claims: tuple[EvidenceClaim, ...],
         signals: tuple[SignalBundle, ...],
+        intelligence_records: tuple[SimpleNamespace, ...],
         target_weights: TargetWeights,
         recommendation_artifact: RecommendationArtifact,
         recommendation_audit: RecommendationAudit,
@@ -136,6 +141,7 @@ class _SuccessResult:
         self.chunks = chunks
         self.claims = claims
         self.signals = signals
+        self.intelligence_records = intelligence_records
         self.target_weights = target_weights
         self.recommendation_artifact = recommendation_artifact
         self.recommendation_audit = recommendation_audit
@@ -160,6 +166,15 @@ def _build_success_result(bundle: LocalInputBundle) -> _SuccessResult:
 
     portfolio_snapshot_id = str(uuid5(NAMESPACE_URL, f"ai-infra-fund:portfolio:{inputs_hash}"))
     signals = _signal_bundles(bundle, claims, run_at, inputs_hash)
+    intelligence_records = _equity_intelligence_records(
+        bundle=bundle,
+        evidence_items=evidence_items,
+        claims=claims,
+        signals=signals,
+        run_at=run_at,
+        inputs_hash=inputs_hash,
+        model_run_id=model_run.model_run_id,
+    )
     target_weights = _target_weights(bundle, signals, run_at, inputs_hash)
     recommendation_signal = _primary_signal(signals, target_weights)
     policy_context = _policy_context(bundle.evidence_files, evidence_items)
@@ -189,6 +204,7 @@ def _build_success_result(bundle: LocalInputBundle) -> _SuccessResult:
         chunks=chunks,
         claims=claims,
         signals=signals,
+        intelligence_records=intelligence_records,
         target_weights=target_weights,
         recommendation_artifact=recommendation.artifact,
         recommendation_audit=recommendation.audit,
@@ -379,6 +395,277 @@ def _signal_bundles(
     return tuple(signals)
 
 
+def _equity_intelligence_records(
+    *,
+    bundle: LocalInputBundle,
+    evidence_items: Sequence[EvidenceItem],
+    claims: Sequence[EvidenceClaim],
+    signals: Sequence[SignalBundle],
+    run_at: datetime,
+    inputs_hash: str,
+    model_run_id: str,
+) -> tuple[SimpleNamespace, ...]:
+    evidence_by_id = {item.evidence_id: item for item in evidence_items}
+    claims_by_ticker: dict[str, list[EvidenceClaim]] = {}
+    for claim in claims:
+        claims_by_ticker.setdefault(claim.ticker_or_theme.upper(), []).append(claim)
+    market_by_ticker = {snapshot.ticker: snapshot for snapshot in bundle.market_snapshots}
+    records: list[SimpleNamespace] = []
+    for signal in signals:
+        ticker_claims = tuple(claims_by_ticker.get(signal.ticker, ()))
+        evidence_ids = tuple(claim.evidence_id for claim in ticker_claims)
+        claim_ids = tuple(claim.claim_id for claim in ticker_claims)
+        source_evidence = evidence_by_id.get(evidence_ids[0]) if evidence_ids else None
+        capture_id = f"capture-local-{_hash_payload('local_capture', {'ticker': signal.ticker, 'inputs_hash': inputs_hash})[:16]}"
+        event_id = f"equity-event-local-{signal.ticker.lower()}-{_hash_payload('local_event', {'ticker': signal.ticker, 'claims': claim_ids})[:12]}"
+        sentiment = _local_sentiment_snapshot(signal.ticker, run_at, ticker_claims, evidence_by_id)
+        technical = _local_technical_snapshot(signal.ticker, run_at, market_by_ticker.get(signal.ticker))
+        fundamental = _local_fundamental_snapshot(signal.ticker, run_at, signal, bundle.universe)
+        records.append(
+            SimpleNamespace(
+                source_raw_capture=SimpleNamespace(
+                    capture_id=capture_id,
+                    frontier_url_id=None,
+                    source_id="source-local-manual",
+                    url=source_evidence.source_uri if source_evidence else f"local://advisory/{signal.ticker}",
+                    captured_at=run_at,
+                    http_status=None,
+                    content_hash=_hash_payload("local_source_capture", {"ticker": signal.ticker, "evidence_ids": evidence_ids}),
+                    storage_uri=source_evidence.storage_uri if source_evidence else f"local://advisory/{signal.ticker}",
+                    content_type="text/markdown",
+                    byte_size=None,
+                    metadata={
+                        "evidence_ids": evidence_ids,
+                        "claim_ids": claim_ids,
+                        "model_run_ids": (model_run_id,),
+                    },
+                    created_at=run_at,
+                ),
+                equity_event=SimpleNamespace(
+                    event_id=event_id,
+                    ticker=signal.ticker,
+                    event_type="ai_capex_data_center_demand",
+                    event_time=run_at,
+                    available_at=run_at,
+                    source_capture_id=capture_id,
+                    summary=f"{signal.ticker} local evidence updated the advisory intelligence view.",
+                    severity=_event_severity(signal),
+                    evidence_ids=evidence_ids,
+                    evidence_claim_ids=claim_ids,
+                    model_run_ids=(model_run_id,),
+                    review_status="deterministic_extraction",
+                    metadata={
+                        "advisory_only": True,
+                        "source": "local_advisory_run",
+                        "signal_bundle_id": signal.signal_bundle_id,
+                    },
+                    content_hash=_hash_payload("local_equity_event", {"event_id": event_id, "evidence_ids": evidence_ids}),
+                    created_at=run_at,
+                ),
+                sentiment_snapshot=SimpleNamespace(
+                    snapshot_id=f"sentiment-local-{signal.ticker.lower()}-{inputs_hash[:12]}",
+                    ticker=signal.ticker,
+                    as_of=run_at,
+                    source_capture_id=capture_id,
+                    sentiment_score=sentiment.sentiment_score,
+                    confidence=sentiment.confidence,
+                    drivers={
+                        "direction": sentiment.direction,
+                        "directional_score": str(sentiment.directional_score),
+                        "horizon_days": sentiment.horizon_days,
+                        "evidence_ids": sentiment.evidence_ids,
+                        "fallback": not bool(ticker_claims),
+                    },
+                    content_hash=_hash_payload("local_sentiment_snapshot", {"ticker": signal.ticker, "inputs_hash": inputs_hash}),
+                    created_at=run_at,
+                ),
+                technical_snapshot=SimpleNamespace(
+                    snapshot_id=f"technical-local-{signal.ticker.lower()}-{inputs_hash[:12]}",
+                    ticker=signal.ticker,
+                    as_of=run_at,
+                    indicators={
+                        "short_moving_average": str(technical.short_moving_average),
+                        "long_moving_average": str(technical.long_moving_average),
+                        "momentum": str(technical.momentum),
+                        "trend_strength": str(technical.trend_strength),
+                        "volatility": str(technical.volatility),
+                        "rsi_score": str(technical.rsi_score),
+                        "drawdown": str(technical.drawdown),
+                        "volume_confirmation": str(technical.volume_confirmation),
+                        "tactical_technical_score": str(technical.tactical_technical_score),
+                    },
+                    trend_label=_trend_label(technical.trend_strength),
+                    content_hash=_hash_payload("local_technical_snapshot", {"ticker": signal.ticker, "inputs_hash": inputs_hash}),
+                    created_at=run_at,
+                ),
+                fundamental_snapshot=SimpleNamespace(
+                    snapshot_id=f"fundamental-local-{signal.ticker.lower()}-{inputs_hash[:12]}",
+                    ticker=signal.ticker,
+                    as_of=run_at,
+                    metrics={
+                        "revenue_growth": str(fundamental.revenue_growth),
+                        "margin_trend": str(fundamental.margin_trend),
+                        "valuation_pressure": str(fundamental.valuation_pressure),
+                        "guidance_direction": fundamental.guidance_direction,
+                        "capex_exposure": str(fundamental.capex_exposure),
+                        "balance_sheet_risk": str(fundamental.balance_sheet_risk),
+                        "earnings_surprise": str(fundamental.earnings_surprise),
+                        "fundamental_score": str(fundamental.fundamental_score),
+                    },
+                    rating_label=_fundamental_label(fundamental.fundamental_score),
+                    content_hash=_hash_payload("local_fundamental_snapshot", {"ticker": signal.ticker, "inputs_hash": inputs_hash}),
+                    created_at=run_at,
+                ),
+                intelligence_run=SimpleNamespace(
+                    run_id=f"equity-intel-local-{signal.ticker.lower()}-{inputs_hash[:12]}",
+                    ticker=signal.ticker,
+                    started_at=run_at,
+                    completed_at=run_at,
+                    status="succeeded",
+                    source_refresh_job_ids=(),
+                    frontier_url_ids=(),
+                    capture_ids=(capture_id,),
+                    event_ids=(event_id,),
+                    sentiment_snapshot_id=f"sentiment-local-{signal.ticker.lower()}-{inputs_hash[:12]}",
+                    technical_snapshot_id=f"technical-local-{signal.ticker.lower()}-{inputs_hash[:12]}",
+                    fundamental_snapshot_id=f"fundamental-local-{signal.ticker.lower()}-{inputs_hash[:12]}",
+                    summary={
+                        "advisory_only": True,
+                        "signal_bundle_id": signal.signal_bundle_id,
+                        "sentiment_score": str(sentiment.sentiment_score),
+                        "technical_score": str(technical.tactical_technical_score),
+                        "fundamental_score": str(fundamental.fundamental_score),
+                    },
+                    model_run_ids=(model_run_id,),
+                    error_summary=None,
+                    created_at=run_at,
+                ),
+            )
+        )
+    return tuple(records)
+
+
+def _local_sentiment_snapshot(
+    ticker: str,
+    run_at: datetime,
+    claims: Sequence[EvidenceClaim],
+    evidence_by_id: Mapping[str, EvidenceItem],
+) -> object:
+    evidence = tuple(
+        SentimentEvidence(
+            evidence_id=claim.evidence_id,
+            source_type=_sentiment_source_type(evidence_by_id.get(claim.evidence_id)),
+            direction=claim.direction if claim.direction in {"positive", "neutral", "negative"} else "neutral",
+            confidence=claim.confidence,
+            horizon_days=_horizon_days(claim.time_horizon),
+        )
+        for claim in claims
+    )
+    return compute_sentiment_snapshot(ticker=ticker, as_of=run_at, evidence=evidence)
+
+
+def _local_technical_snapshot(ticker: str, run_at: datetime, market: MarketSnapshotInput | None) -> object:
+    close = market.close_price if market and market.close_price else Decimal("100")
+    volume = Decimal(market.volume or 1) if market else Decimal("1")
+    points = tuple(
+        MarketPoint(
+            as_of=run_at - timedelta(days=4 - index),
+            close=(close * multiplier).quantize(Decimal("0.01")),
+            volume=volume,
+        )
+        for index, multiplier in enumerate((Decimal("0.96"), Decimal("0.98"), Decimal("0.99"), Decimal("1.01"), Decimal("1.00")))
+    )
+    return compute_technical_snapshot(ticker=ticker, as_of=run_at, points=points, short_window=3, long_window=5, momentum_window=3)
+
+
+def _local_fundamental_snapshot(
+    ticker: str,
+    run_at: datetime,
+    signal: SignalBundle,
+    universe: Sequence[UniverseInput],
+) -> object:
+    member = _universe_for(universe, ticker)
+    alignment = _theme_alignment(member)
+    prior = FundamentalPeriodSnapshot(
+        period_end=run_at - timedelta(days=90),
+        revenue=Decimal("100"),
+        operating_margin=Decimal("0.20"),
+        valuation_multiple=Decimal("30"),
+        guidance_revenue_growth=Decimal("0.04"),
+        capex_to_revenue=Decimal("0.10"),
+        debt_to_equity=Decimal("0.20"),
+        cash_to_debt=Decimal("1.20"),
+        eps_actual=Decimal("1.00"),
+        eps_consensus=Decimal("0.95"),
+    )
+    latest = FundamentalPeriodSnapshot(
+        period_end=run_at,
+        revenue=Decimal("100") * (Decimal("1") + (alignment - Decimal("0.5")) / Decimal("2")),
+        operating_margin=Decimal("0.20") + (signal.strategic_thesis_score - Decimal("0.5")) / Decimal("10"),
+        valuation_multiple=Decimal("30") + signal.forward_indicator_score * Decimal("15"),
+        guidance_revenue_growth=(alignment - Decimal("0.5")) / Decimal("2"),
+        capex_to_revenue=Decimal("0.12") if alignment >= Decimal("0.70") else Decimal("0.08"),
+        debt_to_equity=Decimal("0.20"),
+        cash_to_debt=Decimal("1.20"),
+        eps_actual=Decimal("1.10"),
+        eps_consensus=Decimal("1.00"),
+    )
+    return compute_fundamental_snapshot(
+        ticker=ticker,
+        as_of=run_at,
+        periods=(prior, latest),
+        benchmark_valuation_multiple=Decimal("35"),
+    )
+
+
+def _sentiment_source_type(evidence_item: EvidenceItem | None) -> str:
+    if evidence_item is None:
+        return "unknown"
+    if evidence_item.source_type in {"company_release", "regulatory_filing", "research_report", "news"}:
+        return evidence_item.source_type
+    if evidence_item.source_type in {"manual_report", "local_file"}:
+        return "research_report"
+    return "unknown"
+
+
+def _horizon_days(horizon: str) -> int:
+    normalized = horizon.strip().lower().replace("-", "_")
+    mapping = {
+        "short_term": 30,
+        "medium_term": 180,
+        "long_term": 365,
+        "1m": 30,
+        "3m": 90,
+        "6m": 180,
+        "12m": 365,
+    }
+    return mapping.get(normalized, 180)
+
+
+def _event_severity(signal: SignalBundle) -> str:
+    if signal.strategic_thesis_score >= Decimal("0.75") or signal.forward_indicator_score >= Decimal("0.75"):
+        return "high"
+    if signal.strategic_thesis_score >= Decimal("0.60") or signal.forward_indicator_score >= Decimal("0.60"):
+        return "medium"
+    return "low"
+
+
+def _trend_label(trend_strength: Decimal) -> str:
+    if trend_strength >= Decimal("0.70"):
+        return "constructive"
+    if trend_strength <= Decimal("0.35"):
+        return "weak"
+    return "neutral"
+
+
+def _fundamental_label(fundamental_score: Decimal) -> str:
+    if fundamental_score >= Decimal("0.70"):
+        return "strong"
+    if fundamental_score <= Decimal("0.35"):
+        return "weak"
+    return "neutral"
+
+
 def _target_weights(
     bundle: LocalInputBundle,
     signals: Sequence[SignalBundle],
@@ -423,6 +710,7 @@ def _persist_success(connection: Connection, result: _SuccessResult) -> None:
     repository.save_model_run(result.model_run)
     repository.save_evidence(result.evidence_items, result.chunks, result.claims)
     repository.save_signals(result.signals)
+    repository.save_equity_intelligence(result)
     repository.save_target_weights(result.target_weights)
     repository.save_recommendation(result.recommendation_artifact, result.recommendation_audit)
     repository.save_backtest(result)
@@ -517,6 +805,32 @@ class LocalAdvisoryRepository:
                     ),
                 )
             for member in bundle.universe:
+                cursor.execute(
+                    """
+                    INSERT INTO core.watched_equities (
+                        ticker, company_name, exchange, asset_type, active, priority, tags, thesis, created_at, updated_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (ticker) DO UPDATE SET
+                        company_name = EXCLUDED.company_name,
+                        active = EXCLUDED.active,
+                        priority = GREATEST(core.watched_equities.priority, EXCLUDED.priority),
+                        tags = EXCLUDED.tags,
+                        thesis = EXCLUDED.thesis,
+                        updated_at = EXCLUDED.updated_at;
+                    """,
+                    (
+                        member.ticker,
+                        member.name,
+                        None,
+                        "equity",
+                        member.watchlist_status == "active",
+                        _watchlist_priority(member),
+                        [member.theme, member.role],
+                        member.thesis_source,
+                        result.run_at,
+                        result.run_at,
+                    ),
+                )
                 cursor.execute(
                     """
                     INSERT INTO core.universe_members (
@@ -724,6 +1038,211 @@ class LocalAdvisoryRepository:
                         _json(signal.formula_versions),
                         signal.input_snapshot_hash,
                         signal.created_at,
+                    ),
+                )
+
+    def save_equity_intelligence(self, result: _SuccessResult) -> None:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO evidence.source_registry (
+                    source_id, source_name, source_type, base_url, license_label, data_class,
+                    reliability_score, metadata_json, active, created_at, updated_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s)
+                ON CONFLICT (source_id) DO UPDATE SET
+                    source_name = EXCLUDED.source_name,
+                    source_type = EXCLUDED.source_type,
+                    license_label = EXCLUDED.license_label,
+                    data_class = EXCLUDED.data_class,
+                    metadata_json = EXCLUDED.metadata_json,
+                    updated_at = EXCLUDED.updated_at;
+                """,
+                (
+                    "source-local-manual",
+                    "Local manual evidence",
+                    "manual_local_file",
+                    "local://manual",
+                    "user_private",
+                    "private_research",
+                    Decimal("0.75"),
+                    _json({"advisory_only": True, "origin": "local_advisory_run"}),
+                    True,
+                    result.run_at,
+                    result.run_at,
+                ),
+            )
+            for record in result.intelligence_records:
+                capture = record.source_raw_capture
+                event = record.equity_event
+                sentiment = record.sentiment_snapshot
+                technical = record.technical_snapshot
+                fundamental = record.fundamental_snapshot
+                run = record.intelligence_run
+                cursor.execute(
+                    """
+                    INSERT INTO evidence.source_raw_captures (
+                        capture_id, frontier_url_id, source_id, url, captured_at, http_status, content_hash,
+                        storage_uri, content_type, byte_size, metadata_json, created_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s)
+                    ON CONFLICT (content_hash) DO UPDATE SET
+                        frontier_url_id = EXCLUDED.frontier_url_id,
+                        source_id = EXCLUDED.source_id,
+                        url = EXCLUDED.url,
+                        captured_at = EXCLUDED.captured_at,
+                        storage_uri = EXCLUDED.storage_uri,
+                        metadata_json = EXCLUDED.metadata_json;
+                    """,
+                    (
+                        capture.capture_id,
+                        capture.frontier_url_id,
+                        capture.source_id,
+                        capture.url,
+                        capture.captured_at,
+                        capture.http_status,
+                        capture.content_hash,
+                        capture.storage_uri,
+                        capture.content_type,
+                        capture.byte_size,
+                        _json(capture.metadata),
+                        capture.created_at,
+                    ),
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO signals.equity_events (
+                        event_id, ticker, event_type, event_time, available_at, source_capture_id, summary,
+                        severity, evidence_ids, evidence_claim_ids, model_run_ids, review_status,
+                        metadata_json, content_hash, created_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)
+                    ON CONFLICT (content_hash) DO UPDATE SET
+                        event_time = EXCLUDED.event_time,
+                        available_at = EXCLUDED.available_at,
+                        summary = EXCLUDED.summary,
+                        evidence_ids = EXCLUDED.evidence_ids,
+                        evidence_claim_ids = EXCLUDED.evidence_claim_ids,
+                        model_run_ids = EXCLUDED.model_run_ids,
+                        review_status = EXCLUDED.review_status,
+                        metadata_json = EXCLUDED.metadata_json;
+                    """,
+                    (
+                        event.event_id,
+                        event.ticker,
+                        event.event_type,
+                        event.event_time,
+                        event.available_at,
+                        event.source_capture_id,
+                        event.summary,
+                        event.severity,
+                        list(event.evidence_ids),
+                        list(event.evidence_claim_ids),
+                        list(event.model_run_ids),
+                        event.review_status,
+                        _json(event.metadata),
+                        event.content_hash,
+                        event.created_at,
+                    ),
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO signals.sentiment_snapshots (
+                        snapshot_id, ticker, as_of, source_capture_id, sentiment_score, confidence,
+                        drivers_json, content_hash, created_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)
+                    ON CONFLICT (content_hash) DO UPDATE SET
+                        as_of = EXCLUDED.as_of,
+                        sentiment_score = EXCLUDED.sentiment_score,
+                        confidence = EXCLUDED.confidence,
+                        drivers_json = EXCLUDED.drivers_json;
+                    """,
+                    (
+                        sentiment.snapshot_id,
+                        sentiment.ticker,
+                        sentiment.as_of,
+                        sentiment.source_capture_id,
+                        sentiment.sentiment_score,
+                        sentiment.confidence,
+                        _json(sentiment.drivers),
+                        sentiment.content_hash,
+                        sentiment.created_at,
+                    ),
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO signals.technical_snapshots (
+                        snapshot_id, ticker, as_of, indicators_json, trend_label, content_hash, created_at
+                    ) VALUES (%s, %s, %s, %s::jsonb, %s, %s, %s)
+                    ON CONFLICT (content_hash) DO UPDATE SET
+                        as_of = EXCLUDED.as_of,
+                        indicators_json = EXCLUDED.indicators_json,
+                        trend_label = EXCLUDED.trend_label;
+                    """,
+                    (
+                        technical.snapshot_id,
+                        technical.ticker,
+                        technical.as_of,
+                        _json(technical.indicators),
+                        technical.trend_label,
+                        technical.content_hash,
+                        technical.created_at,
+                    ),
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO signals.fundamental_snapshots (
+                        snapshot_id, ticker, as_of, metrics_json, rating_label, content_hash, created_at
+                    ) VALUES (%s, %s, %s, %s::jsonb, %s, %s, %s)
+                    ON CONFLICT (content_hash) DO UPDATE SET
+                        as_of = EXCLUDED.as_of,
+                        metrics_json = EXCLUDED.metrics_json,
+                        rating_label = EXCLUDED.rating_label;
+                    """,
+                    (
+                        fundamental.snapshot_id,
+                        fundamental.ticker,
+                        fundamental.as_of,
+                        _json(fundamental.metrics),
+                        fundamental.rating_label,
+                        fundamental.content_hash,
+                        fundamental.created_at,
+                    ),
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO audit.equity_intelligence_runs (
+                        run_id, ticker, started_at, completed_at, status, source_refresh_job_ids,
+                        frontier_url_ids, capture_ids, event_ids, sentiment_snapshot_id,
+                        technical_snapshot_id, fundamental_snapshot_id, summary_json, model_run_ids,
+                        error_summary, created_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s)
+                    ON CONFLICT (run_id) DO UPDATE SET
+                        completed_at = EXCLUDED.completed_at,
+                        status = EXCLUDED.status,
+                        capture_ids = EXCLUDED.capture_ids,
+                        event_ids = EXCLUDED.event_ids,
+                        sentiment_snapshot_id = EXCLUDED.sentiment_snapshot_id,
+                        technical_snapshot_id = EXCLUDED.technical_snapshot_id,
+                        fundamental_snapshot_id = EXCLUDED.fundamental_snapshot_id,
+                        summary_json = EXCLUDED.summary_json,
+                        model_run_ids = EXCLUDED.model_run_ids,
+                        error_summary = EXCLUDED.error_summary;
+                    """,
+                    (
+                        run.run_id,
+                        run.ticker,
+                        run.started_at,
+                        run.completed_at,
+                        run.status,
+                        list(run.source_refresh_job_ids),
+                        list(run.frontier_url_ids),
+                        list(run.capture_ids),
+                        list(run.event_ids),
+                        run.sentiment_snapshot_id,
+                        run.technical_snapshot_id,
+                        run.fundamental_snapshot_id,
+                        _json(run.summary),
+                        list(run.model_run_ids),
+                        run.error_summary,
+                        run.created_at,
                     ),
                 )
 
@@ -1097,6 +1616,62 @@ def _theme_totals(weights: Mapping[str, Decimal], theme_by_ticker: Mapping[str, 
             continue
         totals[theme] = totals.get(theme, Decimal("0")) + weight
     return totals
+
+
+def _sentiment_source_type(evidence: EvidenceItem | None) -> str:
+    if evidence is None:
+        return "unknown"
+    if evidence.source_type in {"filing", "regulatory_filing"}:
+        return "regulatory_filing"
+    if evidence.source_type in {"company_release", "investor_relations", "press_release"}:
+        return "company_release"
+    if evidence.data_class is DataClass.PRIVATE_RESEARCH:
+        return "research_report"
+    return evidence.source_type or "unknown"
+
+
+def _horizon_days(horizon: str) -> int:
+    normalized = horizon.lower()
+    if "short" in normalized:
+        return 30
+    if "long" in normalized:
+        return 365
+    return 180
+
+
+def _event_severity(signal: SignalBundle) -> str:
+    if signal.forward_indicator_score >= Decimal("0.75") or signal.portfolio_risk_score >= Decimal("0.75"):
+        return "high"
+    if signal.forward_indicator_score <= Decimal("0.35") or signal.portfolio_risk_score <= Decimal("0.35"):
+        return "low"
+    return "medium"
+
+
+def _trend_label(score: Decimal) -> str:
+    if score >= Decimal("0.65"):
+        return "uptrend"
+    if score <= Decimal("0.35"):
+        return "downtrend"
+    return "neutral"
+
+
+def _fundamental_label(score: Decimal) -> str:
+    if score >= Decimal("0.75"):
+        return "compounder"
+    if score >= Decimal("0.55"):
+        return "constructive"
+    if score <= Decimal("0.35"):
+        return "avoid"
+    return "watch"
+
+
+def _watchlist_priority(member: UniverseInput) -> int:
+    status = member.watchlist_status.lower()
+    if status == "active":
+        return 75
+    if status == "watch":
+        return 50
+    return 25
 
 
 def _data_classes(bundle: LocalInputBundle) -> set[DataClass]:

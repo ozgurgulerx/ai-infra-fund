@@ -6,6 +6,7 @@ FORMULA_VERSIONS = {
     "sentiment_score": "v1",
     "tactical_technical_score": "v1",
     "fundamental_score": "v1",
+    "valuation_score": "v1",
     "forward_indicator_score": "v1",
     "portfolio_risk_score": "v1",
     "combined_attractiveness_score": "v1",

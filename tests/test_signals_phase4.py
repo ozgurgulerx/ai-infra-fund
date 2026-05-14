@@ -96,6 +96,7 @@ class Phase4SignalScoringTests(unittest.TestCase):
                 "sentiment_score",
                 "tactical_technical_score",
                 "fundamental_score",
+                "valuation_score",
                 "forward_indicator_score",
                 "portfolio_risk_score",
                 "combined_attractiveness_score",

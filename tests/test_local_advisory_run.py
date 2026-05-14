@@ -39,11 +39,19 @@ class LocalAdvisoryRunTests(unittest.TestCase):
             "core.portfolio_snapshots",
             "core.portfolio_snapshot_positions",
             "core.trade_entries",
+            "core.watched_equities",
             "core.universe_members",
             "signals.market_snapshots",
             "evidence.evidence_items",
             "evidence.evidence_chunks",
             "evidence.evidence_claims",
+            "evidence.source_registry",
+            "evidence.source_raw_captures",
+            "signals.equity_events",
+            "signals.sentiment_snapshots",
+            "signals.technical_snapshots",
+            "signals.fundamental_snapshots",
+            "audit.equity_intelligence_runs",
             "audit.model_runs",
             "signals.signal_bundles",
             "recommendations.target_weights",
@@ -59,6 +67,10 @@ class LocalAdvisoryRunTests(unittest.TestCase):
             self.assertNotIn("PLACE_ORDER", statement.upper())
             self.assertNotIn("SUBMIT_ORDER", statement.upper())
             self.assertNotIn("ORDER_EXECUTION", statement.upper())
+
+        self.assertIn("evidence_claim_ids", statements)
+        self.assertIn("model_run_ids", statements)
+        self.assertIn("review_status", statements)
 
     def test_missing_evidence_provenance_fails_closed_and_writes_failed_run_artifact(self) -> None:
         from ai_infra_fund_worker.local_advisory_run import run_local_advisory

@@ -19,6 +19,7 @@ entries:
     company_name: Microsoft
     themes:
       - ai_cloud
+      - hyperscaler_capex
       - enterprise_ai
       - model_platforms
     sector_tags:
@@ -33,6 +34,7 @@ entries:
     company_name: Alphabet
     themes:
       - ai_cloud
+      - hyperscaler_capex
       - ai_research
       - tensor_processing
     sector_tags:
@@ -41,6 +43,54 @@ entries:
     source_urls:
       - https://cloud.google.com/ai
       - https://abc.xyz/investor/
+    priority: high
+
+  - ticker: AMZN
+    company_name: Amazon
+    themes:
+      - hyperscaler_capex
+      - ai_cloud
+      - custom_silicon
+      - trainium_infrastructure
+      - data_center_power
+    sector_tags:
+      - cloud_platforms
+      - internet_platforms
+      - ai_infrastructure
+    source_urls:
+      - https://ir.aboutamazon.com/overview/
+      - https://aws.amazon.com/machine-learning/trainium/
+    priority: critical
+
+  - ticker: META
+    company_name: Meta Platforms
+    themes:
+      - hyperscaler_capex
+      - custom_silicon
+      - model_training
+      - ai_data_centers
+    sector_tags:
+      - internet_platforms
+      - ai_infrastructure
+      - social_platforms
+    source_urls:
+      - https://investor.atmeta.com/home/default.aspx
+      - https://about.fb.com/news/2024/04/introducing-our-next-generation-infrastructure-for-ai/
+    priority: critical
+
+  - ticker: TSLA
+    company_name: Tesla
+    themes:
+      - hyperscaler_capex
+      - autonomous_ai
+      - model_training
+      - data_center_power
+    sector_tags:
+      - automotive
+      - ai_infrastructure
+      - robotics
+    source_urls:
+      - https://ir.tesla.com/
     priority: high
 
   - ticker: AMD
@@ -69,6 +119,51 @@ entries:
       - https://www.tsmc.com/english
       - https://investor.tsmc.com/english
     priority: high
+
+  - ticker: SMICY
+    company_name: Semiconductor Manufacturing International Corporation
+    themes:
+      - foundry_capacity
+      - compute_supply_chain
+      - geopolitical_ai_competition
+      - export_controls
+    sector_tags:
+      - semiconductors
+      - foundry
+      - china_ai
+    source_urls:
+      - https://www.smics.com/en/site/investor
+    priority: medium
+
+  - ticker: INTC
+    company_name: Intel
+    themes:
+      - advanced_packaging
+      - compute_supply_chain
+      - foundry_capacity
+      - ai_accelerators
+    sector_tags:
+      - semiconductors
+      - manufacturing
+      - foundry
+    source_urls:
+      - https://www.intc.com/
+    priority: high
+
+  - ticker: BIDU
+    company_name: Baidu
+    themes:
+      - china_ai_cloud
+      - model_platforms
+      - geopolitical_ai_competition
+    sector_tags:
+      - internet_platforms
+      - cloud_platforms
+      - china_ai
+    source_urls:
+      - https://ir.baidu.com/
+      - https://cloud.baidu.com/en/index.html
+    priority: medium
 
   - ticker: ASML
     company_name: ASML Holding

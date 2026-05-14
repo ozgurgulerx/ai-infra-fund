@@ -41,6 +41,9 @@ class TechnicalSnapshot:
     drawdown: Decimal
     volume_confirmation: Decimal
     tactical_technical_score: Decimal
+    mean_reversion_score: Decimal | None = None
+    volatility_regime_score: Decimal | None = None
+    return_consistency_score: Decimal | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "ticker", require_text(self.ticker, "ticker").upper())
@@ -56,6 +59,7 @@ def compute_technical_snapshot(
     long_window: int = 10,
     momentum_window: int = 5,
     rsi_window: int = 14,
+    advanced_signals: bool = False,
 ) -> TechnicalSnapshot:
     require_aware_datetime(as_of, "as_of")
     if short_window <= 0 or long_window <= 0 or momentum_window <= 0 or rsi_window <= 0:
@@ -77,6 +81,9 @@ def compute_technical_snapshot(
     rsi_score = _rsi_score(closes[-(rsi_window + 1):])
     drawdown = (latest_close / max(closes) - ONE) if max(closes) > ZERO else ZERO
     volume_confirmation = _volume_confirmation(volumes[-long_window:])
+    mean_reversion_score = _mean_reversion_score(closes) if advanced_signals else None
+    volatility_regime_score = _volatility_regime_score(volatility) if advanced_signals else None
+    return_consistency_score = _return_consistency_score(closes) if advanced_signals else None
     tactical_score = score_tactical_technical(
         TacticalTechnicalInputs(
             trend_strength=trend_strength,
@@ -98,6 +105,9 @@ def compute_technical_snapshot(
         drawdown=_quantize(drawdown),
         volume_confirmation=volume_confirmation,
         tactical_technical_score=tactical_score,
+        mean_reversion_score=mean_reversion_score,
+        volatility_regime_score=volatility_regime_score,
+        return_consistency_score=return_consistency_score,
     )
 
 
@@ -155,6 +165,28 @@ def _volume_confirmation(volumes: Sequence[Decimal]) -> Decimal:
     if average_volume <= ZERO:
         return Decimal("0.5")
     return _quantize(_clamp(Decimal("0.5") + ((volumes[-1] / average_volume) - ONE) * Decimal("0.5"), ZERO, ONE))
+
+
+def _mean_reversion_score(closes: Sequence[Decimal]) -> Decimal:
+    average_close = _average(closes)
+    if average_close <= ZERO:
+        return Decimal("0.5")
+    deviation = closes[-1] / average_close - ONE
+    return _quantize(_clamp(abs(deviation) * Decimal("5"), ZERO, ONE))
+
+
+def _volatility_regime_score(volatility: Decimal) -> Decimal:
+    return _quantize(_clamp(ONE - volatility * Decimal("10"), ZERO, ONE))
+
+
+def _return_consistency_score(closes: Sequence[Decimal]) -> Decimal:
+    if len(closes) < 3:
+        return Decimal("0.5")
+    returns = [closes[index] / closes[index - 1] - ONE for index in range(1, len(closes))]
+    positive_count = sum(1 for value in returns if value > ZERO)
+    negative_count = sum(1 for value in returns if value < ZERO)
+    dominant_count = max(positive_count, negative_count)
+    return _quantize(Decimal(dominant_count) / Decimal(len(returns)))
 
 
 def _clamp(value: Decimal, low: Decimal, high: Decimal) -> Decimal:

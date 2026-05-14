@@ -67,6 +67,19 @@ FRONTIER_FIELDS = (
     "updated_at",
 )
 
+QUEUE_FIELDS = (
+    "queue_id",
+    "frontier_url_id",
+    "ticker",
+    "priority",
+    "status",
+    "next_attempt_at",
+    "leased_by",
+    "lease_expires_at",
+    "created_at",
+    "updated_at",
+)
+
 CAPTURE_FIELDS = (
     "capture_id",
     "frontier_url_id",
@@ -87,10 +100,14 @@ EVENT_FIELDS = (
     "ticker",
     "event_type",
     "event_time",
+    "available_at",
     "source_capture_id",
     "summary",
     "severity",
     "evidence_ids",
+    "evidence_claim_ids",
+    "model_run_ids",
+    "review_status",
     "metadata",
     "content_hash",
     "created_at",
@@ -227,6 +244,31 @@ class EquityIntelligenceRepositoryTests(unittest.TestCase):
         self.assertIn("CASE WHEN attempt_count + 1 >= max_attempts THEN 'failed' ELSE 'retry' END", statement)
         self.assertNotIn("HTTP 429", statement)
         self.assertEqual(("HTTP 429 from source", BACKOFF, NOW, "frontier-1"), params)
+        self.assertEqual(1, connection.commit_count)
+
+    def test_upserts_and_leases_crawl_frontier_queue_items(self) -> None:
+        leased_row = crawl_queue_row(status="leased", leased_by="worker-a", lease_expires_at=LATER)
+        connection = FakeConnection(rows=[leased_row], columns=QUEUE_FIELDS)
+        repository = EquityIntelligenceRepository(connection)
+
+        repository.upsert_crawl_queue_item(record_from(crawl_queue_item(), QUEUE_FIELDS))
+        leased = repository.lease_due_crawl_queue_items(
+            worker_id="worker-a",
+            lease_expires_at=LATER,
+            limit=5,
+            now=NOW,
+        )
+
+        insert_statement, insert_params = connection.cursor_instance.executions[0]
+        lease_statement, lease_params = connection.cursor_instance.executions[1]
+        self.assertIn("INSERT INTO evidence.crawl_frontier_queue", insert_statement)
+        self.assertIn("ON CONFLICT (frontier_url_id) DO UPDATE SET", insert_statement)
+        self.assertIn("FOR UPDATE SKIP LOCKED", lease_statement)
+        self.assertIn("UPDATE evidence.crawl_frontier_queue", lease_statement)
+        self.assertNotIn("worker-a", lease_statement)
+        self.assertEqual("queue-1", insert_params[0])
+        self.assertEqual(("worker-a", LATER, NOW, 5), lease_params)
+        self.assertEqual([dict(zip(QUEUE_FIELDS, leased_row, strict=True))], leased)
         self.assertEqual(1, connection.commit_count)
 
     def test_refresh_priority_boost_records_job_and_updates_due_frontier_urls(self) -> None:
@@ -410,6 +452,23 @@ def frontier_url(**overrides: object) -> dict[str, object]:
     return data
 
 
+def crawl_queue_item(**overrides: object) -> dict[str, object]:
+    data = {
+        "queue_id": "queue-1",
+        "frontier_url_id": "frontier-1",
+        "ticker": "NVDA",
+        "priority": 100,
+        "status": "queued",
+        "next_attempt_at": NOW,
+        "leased_by": None,
+        "lease_expires_at": None,
+        "created_at": NOW,
+        "updated_at": NOW,
+    }
+    data.update(overrides)
+    return data
+
+
 def raw_capture(**overrides: object) -> dict[str, object]:
     data = {
         "capture_id": "capture-1",
@@ -433,12 +492,16 @@ def equity_event(**overrides: object) -> dict[str, object]:
     data = {
         "event_id": "event-1",
         "ticker": "NVDA",
-        "event_type": "earnings",
+        "event_type": "earnings_guidance",
         "event_time": NOW,
+        "available_at": LATER,
         "source_capture_id": "capture-1",
         "summary": "NVIDIA demand remains strong",
         "severity": "medium",
         "evidence_ids": ("evidence-1",),
+        "evidence_claim_ids": ("claim-1",),
+        "model_run_ids": ("model-run-1",),
+        "review_status": "model_extracted",
         "metadata": {"quarter": "q1"},
         "content_hash": "hash-event-1",
         "created_at": NOW,
@@ -517,6 +580,11 @@ def equity_intelligence_run(**overrides: object) -> dict[str, object]:
 def frontier_url_row(**overrides: object) -> tuple[object, ...]:
     data = frontier_url(**overrides)
     return tuple(data[field] for field in FRONTIER_FIELDS)
+
+
+def crawl_queue_row(**overrides: object) -> tuple[object, ...]:
+    data = crawl_queue_item(**overrides)
+    return tuple(data[field] for field in QUEUE_FIELDS)
 
 
 def record_from(data: dict[str, object], fields: tuple[str, ...]) -> SimpleNamespace:

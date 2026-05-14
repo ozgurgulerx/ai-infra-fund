@@ -12,6 +12,7 @@ REQUIRED_UI_FILES = [
     "app/trade-intents/page.tsx",
     "app/trade-journal/page.tsx",
     "app/watchlist/page.tsx",
+    "app/api/backend/[...path]/route.ts",
     "app/ticker/[ticker]/page.tsx",
     "app/evidence/page.tsx",
     "app/signals/page.tsx",
@@ -21,6 +22,8 @@ REQUIRED_UI_FILES = [
     "app/incidents/page.tsx",
     "app/globals.css",
     "components/app-shell.tsx",
+    "components/trade-entry-form.tsx",
+    "components/hedge-fund-component-map.tsx",
     "components/status-tile.tsx",
     "components/module-grid.tsx",
     "components/section-panel.tsx",
@@ -55,6 +58,13 @@ REQUIRED_DASHBOARD_TEXT = [
     "Signals",
     "Runs",
     "Ops Room",
+    "Hedge Fund Component Map",
+    "Data Spine",
+    "Evidence & Research",
+    "Signal Factory",
+    "Portfolio & Advisory",
+    "Governance & Ops",
+    "Auto-updates from live module summaries",
     "Latest Advisory Chain",
     "Evidence -> Chunk -> Claim -> SignalBundle -> TargetWeights -> Recommendation -> Audit -> Evaluation",
     "recommendation-demo-nvda",
@@ -105,6 +115,9 @@ READ_ONLY_DASHBOARD_ENDPOINTS = [
 ]
 
 FORBIDDEN_FETCH_METHODS = ["POST", "PUT", "PATCH", "DELETE"]
+ALLOWED_MUTATION_ENDPOINTS = {
+    "POST": "/internal/trade-journal/entries",
+}
 
 FORBIDDEN_FRONTEND_IMPORT_PATTERNS = [
     r"from\s+[\"'].*backend",
@@ -154,6 +167,31 @@ class ControlRoomUiTests(unittest.TestCase):
         self.assertIn("control-room-shell", page)
         self.assertIn("ops-room", page)
 
+    def test_frontend_design_system_uses_operational_chrome_and_dense_responsive_patterns(self) -> None:
+        shell = read_web("components/app-shell.tsx")
+        status_tile = read_web("components/status-tile.tsx")
+        css = read_web("app/globals.css")
+        required_shell_text = [
+            "nav-section",
+            "nav-section-title",
+            "topbar-rail",
+            "topbar-chip",
+            "workspace-signal",
+        ]
+        required_status_text = ["status-beacon"]
+        required_css_text = [
+            "--surface-panel",
+            "--accent-amber",
+            ".app-frame::before",
+            ".topbar-rail",
+            ".section-panel::before",
+            ".component-map-flow span::before",
+            "@media (max-width: 1180px)",
+        ]
+        self.assertEqual([], [text for text in required_shell_text if text not in shell])
+        self.assertEqual([], [text for text in required_status_text if text not in status_tile])
+        self.assertEqual([], [text for text in required_css_text if text not in css])
+
     def test_module_statuses_have_colors_and_sources(self) -> None:
         model = read_web("lib/status-model.ts")
         for status in ("passing", "degraded", "failing", "planned"):
@@ -199,10 +237,23 @@ class ControlRoomUiTests(unittest.TestCase):
         self.assertRegex(api, r"method:\s*[\"']GET[\"']")
         forbidden_methods = [
             method
-            for method in FORBIDDEN_FETCH_METHODS
+            for method in ("PUT", "PATCH", "DELETE")
             if re.search(rf"method:\s*[\"']{method}[\"']", api)
         ]
         self.assertEqual([], forbidden_methods)
+
+    def test_frontend_has_same_origin_read_only_backend_proxy_for_deployment(self) -> None:
+        proxy = read_web("app/api/backend/[...path]/route.ts")
+        required = [
+            "AI_INFRA_FUND_INTERNAL_API_BASE_URL",
+            "GET",
+            "forwardReadOnlyBackendRequest",
+            'method: "GET"',
+            "NextResponse",
+        ]
+        self.assertEqual([], [text for text in required if text not in proxy])
+        self.assertNotIn("export async function POST", proxy)
+        self.assertNotIn('method: "POST"', proxy)
 
     def test_dashboard_summary_fetches_have_degraded_backend_fallbacks(self) -> None:
         api = read_web("lib/api.ts")
@@ -236,14 +287,15 @@ class ControlRoomUiTests(unittest.TestCase):
         ]
         self.assertEqual([], offenders)
 
-    def test_frontend_has_no_mutation_fetch_methods(self) -> None:
+    def test_frontend_only_allows_trade_journal_post_mutation(self) -> None:
         combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())
-        forbidden_methods = [
-            method
-            for method in FORBIDDEN_FETCH_METHODS
-            if re.search(rf"method:\s*[\"']{method}[\"']", combined)
-        ]
-        self.assertEqual([], forbidden_methods)
+        for method in ("PUT", "PATCH", "DELETE"):
+            self.assertNotRegex(combined, rf"method:\s*[\"']{method}[\"']")
+        self.assertIn('method: "POST"', combined)
+        self.assertIn(ALLOWED_MUTATION_ENDPOINTS["POST"], combined)
+        self.assertIn("createTradeJournalEntry", combined)
+        self.assertNotIn("/internal/evidence/manual", combined)
+        self.assertNotIn("/internal/recommendations", combined)
 
     def test_dashboard_renders_advisory_chain_sections_from_read_only_payload(self) -> None:
         combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())
@@ -307,6 +359,33 @@ class ControlRoomUiTests(unittest.TestCase):
         ):
             self.assertTrue((WEB_ROOT / relative_path).is_file(), relative_path)
 
+    def test_hedge_fund_component_map_is_data_driven_and_live_updated(self) -> None:
+        component = read_web("components/hedge-fund-component-map.tsx")
+        page = read_web("app/page.tsx")
+        ops_page = read_web("app/ops/page.tsx")
+
+        required_component_text = [
+            "Hedge Fund Component Map",
+            "Data Spine",
+            "Evidence & Research",
+            "Signal Factory",
+            "Portfolio & Advisory",
+            "Governance & Ops",
+            "ModuleStatusRecord",
+            "STATUS_TONE_MAP",
+            "modules.map",
+            "sourceLabel",
+            "status",
+            'data-testid="hedge-fund-component-map"',
+        ]
+        missing = [text for text in required_component_text if text not in component]
+        self.assertEqual([], missing)
+        self.assertIn("<HedgeFundComponentMap", page)
+        self.assertIn("modules={modules}", page)
+        self.assertIn("Auto-updates from live module summaries", page)
+        self.assertIn("setInterval(refreshDashboardFeeds, 30000)", page)
+        self.assertIn("<HedgeFundComponentMap", ops_page)
+
     def test_manual_trade_intent_workflow_is_local_and_advisory_only(self) -> None:
         combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())
         required = [
@@ -326,6 +405,24 @@ class ControlRoomUiTests(unittest.TestCase):
         self.assertEqual([], missing)
         self.assertNotIn("localStorage.setItem", combined)
         self.assertNotIn("Save Trade Intent", combined)
+
+    def test_manual_trade_entry_form_posts_only_to_local_journal(self) -> None:
+        combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())
+        required = [
+            "Add Trade To Local Journal",
+            "createTradeJournalEntry",
+            "fetchTradeJournalEntries",
+            "/internal/trade-journal/entries",
+            "Manual buy/sell journal entry",
+            "Journal-only record",
+            "Trade date",
+            "Settlement date",
+            "Account label",
+            "Local journal only",
+            "No broker connection",
+        ]
+        missing = [text for text in required if text not in combined]
+        self.assertEqual([], missing)
 
     def test_no_order_or_broker_execution_ui_labels_exist(self) -> None:
         combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())

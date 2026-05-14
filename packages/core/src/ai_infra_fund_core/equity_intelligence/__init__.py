@@ -1,6 +1,22 @@
 """Deterministic equity intelligence crawl-frontier primitives."""
 
-from .connectors import ConnectorFetchResult, SourceConnector, StubSourceConnector
+from .connectors import (
+    CompanyIrPressConnector,
+    ConnectorFetchResult,
+    FutureProviderHook,
+    ManualLocalFileConnector,
+    MarketPriceSnapshot,
+    MarketPriceSnapshotConnector,
+    NewsRssPublicWebConnector,
+    SecFilingConnector,
+    SourceConnector,
+    StubCompanyIrPressConnector,
+    StubManualLocalFileConnector,
+    StubMarketPriceSnapshotConnector,
+    StubNewsRssPublicWebConnector,
+    StubSecFilingConnector,
+    StubSourceConnector,
+)
 from .events import EquityEvent, EquityEventType
 from .freshness import FreshnessAssessment, FreshnessPolicy, FreshnessStatus, assess_freshness
 from .frontier import (
@@ -15,29 +31,67 @@ from .frontier import (
     record_crawl_success,
     seed_crawl_target,
 )
+from .ratings import (
+    DynamicRatingInput,
+    DynamicRatingLabel,
+    DynamicRatingUpdate,
+    derive_dynamic_rating,
+)
+from .research import (
+    DeepResearchTask,
+    MonitoredEquity,
+    MonitoringCadencePolicy,
+    RefreshJobPlan,
+    ResearchMonitoringPlan,
+    ThemeResearchGroup,
+    build_research_monitoring_plan,
+)
 from .sources import SourcePolicy
 from .urls import CanonicalUrl, canonicalize_url
 
 __all__ = [
     "CanonicalUrl",
     "ClaimResult",
+    "CompanyIrPressConnector",
     "ConnectorFetchResult",
     "CrawlQueueItem",
     "CrawlTarget",
+    "DeepResearchTask",
+    "DynamicRatingInput",
+    "DynamicRatingLabel",
+    "DynamicRatingUpdate",
     "EquityEvent",
     "EquityEventType",
     "FreshnessAssessment",
     "FreshnessPolicy",
     "FreshnessStatus",
     "FrontierPolicy",
+    "FutureProviderHook",
+    "ManualLocalFileConnector",
+    "MarketPriceSnapshot",
+    "MarketPriceSnapshotConnector",
+    "MonitoredEquity",
+    "MonitoringCadencePolicy",
+    "NewsRssPublicWebConnector",
     "PriorityBoost",
+    "RefreshJobPlan",
+    "ResearchMonitoringPlan",
+    "SecFilingConnector",
     "SourceConnector",
     "SourcePolicy",
+    "StubCompanyIrPressConnector",
+    "StubManualLocalFileConnector",
+    "StubMarketPriceSnapshotConnector",
+    "StubNewsRssPublicWebConnector",
+    "StubSecFilingConnector",
     "StubSourceConnector",
+    "ThemeResearchGroup",
     "apply_priority_boosts",
     "assess_freshness",
+    "build_research_monitoring_plan",
     "canonicalize_url",
     "claim_due_targets",
+    "derive_dynamic_rating",
     "record_crawl_failure",
     "record_crawl_success",
     "seed_crawl_target",

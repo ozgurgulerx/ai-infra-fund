@@ -163,6 +163,35 @@ class ApiReadinessTests(unittest.TestCase):
         self.assertEqual(200, response.status_code)
         self.assertEqual("http://localhost:3000", response.headers.get("access-control-allow-origin"))
 
+    def test_configured_web_origin_can_read_health_endpoint(self) -> None:
+        from fastapi.testclient import TestClient
+
+        from ai_infra_fund_api import main
+
+        app = main.create_app(
+            connection_check=lambda _settings: True,
+            web_origins=("https://fundrag-frontend.azurewebsites.net",),
+        )
+        response = TestClient(app).options(
+            "/health",
+            headers={
+                "Origin": "https://fundrag-frontend.azurewebsites.net",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            "https://fundrag-frontend.azurewebsites.net",
+            response.headers.get("access-control-allow-origin"),
+        )
+
+    def test_api_cors_origins_are_configurable_for_deployed_frontend(self) -> None:
+        api_source = (ROOT / "services" / "api" / "src" / "ai_infra_fund_api" / "main.py").read_text(encoding="utf-8")
+        self.assertIn("AI_INFRA_FUND_CORS_ORIGINS", api_source)
+        self.assertIn("web_origins", api_source)
+        self.assertIn("configured_web_origins", api_source)
+
     def test_local_web_origin_is_not_granted_cross_origin_post(self) -> None:
         from fastapi.testclient import TestClient
 
@@ -212,7 +241,7 @@ class ComposeSmokeScriptTests(unittest.TestCase):
         required_snippets = [
             "set -euo pipefail",
             "docker compose config",
-            "docker compose build api worker web",
+            "docker compose build api migrate worker web",
             "docker compose up -d postgres",
             "docker compose run --rm migrate",
             "docker compose up -d api worker web",

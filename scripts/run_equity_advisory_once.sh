@@ -53,7 +53,7 @@ CSV
 fi
 
 cd "${PROJECT_ROOT}"
-docker compose build worker
+docker compose build migrate worker
 docker compose up -d postgres
 docker compose run --rm migrate
 docker compose run --rm -e "AI_INFRA_FUND_LOCAL_INPUT_DIR=${CONTAINER_INPUT_DIR}" worker python -m ai_infra_fund_worker.local_advisory_run

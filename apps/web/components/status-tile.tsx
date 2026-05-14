@@ -14,7 +14,10 @@ export function StatusTile({ title, status, source, detail, metric }: StatusTile
   return (
     <article className={`status-tile ${tone.cssClass}`}>
       <div className="status-tile-header">
-        <h3>{title}</h3>
+        <h3>
+          <span className="status-beacon" aria-hidden="true" />
+          {title}
+        </h3>
         <span className="status-pill">{tone.label}</span>
       </div>
       {metric ? <p className="status-metric">{metric}</p> : null}

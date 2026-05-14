@@ -18,9 +18,16 @@ from ai_infra_fund_core.equity_intelligence import (  # noqa: E402
     EquityEventType,
     FreshnessPolicy,
     FreshnessStatus,
+    FutureProviderHook,
     FrontierPolicy,
+    MarketPriceSnapshot,
     PriorityBoost,
     SourcePolicy,
+    StubCompanyIrPressConnector,
+    StubManualLocalFileConnector,
+    StubMarketPriceSnapshotConnector,
+    StubNewsRssPublicWebConnector,
+    StubSecFilingConnector,
     StubSourceConnector,
     apply_priority_boosts,
     assess_freshness,
@@ -257,6 +264,45 @@ class EquityIntelligenceFrontierTests(unittest.TestCase):
         self.assertEqual("event:earnings:evt-nvda-earnings", boost.reason)
         self.assertEqual(40, boost.priority_delta)
 
+    def test_typed_equity_event_taxonomy_and_lineage_cover_phase10_prompt(self) -> None:
+        required_types = {
+            "earnings_guidance",
+            "analyst_rating_change",
+            "ai_capex_data_center_demand",
+            "gpu_accelerator_supply_chain",
+            "product_launch",
+            "semiconductor_capacity",
+            "hyperscaler_spending",
+            "regulation_export_controls",
+            "power_cooling_constraints",
+            "valuation_rating_change",
+            "technical_breakout_breakdown",
+            "risk_controversy",
+        }
+
+        self.assertTrue(required_types.issubset({event_type.value for event_type in EquityEventType}))
+
+        event = EquityEvent(
+            event_id="evt-nvda-analyst-1",
+            event_type=EquityEventType.ANALYST_RATING_CHANGE,
+            ticker="NVDA",
+            source_uri="https://example.com/analyst-note",
+            observed_at=NOW,
+            available_at=NOW + timedelta(minutes=1),
+            confidence=0.8,
+            summary="Analyst raised AI accelerator growth estimates.",
+            source_capture_id="capture-1",
+            evidence_ids=("evidence-1",),
+            evidence_claim_ids=("claim-1",),
+            extracted_by_model_run_id="model-run-1",
+            review_status="model_extracted",
+        )
+
+        self.assertEqual(("evidence-1",), event.evidence_ids)
+        self.assertEqual(("claim-1",), event.evidence_claim_ids)
+        self.assertEqual("model-run-1", event.extracted_by_model_run_id)
+        self.assertEqual("model_extracted", event.review_status)
+
     def test_stub_connector_returns_registered_results_without_network(self) -> None:
         connector = StubSourceConnector(
             connector_id="fixture",
@@ -279,6 +325,46 @@ class EquityIntelligenceFrontierTests(unittest.TestCase):
 
         with self.assertRaisesRegex(KeyError, "no stub result"):
             connector.fetch("https://example.com/missing")
+
+    def test_named_source_connectors_and_future_provider_hooks_are_fixture_backed(self) -> None:
+        result = ConnectorFetchResult(
+            canonical_url="https://example.com/ir",
+            status_code=200,
+            fetched_at=NOW,
+            content="public evidence",
+            content_hash="hash-ir",
+        )
+        news = StubNewsRssPublicWebConnector(connector_id="news-rss", results={"https://example.com/ir": result})
+        filing = StubSecFilingConnector(connector_id="sec", results={"https://example.com/ir": result})
+        ir = StubCompanyIrPressConnector(connector_id="company-ir", results={"https://example.com/ir": result})
+        local = StubManualLocalFileConnector(connector_id="manual-local", results={"/tmp/nvda.md": result})
+        market = StubMarketPriceSnapshotConnector(
+            connector_id="market-fixture",
+            snapshots={
+                "NVDA": MarketPriceSnapshot(
+                    ticker="nvda",
+                    as_of=NOW,
+                    close_price=900,
+                    volume=1_000_000,
+                    source="fixture",
+                    content_hash="hash-market",
+                )
+            },
+        )
+        future_hook = FutureProviderHook(
+            provider_id="yfinance",
+            connector_kind="market_price",
+            capabilities=("daily_prices", "volume"),
+            requires_secret=False,
+            enabled=False,
+        )
+
+        self.assertEqual("https://example.com/ir", news.fetch("https://example.com/ir").canonical_url)
+        self.assertEqual("hash-ir", filing.fetch("https://example.com/ir").content_hash)
+        self.assertEqual("company-ir", ir.connector_id)
+        self.assertEqual("hash-ir", local.fetch_file("/tmp/nvda.md").content_hash)
+        self.assertEqual("NVDA", market.fetch_snapshot("nvda").ticker)
+        self.assertEqual(("daily_prices", "volume"), future_hook.capabilities)
 
 
 if __name__ == "__main__":

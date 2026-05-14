@@ -28,7 +28,7 @@ log "validating compose config"
 docker compose config
 
 log "building service images"
-docker compose build api worker web
+docker compose build api migrate worker web
 
 log "starting postgres"
 docker compose up -d postgres
@@ -47,6 +47,16 @@ docker compose exec -T postgres psql \
   -d ai_infra_fund \
   -v ON_ERROR_STOP=1 \
   -c "SELECT to_regclass('evidence.evidence_chunks') AS evidence_chunks, to_regclass('recommendations.recommendation_artifacts') AS recommendation_artifacts;"
+docker compose exec -T postgres psql \
+  -U ai_infra_fund \
+  -d ai_infra_fund \
+  -v ON_ERROR_STOP=1 \
+  -c "SELECT to_regclass('core.watched_equities') AS watched_equities, to_regclass('signals.equity_events') AS equity_events, to_regclass('audit.equity_intelligence_runs') AS equity_intelligence_runs;"
+docker compose exec -T postgres psql \
+  -U ai_infra_fund \
+  -d ai_infra_fund \
+  -v ON_ERROR_STOP=1 \
+  -c "SELECT column_name FROM information_schema.columns WHERE table_schema = 'signals' AND table_name = 'equity_events' AND column_name IN ('available_at', 'evidence_claim_ids', 'model_run_ids', 'review_status') ORDER BY column_name;"
 docker compose exec -T postgres psql \
   -U ai_infra_fund \
   -d ai_infra_fund \

@@ -10,8 +10,10 @@ ROOT = Path(__file__).resolve().parents[1]
 class Phase10EquityIntelligenceMigrationTests(unittest.TestCase):
     def test_phase10_migration_defines_equity_source_and_snapshot_tables(self) -> None:
         migration_path = ROOT / "services" / "api" / "migrations" / "0002_phase10_equity_intelligence.sql"
+        lineage_migration_path = ROOT / "services" / "api" / "migrations" / "0003_phase10_event_lineage.sql"
 
         sql = migration_path.read_text(encoding="utf-8")
+        lineage_sql = lineage_migration_path.read_text(encoding="utf-8")
 
         required_snippets = [
             "CREATE TABLE IF NOT EXISTS core.watched_equities",
@@ -35,6 +37,18 @@ class Phase10EquityIntelligenceMigrationTests(unittest.TestCase):
 
         missing = [snippet for snippet in required_snippets if snippet not in sql]
         self.assertEqual([], missing)
+
+        lineage_snippets = [
+            "ALTER TABLE signals.equity_events",
+            "ADD COLUMN IF NOT EXISTS available_at TIMESTAMPTZ",
+            "ADD COLUMN IF NOT EXISTS evidence_claim_ids TEXT[] NOT NULL DEFAULT '{}'",
+            "ADD COLUMN IF NOT EXISTS model_run_ids TEXT[] NOT NULL DEFAULT '{}'",
+            "ADD COLUMN IF NOT EXISTS review_status TEXT NOT NULL DEFAULT 'deterministic'",
+            "equity_events_evidence_claim_ids_idx",
+            "equity_events_model_run_ids_idx",
+        ]
+        missing_lineage = [snippet for snippet in lineage_snippets if snippet not in lineage_sql]
+        self.assertEqual([], missing_lineage)
 
 
 if __name__ == "__main__":
