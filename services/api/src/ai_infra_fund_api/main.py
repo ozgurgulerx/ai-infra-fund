@@ -4,9 +4,10 @@ import os
 from pathlib import Path
 from typing import Callable
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from ai_infra_fund_api.routes.advisory_chain import (
     AdvisoryChainReadRepository,
@@ -64,6 +65,42 @@ SERVICE_NAME = "api"
 VERSION = "0.1.0"
 LOCAL_WEB_ORIGINS = ("http://localhost:3000", "http://127.0.0.1:3000")
 CORS_ORIGINS_ENV = "AI_INFRA_FUND_CORS_ORIGINS"
+INTERNAL_TOKEN_ENV = "AI_INFRA_FUND_INTERNAL_TOKEN"
+INTERNAL_TOKEN_HEADER = "X-Internal-Token"
+INTERNAL_PATH_PREFIX = "/internal/"
+
+
+class InternalTokenAuthMiddleware(BaseHTTPMiddleware):
+    """Require ``X-Internal-Token`` on ``/internal/*`` paths when configured.
+
+    When ``token`` is falsy the middleware is a no-op — intended only for local
+    dev. Production deployments must set ``AI_INFRA_FUND_INTERNAL_TOKEN``.
+    """
+
+    def __init__(self, app, *, token: str | None) -> None:
+        super().__init__(app)
+        self._token = token or None
+
+    async def dispatch(self, request: Request, call_next):
+        if (
+            self._token is not None
+            and request.url.path.startswith(INTERNAL_PATH_PREFIX)
+            and request.method != "OPTIONS"
+        ):
+            if request.headers.get(INTERNAL_TOKEN_HEADER) != self._token:
+                return JSONResponse(
+                    status_code=401,
+                    content={
+                        "error": {
+                            "code": "unauthorized",
+                            "message": (
+                                f"valid {INTERNAL_TOKEN_HEADER} header required"
+                            ),
+                        }
+                    },
+                )
+        return await call_next(request)
+
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_AGENT_SKILL_PATH = REPO_ROOT / "docs" / "agent" / "SKILL.md"
@@ -117,8 +154,14 @@ def create_app(
     shadow_portfolio_service: ShadowPortfolioService | None = None,
     agent_skill_path: Path | None = None,
     agent_openapi_yaml_path: Path | None = None,
+    internal_token: str | None | object = ...,
 ) -> FastAPI:
     app = FastAPI(title="AI Infrastructure Fund API", version=VERSION)
+    resolved_internal_token = _resolve_internal_token(internal_token)
+    app.add_middleware(
+        InternalTokenAuthMiddleware,
+        token=resolved_internal_token,
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(web_origins or configured_web_origins()),
@@ -224,6 +267,19 @@ def create_app(
     )
 
     return app
+
+
+def _resolve_internal_token(internal_token: str | None | object) -> str | None:
+    token_value = (
+        os.environ.get(INTERNAL_TOKEN_ENV) if internal_token is ... else internal_token
+    )
+    token = token_value.strip() if isinstance(token_value, str) else None
+    environment = os.environ.get("AI_INFRA_FUND_ENV", "").strip().lower()
+    if environment in {"production", "prod"} and not token:
+        raise RuntimeError(
+            f"{INTERNAL_TOKEN_ENV} is required when AI_INFRA_FUND_ENV=production"
+        )
+    return token or None
 
 
 app = create_app()

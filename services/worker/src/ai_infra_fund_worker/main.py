@@ -105,6 +105,12 @@ def _run_crawl_mode(settings: RuntimeSettings) -> None:
     captures_root = Path(
         os.getenv("AI_INFRA_FUND_CAPTURES_ROOT", str(settings.data_dir))
     )
+    user_agent = (os.getenv("SEC_EDGAR_USER_AGENT") or "").strip()
+    if not user_agent:
+        raise RuntimeError(
+            "SEC_EDGAR_USER_AGENT must be set before starting crawl mode "
+            "(e.g. 'AI Infra Fund Research <contact@example.com>')"
+        )
     config = SchedulerConfig(
         worker_id=os.getenv("AI_INFRA_FUND_WORKER_ID") or "crawl-default",
         policy=FrontierPolicy(
@@ -112,6 +118,7 @@ def _run_crawl_mode(settings: RuntimeSettings) -> None:
             domain_cap=int(os.getenv("AI_INFRA_FUND_CRAWL_DOMAIN_CAP", "2")),
         ),
         captures_root=captures_root,
+        user_agent=user_agent,
         idle_sleep_seconds=float(os.getenv("AI_INFRA_FUND_CRAWL_IDLE_SECONDS", "30")),
     )
 

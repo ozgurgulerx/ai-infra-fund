@@ -16,6 +16,18 @@ components:
           minItems: 1
           title: Dataset Snapshot Ids
           type: array
+        formula_version:
+          minLength: 1
+          title: Formula Version
+          type: string
+        git_sha:
+          minLength: 1
+          title: Git Sha
+          type: string
+        model_run_id:
+          minLength: 1
+          title: Model Run Id
+          type: string
         pipeline_inputs:
           additionalProperties: true
           title: Pipeline Inputs
@@ -33,6 +45,9 @@ components:
       - dataset_snapshot_ids
       - validation_protocol
       - cost_assumptions
+      - formula_version
+      - model_run_id
+      - git_sha
       - as_of
       title: BacktestRequestBody
       type: object

@@ -80,7 +80,80 @@ The v1 runtime boundary is Docker Compose:
 - `worker`: background worker container for ingestion, embeddings, deterministic scoring, backtests, and scheduled runs.
 - `web`: Next.js frontend on port `3000`.
 
+The current deployed shape mirrors that boundary: web runs as an Azure App Service, backend services run in AKS, and images are built and pushed through Azure Container Registry.
+
+![AI Infrastructure Fund deployment diagram generated with Gemini Nano Banana](docs/assets/ai-infra-fund-deployment-nanobanana.png)
+
+The generated diagram is a visual overview. The Mermaid diagram below is the exact source-of-truth representation for architecture reviews.
+
+```mermaid
+flowchart TB
+  reviewer["Human reviewer"]
+  publicSources["Public/news/filing/IR sources"]
+  localFiles["Local files and manual CSV inputs"]
+  watchlist["config/ai_equity_watchlist.yaml"]
+  modelProfiles["config/model_profiles.yaml"]
+  acr["Azure Container Registry<br/>api / worker / web images"]
+  appService["Azure App Service<br/>Next.js read-only control room"]
+  browserProxy["Same-origin frontend proxy<br/>/api/backend/*"]
+  apiLb["AKS LoadBalancer<br/>ai-infra-fund-api-lb"]
+
+  subgraph aks["AKS namespace: ai-infra-fund"]
+    api["api Deployment<br/>FastAPI routes + repositories"]
+    worker["worker Deployment<br/>crawl, backtest, advisory jobs"]
+    migrate["migrate Job<br/>schema migrations"]
+    postgres["PostgreSQL + pgvector StatefulSet<br/>core / evidence / signals / recommendations / audit / governance"]
+  end
+
+  subgraph core["packages/core deterministic domain modules"]
+    evidence["evidence<br/>sources, adapters, chunks, claims, embeddings"]
+    equity["equity_intelligence<br/>watchlist seeding, URLs, frontier, captures, extraction, typed events"]
+    signals["signals<br/>sentiment, technical, fundamental, valuation, integrated SignalBundle"]
+    portfolio["portfolio<br/>constraints, target weights, shadow simulation"]
+    recommendations["recommendations<br/>advisory artifacts + publication policy"]
+    evaluation["evaluation + runs<br/>bias checks, costs, stress, backtests, run artifacts"]
+    routing["model_routing<br/>task routing, data-class allowlists, fallback chains"]
+  end
+
+  reviewer --> appService
+  appService --> browserProxy
+  browserProxy --> apiLb
+  apiLb --> api
+  acr --> appService
+  acr --> api
+  acr --> worker
+  migrate --> postgres
+  api --> postgres
+  worker --> postgres
+  watchlist --> worker
+  localFiles --> worker
+  publicSources --> worker
+  modelProfiles --> routing
+  routing --> postgres
+  worker --> evidence --> equity --> signals --> portfolio --> recommendations --> evaluation
+  api --> evidence
+  api --> equity
+  api --> signals
+  api --> recommendations
+  api --> evaluation
+  recommendations --> postgres
+  evaluation --> postgres
+
+  noExecution["Intentionally absent:<br/>broker credentials, order routing, live execution endpoints"]
+  recommendations -->|"advisory-only labels"| noExecution
+```
+
+Module responsibilities are split deliberately:
+
+- `packages/core` contains the shared contracts and deterministic domain logic. It is the scoring, portfolio, evidence, crawler, recommendation, evaluation, and model-routing policy layer.
+- `services/api` exposes health/readiness, dashboard reads, evidence/recommendation/evaluation/run routes, agent bootstrap endpoints, local journal routes, and repository-backed database access.
+- `services/worker` owns asynchronous work: crawl scheduling, capture/extraction, backtest orchestration, local advisory runs, and iterative job processing.
+- `apps/web` renders the read-only control room and reaches the backend through configured API base URLs or the same-origin `/api/backend/*` proxy.
+- `services/api/migrations` defines the PostgreSQL + pgvector data spine, including portfolio state, evidence provenance, model runs, signal snapshots, target weights, recommendation audits, crawl logs, backtest requests, and experiment events.
+
 The API exposes health and readiness endpoints at `/health` and `/ready`, plus internal routes for evidence, recommendations, evaluations, advisory-chain reads, runs, dashboard summaries, ticker intelligence, and the local trade journal.
+
+External AI agents can bootstrap against the read-only advisory surface via `GET /internal/agent/skill` (Markdown, mirrors `docs/agent/SKILL.md`) and the OpenAPI spec at `GET /internal/agent/openapi.json` / `GET /internal/agent/openapi.yaml`. The committed YAML snapshot lives at `docs/api/openapi.yaml`; regenerate it with `python scripts/export_openapi.py`.
 
 The frontend calls the API through `NEXT_PUBLIC_API_BASE_URL` in browser code and `AI_INFRA_FUND_INTERNAL_API_BASE_URL` from the container network.
 
@@ -95,6 +168,7 @@ Key settings:
 - `AI_INFRA_FUND_DATA_DIR`: ignored local data directory mounted into containers.
 - `AI_INFRA_FUND_MODEL_PROFILES`: path to model-routing config.
 - `AI_INFRA_FUND_CORS_ORIGINS`: comma-separated allowed frontend origins.
+- `AI_INFRA_FUND_INTERNAL_TOKEN`: required in production for `/internal/*` API access; keep it server-side only.
 - `AZURE_AI_FOUNDRY_ENDPOINT` and `AZURE_AI_FOUNDRY_API_KEY`: optional cloud model endpoint settings.
 - `OLLAMA_BASE_URL`: local model endpoint for private/local fallback routes.
 - `NEXT_PUBLIC_API_BASE_URL`: browser-visible API base URL.

@@ -113,6 +113,9 @@ class HttpFetcher:
         self._robots = robots_cache
         self._throttle = domain_throttle
 
+    def close(self) -> None:
+        self._client.close()
+
     def fetch(
         self,
         url: str,

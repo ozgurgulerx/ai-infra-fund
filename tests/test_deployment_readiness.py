@@ -95,6 +95,15 @@ class MigrationReadinessTests(unittest.TestCase):
 
         self.assertEqual(["0001_first.sql", "0002_second.sql"], applied)
 
+    def test_compose_smoke_fails_when_worker_logs_errors(self) -> None:
+        smoke_script = (ROOT / "scripts" / "compose_smoke.sh").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("worker_logs=", smoke_script)
+        self.assertIn("worker logs contain errors", smoke_script)
+        self.assertIn("grep -Eq", smoke_script)
+
 
 class PythonPackagingReadinessTests(unittest.TestCase):
     def test_pyproject_supports_editable_install_for_all_python_packages(self) -> None:

@@ -2,6 +2,7 @@
 #
 # Usage example:
 #   POSTGRES_PASSWORD=replace-with-secret \
+#   AI_INFRA_FUND_INTERNAL_TOKEN=replace-with-secret \
 #   docker compose -f docker-compose.yml -f docker-compose.prod.example.yml config
 #
 # This file is an example overlay, not a secret store. Real secrets must come
@@ -32,6 +33,7 @@ services:
       AI_INFRA_FUND_DATABASE_URL: postgresql://${POSTGRES_USER:-ai_infra_fund}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD before using the production overlay}@postgres:5432/${POSTGRES_DB:-ai_infra_fund}
       AI_INFRA_FUND_DATA_DIR: /app/data
       AI_INFRA_FUND_MODEL_PROFILES: config/model_profiles.yaml
+      AI_INFRA_FUND_INTERNAL_TOKEN: ${AI_INFRA_FUND_INTERNAL_TOKEN:?Set AI_INFRA_FUND_INTERNAL_TOKEN before using the production overlay}
       AZURE_AI_FOUNDRY_ENDPOINT: ${AZURE_AI_FOUNDRY_ENDPOINT:-}
       AZURE_AI_FOUNDRY_API_KEY: ${AZURE_AI_FOUNDRY_API_KEY:-}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
@@ -50,4 +52,5 @@ services:
   web:
     environment:
       AI_INFRA_FUND_INTERNAL_API_BASE_URL: ${AI_INFRA_FUND_INTERNAL_API_BASE_URL:-http://api:8000}
+      AI_INFRA_FUND_INTERNAL_TOKEN: ${AI_INFRA_FUND_INTERNAL_TOKEN:?Set AI_INFRA_FUND_INTERNAL_TOKEN before using the production overlay}
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}

@@ -61,6 +61,11 @@ docker compose exec -T postgres psql \
   -U ai_infra_fund \
   -d ai_infra_fund \
   -v ON_ERROR_STOP=1 \
+  -c "SELECT column_name FROM information_schema.columns WHERE table_schema = 'audit' AND table_name = 'backtest_requests' AND column_name IN ('formula_version', 'git_sha', 'model_run_id') ORDER BY column_name;"
+docker compose exec -T postgres psql \
+  -U ai_infra_fund \
+  -d ai_infra_fund \
+  -v ON_ERROR_STOP=1 \
   -c "INSERT INTO audit.model_runs (model_run_id, task_role, model_id, deployment, provider, prompt_version, input_hash, output_hash, latency_ms, token_estimate_input, token_estimate_output, schema_valid, retry_count, data_classes, status, created_at) VALUES ('smoke-model-run', 'evidence_summary', 'smoke-model', 'smoke-deployment', 'smoke-provider', 'smoke-prompt-v1', repeat('a', 64), repeat('b', 64), 1, 1, 1, true, 0, ARRAY['public_evidence'], 'success', now()) ON CONFLICT (model_run_id) DO NOTHING;"
 docker compose exec -T postgres psql \
   -U ai_infra_fund \
@@ -81,6 +86,13 @@ log "showing service status"
 docker compose ps
 
 log "recent service logs"
-docker compose logs --no-color --tail=100
+docker compose logs --no-color --tail=100 api worker web migrate
+
+worker_logs="$(docker compose logs --no-color --tail=100 worker || true)"
+if printf '%s\n' "$worker_logs" | grep -Eq '(ERROR|Traceback|UndefinedColumn|ImportError)'; then
+  log "worker logs contain errors"
+  printf '%s\n' "$worker_logs"
+  exit 1
+fi
 
 log "compose smoke passed"

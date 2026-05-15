@@ -40,6 +40,7 @@ const DEMO_ADVISORY_CHAIN_ENDPOINT = "/internal/advisory-chain/demo";
 const LATEST_ADVISORY_CHAIN_ENDPOINT = "/internal/advisory-chain/latest";
 const TRADE_JOURNAL_ENTRIES_ENDPOINT = "/internal/trade-journal/entries";
 const TRADE_JOURNAL_PROXY_ENDPOINT = "/api/trade-journal/entries";
+const BACKEND_PROXY_PREFIX = "/api/backend";
 
 export type TradeJournalEntryInput = {
   ticker: string;
@@ -66,6 +67,10 @@ export function apiBaseUrl(): string {
   return (
     process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
   ).replace(/\/$/, "");
+}
+
+function backendProxyUrl(endpoint: string): string {
+  return `${BACKEND_PROXY_PREFIX}${endpoint}`;
 }
 
 export async function fetchApiHealth(): Promise<RuntimeProbe> {
@@ -95,7 +100,7 @@ export async function fetchDashboardModules(): Promise<
 
   try {
     const response = await fetch(
-      `${apiBaseUrl()}${DASHBOARD_MODULES_ENDPOINT}`,
+      backendProxyUrl(DASHBOARD_MODULES_ENDPOINT),
       {
         cache: "no-store",
         method: "GET",
@@ -168,7 +173,7 @@ export async function fetchCrawlActivity(): Promise<CrawlActivitySummary | null>
   );
   try {
     const response = await fetch(
-      `${apiBaseUrl()}/internal/dashboard/crawl-activity`,
+      backendProxyUrl("/internal/dashboard/crawl-activity"),
       {
         cache: "no-store",
         method: "GET",
@@ -355,7 +360,7 @@ async function fetchAdvisoryChain(
   );
 
   try {
-    const response = await fetch(`${apiBaseUrl()}${endpoint}`, {
+    const response = await fetch(backendProxyUrl(endpoint), {
       cache: "no-store",
       method: "GET",
       signal: controller.signal,
@@ -437,7 +442,7 @@ async function fetchReadOnlyDashboardSummary<
   );
 
   try {
-    const response = await fetch(`${apiBaseUrl()}${endpoint}`, {
+    const response = await fetch(backendProxyUrl(endpoint), {
       cache: "no-store",
       method: "GET",
       signal: controller.signal,

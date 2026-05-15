@@ -233,7 +233,7 @@ python3 -m unittest discover -s tests
 python3 -m compileall packages services tests
 cd apps/web && npm audit --omit=dev
 docker compose config
-POSTGRES_PASSWORD=replace-with-secret docker compose -f docker-compose.yml -f docker-compose.prod.example.yml config
+POSTGRES_PASSWORD=replace-with-secret AI_INFRA_FUND_INTERNAL_TOKEN=replace-with-secret docker compose -f docker-compose.yml -f docker-compose.prod.example.yml config
 scripts/compose_smoke.sh
 docker compose down
 ```

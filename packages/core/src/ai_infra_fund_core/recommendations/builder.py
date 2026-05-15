@@ -6,6 +6,7 @@ from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any
 
+from ai_infra_fund_core.audit.experiment_events import EventSink, build_event
 from ai_infra_fund_core.contracts.common import (
     AdvisoryLabel,
     RecommendationAction,
@@ -16,8 +17,15 @@ from ai_infra_fund_core.contracts.common import (
     stable_hash_payload,
 )
 from ai_infra_fund_core.contracts.evidence import EvidenceClaim
-from ai_infra_fund_core.contracts.recommendations import RecommendationArtifact, RecommendationAudit
-from ai_infra_fund_core.contracts.signals import FORBIDDEN_WEIGHT_GENERATORS, SignalBundle, TargetWeights
+from ai_infra_fund_core.contracts.recommendations import (
+    RecommendationArtifact,
+    RecommendationAudit,
+)
+from ai_infra_fund_core.contracts.signals import (
+    FORBIDDEN_WEIGHT_GENERATORS,
+    SignalBundle,
+    TargetWeights,
+)
 
 from .policies import RecommendationPolicyContext, evaluate_publication_policy
 
@@ -64,6 +72,8 @@ def build_recommendation(
     model_run_ids: Sequence[str],
     created_at: datetime,
     policy_context: RecommendationPolicyContext | None = None,
+    event_sink: EventSink | None = None,
+    run_id: str | None = None,
 ) -> RecommendationBuildResult:
     require_aware_datetime(created_at, "created_at")
     signal = _signal_snapshot(signal_bundle)
@@ -117,7 +127,9 @@ def build_recommendation(
         risks=_risk_findings(claims),
         contradictions=_contradiction_findings(claims),
         final_payload={
-            "summary": _deterministic_summary(action, signal.ticker, decision.suppression_reasons),
+            "summary": _deterministic_summary(
+                action, signal.ticker, decision.suppression_reasons
+            ),
             "publication_status": status,
             "suppression_reasons": decision.suppression_reasons,
             "narrative_source": "deterministic_placeholder_with_audited_model_runs",
@@ -134,11 +146,43 @@ def build_recommendation(
         signal_bundle_id=signal.signal_bundle_id,
         evidence_ids=evidence_ids,
         model_run_ids=model_ids,
-        deterministic_checks={**deterministic_checks, "suppression_reasons": decision.suppression_reasons},
-        reviewer_findings={"status": "deterministic_placeholder", "model_run_ids": model_ids},
+        deterministic_checks={
+            **deterministic_checks,
+            "suppression_reasons": decision.suppression_reasons,
+        },
+        reviewer_findings={
+            "status": "deterministic_placeholder",
+            "model_run_ids": model_ids,
+        },
         schema_valid=decision.should_publish,
         created_at=created_at,
     )
+    if event_sink is not None:
+        weights_event = build_event(
+            kind="weights_generated",
+            run_id=run_id,
+            payload={
+                "target_weights_id": target.target_weights_id,
+                "ticker": signal.ticker,
+                "cash_weight": str(target.cash_weight),
+                "validation_status": target.validation_status,
+            },
+            occurred_at=created_at,
+        )
+        event_sink(weights_event)
+        recommendation_event = build_event(
+            kind="recommendation_issued",
+            run_id=run_id,
+            payload={
+                "recommendation_id": recommendation_id,
+                "ticker": signal.ticker,
+                "action": action.value,
+                "should_publish": decision.should_publish,
+                "suppression_reasons": list(decision.suppression_reasons),
+            },
+            occurred_at=created_at,
+        )
+        event_sink(recommendation_event)
     return RecommendationBuildResult(
         artifact=artifact,
         audit=audit,
@@ -147,18 +191,26 @@ def build_recommendation(
     )
 
 
-def _signal_snapshot(signal_bundle: SignalBundle | Mapping[str, Any]) -> _SignalSnapshot:
+def _signal_snapshot(
+    signal_bundle: SignalBundle | Mapping[str, Any],
+) -> _SignalSnapshot:
     if isinstance(signal_bundle, SignalBundle):
         return _SignalSnapshot(
-            signal_bundle_id=require_text(signal_bundle.signal_bundle_id, "signal_bundle_id"),
+            signal_bundle_id=require_text(
+                signal_bundle.signal_bundle_id, "signal_bundle_id"
+            ),
             ticker=require_text(signal_bundle.ticker, "ticker").upper(),
             strategic_thesis_score=Decimal(str(signal_bundle.strategic_thesis_score)),
-            tactical_technical_score=Decimal(str(signal_bundle.tactical_technical_score)),
+            tactical_technical_score=Decimal(
+                str(signal_bundle.tactical_technical_score)
+            ),
             forward_indicator_score=Decimal(str(signal_bundle.forward_indicator_score)),
             portfolio_risk_score=Decimal(str(signal_bundle.portfolio_risk_score)),
         )
     if not isinstance(signal_bundle, Mapping):
-        raise ValueError("signal_bundle must be a SignalBundle or persisted SignalBundle record")
+        raise ValueError(
+            "signal_bundle must be a SignalBundle or persisted SignalBundle record"
+        )
     required = {
         "signal_bundle_id",
         "ticker",
@@ -168,18 +220,26 @@ def _signal_snapshot(signal_bundle: SignalBundle | Mapping[str, Any]) -> _Signal
         "portfolio_risk_score",
     }
     if not required <= set(signal_bundle):
-        raise ValueError("signal_bundle must be a SignalBundle or persisted SignalBundle record")
+        raise ValueError(
+            "signal_bundle must be a SignalBundle or persisted SignalBundle record"
+        )
     return _SignalSnapshot(
-        signal_bundle_id=require_text(signal_bundle.get("signal_bundle_id"), "signal_bundle_id"),
+        signal_bundle_id=require_text(
+            signal_bundle.get("signal_bundle_id"), "signal_bundle_id"
+        ),
         ticker=require_text(signal_bundle.get("ticker"), "ticker").upper(),
         strategic_thesis_score=Decimal(str(signal_bundle["strategic_thesis_score"])),
-        tactical_technical_score=Decimal(str(signal_bundle["tactical_technical_score"])),
+        tactical_technical_score=Decimal(
+            str(signal_bundle["tactical_technical_score"])
+        ),
         forward_indicator_score=Decimal(str(signal_bundle["forward_indicator_score"])),
         portfolio_risk_score=Decimal(str(signal_bundle["portfolio_risk_score"])),
     )
 
 
-def _target_weights_snapshot(target_weights: TargetWeights | Mapping[str, Any]) -> _TargetWeightsSnapshot:
+def _target_weights_snapshot(
+    target_weights: TargetWeights | Mapping[str, Any],
+) -> _TargetWeightsSnapshot:
     if isinstance(target_weights, TargetWeights):
         return _make_target_snapshot(
             target_weights_id=target_weights.target_weights_id,
@@ -190,7 +250,9 @@ def _target_weights_snapshot(target_weights: TargetWeights | Mapping[str, Any]) 
             validation_status=target_weights.validation_status,
         )
     if not isinstance(target_weights, Mapping):
-        raise ValueError("target_weights must be a TargetWeights instance or persisted TargetWeights record")
+        raise ValueError(
+            "target_weights must be a TargetWeights instance or persisted TargetWeights record"
+        )
     required = {
         "target_weights_id",
         "cash_weight",
@@ -200,7 +262,9 @@ def _target_weights_snapshot(target_weights: TargetWeights | Mapping[str, Any]) 
         "validation_status",
     }
     if not required <= set(target_weights):
-        raise ValueError("target_weights must be a TargetWeights instance or persisted TargetWeights record")
+        raise ValueError(
+            "target_weights must be a TargetWeights instance or persisted TargetWeights record"
+        )
     return _make_target_snapshot(
         target_weights_id=target_weights.get("target_weights_id"),
         cash_weight=target_weights["cash_weight"],
@@ -222,7 +286,9 @@ def _make_target_snapshot(
 ) -> _TargetWeightsSnapshot:
     generated_by_text = require_text(generated_by, "generated_by")
     if generated_by_text.lower() in FORBIDDEN_WEIGHT_GENERATORS:
-        raise ValueError("TargetWeights must be generated by deterministic portfolio code")
+        raise ValueError(
+            "TargetWeights must be generated by deterministic portfolio code"
+        )
     if not isinstance(weights, Mapping) or not weights:
         raise ValueError("weights must not be empty")
     normalized_weights = {
@@ -232,7 +298,10 @@ def _make_target_snapshot(
     source_ids = tuple(
         dict.fromkeys(
             require_text(source_id, "source_signal_bundle_ids")
-            for source_id in require_non_empty_tuple(normalize_tuple(source_signal_bundle_ids, "source_signal_bundle_ids"), "source_signal_bundle_ids")
+            for source_id in require_non_empty_tuple(
+                normalize_tuple(source_signal_bundle_ids, "source_signal_bundle_ids"),
+                "source_signal_bundle_ids",
+            )
         )
     )
     return _TargetWeightsSnapshot(
@@ -245,8 +314,12 @@ def _make_target_snapshot(
     )
 
 
-def _evidence_claims(evidence_claims: Sequence[EvidenceClaim]) -> tuple[EvidenceClaim, ...]:
-    claims = require_non_empty_tuple(normalize_tuple(evidence_claims, "evidence_claims"), "evidence_claims")
+def _evidence_claims(
+    evidence_claims: Sequence[EvidenceClaim],
+) -> tuple[EvidenceClaim, ...]:
+    claims = require_non_empty_tuple(
+        normalize_tuple(evidence_claims, "evidence_claims"), "evidence_claims"
+    )
     for claim in claims:
         if not isinstance(claim, EvidenceClaim):
             raise ValueError("evidence_claims must contain EvidenceClaim records")
@@ -255,14 +328,20 @@ def _evidence_claims(evidence_claims: Sequence[EvidenceClaim]) -> tuple[Evidence
 
 
 def _evidence_ids(claims: Sequence[EvidenceClaim]) -> tuple[str, ...]:
-    return tuple(dict.fromkeys(require_text(claim.evidence_id, "evidence_id") for claim in claims))
+    return tuple(
+        dict.fromkeys(
+            require_text(claim.evidence_id, "evidence_id") for claim in claims
+        )
+    )
 
 
 def _model_run_ids(model_run_ids: Sequence[str]) -> tuple[str, ...]:
     ids = tuple(
         dict.fromkeys(
             require_text(model_run_id, "model_run_ids")
-            for model_run_id in require_non_empty_tuple(normalize_tuple(model_run_ids, "model_run_ids"), "model_run_ids")
+            for model_run_id in require_non_empty_tuple(
+                normalize_tuple(model_run_ids, "model_run_ids"), "model_run_ids"
+            )
         )
     )
     return require_non_empty_tuple(ids, "model_run_ids")
@@ -285,10 +364,12 @@ def _deterministic_checks(
         "signal_bundle_id_present": bool(signal.signal_bundle_id),
         "target_weights_id_present": bool(target.target_weights_id),
         "evidence_ids_present": bool(_evidence_ids(claims)),
-        "target_weights_generated_by_deterministic": "deterministic" in target.generated_by.lower(),
+        "target_weights_generated_by_deterministic": "deterministic"
+        in target.generated_by.lower(),
         "target_weights_validated": target.validation_status == "validated",
         "target_weights_unit_bounds_valid": weights_in_unit_bounds,
-        "source_signal_bundle_linked": signal.signal_bundle_id in target.source_signal_bundle_ids,
+        "source_signal_bundle_linked": signal.signal_bundle_id
+        in target.source_signal_bundle_ids,
         "target_weights_sum_valid": abs(total_weight - ONE) <= WEIGHT_TOLERANCE,
         "evidence_covers_signal": signal.ticker in evidence_claim_tickers,
         "stale_evidence_ids": context.stale_evidence_ids,
@@ -306,7 +387,9 @@ def _recommendation_score(signal: _SignalSnapshot) -> Decimal:
     )
 
 
-def _recommendation_action(score: Decimal, target_weight: Decimal) -> RecommendationAction:
+def _recommendation_action(
+    score: Decimal, target_weight: Decimal
+) -> RecommendationAction:
     if score >= Decimal("0.75") and target_weight >= Decimal("0.25"):
         return RecommendationAction.CORE_BUY
     if score >= Decimal("0.60") and target_weight > ZERO:
@@ -324,14 +407,23 @@ def _risk_findings(claims: Sequence[EvidenceClaim]) -> tuple[str, ...]:
             {
                 claim.claim_type
                 for claim in claims
-                if (claim.direction or "").lower() == "negative" or "risk" in claim.claim_type.lower()
+                if (claim.direction or "").lower() == "negative"
+                or "risk" in claim.claim_type.lower()
             }
         )
     )
 
 
 def _contradiction_findings(claims: Sequence[EvidenceClaim]) -> tuple[str, ...]:
-    return tuple(sorted({claim.claim_type for claim in claims if "contradiction" in claim.claim_type.lower()}))
+    return tuple(
+        sorted(
+            {
+                claim.claim_type
+                for claim in claims
+                if "contradiction" in claim.claim_type.lower()
+            }
+        )
+    )
 
 
 def _deterministic_summary(
@@ -373,7 +465,12 @@ def _recommendation_id(
 
 
 def _audit_id(recommendation_id: str, deterministic_checks: dict[str, Any]) -> str:
-    digest = stable_hash_payload({"recommendation_id": recommendation_id, "deterministic_checks": deterministic_checks})
+    digest = stable_hash_payload(
+        {
+            "recommendation_id": recommendation_id,
+            "deterministic_checks": deterministic_checks,
+        }
+    )
     return f"recommendation-audit-{digest[:16]}"
 
 

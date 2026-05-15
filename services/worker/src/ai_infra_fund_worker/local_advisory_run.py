@@ -13,11 +13,18 @@ from typing import Protocol
 from urllib.parse import urlencode
 from uuid import NAMESPACE_URL, uuid5
 
-from ai_infra_fund_core.contracts.common import DataClass, ModelRunStatus, stable_hash_payload
+from ai_infra_fund_core.contracts.common import (
+    DataClass,
+    ModelRunStatus,
+    stable_hash_payload,
+)
 from ai_infra_fund_core.contracts.evidence import EvidenceClaim, EvidenceItem
 from ai_infra_fund_core.contracts.evaluation import RunArtifact
 from ai_infra_fund_core.contracts.model_runs import ModelRun
-from ai_infra_fund_core.contracts.recommendations import RecommendationArtifact, RecommendationAudit
+from ai_infra_fund_core.contracts.recommendations import (
+    RecommendationArtifact,
+    RecommendationAudit,
+)
 from ai_infra_fund_core.contracts.signals import SignalBundle, TargetWeights
 from ai_infra_fund_core.evidence.chunking import EvidenceChunk, chunk_evidence_text
 from ai_infra_fund_core.evidence.hashing import compute_content_hash
@@ -31,11 +38,18 @@ from ai_infra_fund_core.local_inputs.csv_validators import (
 )
 from ai_infra_fund_core.portfolio.constraints import PortfolioConstraints
 from ai_infra_fund_core.portfolio.target_weights import generate_target_weights
+from ai_infra_fund_core.audit.experiment_events import EventSink
 from ai_infra_fund_core.recommendations.builder import build_recommendation
 from ai_infra_fund_core.recommendations.policies import RecommendationPolicyContext
 from ai_infra_fund_core.runtime.config import RuntimeConfigError, RuntimeSettings
-from ai_infra_fund_core.signals.fundamental import FundamentalPeriodSnapshot, compute_fundamental_snapshot
-from ai_infra_fund_core.signals.sentiment import SentimentEvidence, compute_sentiment_snapshot
+from ai_infra_fund_core.signals.fundamental import (
+    FundamentalPeriodSnapshot,
+    compute_fundamental_snapshot,
+)
+from ai_infra_fund_core.signals.sentiment import (
+    SentimentEvidence,
+    compute_sentiment_snapshot,
+)
 from ai_infra_fund_core.signals.scoring import (
     ForwardIndicatorInputs,
     PortfolioRiskInputs,
@@ -55,25 +69,29 @@ _LAST_SUCCESS_BY_INPUT_DIR: dict[str, dict[str, object]] = {}
 
 
 class Cursor(Protocol):
-    def execute(self, statement: str, params: tuple[object, ...] | None = None) -> None:
-        ...
+    def execute(
+        self, statement: str, params: tuple[object, ...] | None = None
+    ) -> None: ...
 
 
 class Connection(Protocol):
-    def cursor(self) -> object:
-        ...
+    def cursor(self) -> object: ...
 
-    def commit(self) -> None:
-        ...
+    def commit(self) -> None: ...
 
 
-def run_local_advisory(connection: Connection, input_dir: Path) -> dict[str, object]:
+def run_local_advisory(
+    connection: Connection,
+    input_dir: Path,
+    *,
+    event_sink: EventSink | None = None,
+) -> dict[str, object]:
     cache_key = str(Path(input_dir))
     if not Path(input_dir).exists() and cache_key in _LAST_SUCCESS_BY_INPUT_DIR:
         return dict(_LAST_SUCCESS_BY_INPUT_DIR[cache_key])
     try:
         bundle = load_local_input_bundle(Path(input_dir))
-        result = _build_success_result(bundle)
+        result = _build_success_result(bundle, event_sink=event_sink)
         _persist_success(connection, result)
         connection.commit()
         response = _success_response(result)
@@ -89,10 +107,17 @@ def run_local_advisory(connection: Connection, input_dir: Path) -> dict[str, obj
 def run_from_environment() -> dict[str, object]:
     import psycopg
 
-    input_dir = Path(os.environ.get("AI_INFRA_FUND_LOCAL_INPUT_DIR", "/app/data/local_advisory_input"))
+    from .event_sink import PostgresEventSink
+
+    input_dir = Path(
+        os.environ.get(
+            "AI_INFRA_FUND_LOCAL_INPUT_DIR", "/app/data/local_advisory_input"
+        )
+    )
     settings = RuntimeSettings.from_env(os.environ, allow_defaults=True)
+    event_sink = PostgresEventSink(database_url=settings.database_url)
     with psycopg.connect(settings.database_url) as connection:
-        return run_local_advisory(connection, input_dir)
+        return run_local_advisory(connection, input_dir, event_sink=event_sink)
 
 
 def main() -> None:
@@ -156,16 +181,32 @@ class _FailedResult:
         self.run_artifact = run_artifact
 
 
-def _build_success_result(bundle: LocalInputBundle) -> _SuccessResult:
+def _build_success_result(
+    bundle: LocalInputBundle,
+    *,
+    event_sink: EventSink | None = None,
+) -> _SuccessResult:
     run_at = _run_at(bundle)
     inputs_hash = _hash_payload("local_advisory_inputs", _bundle_hash_payload(bundle))
+    run_id = f"run-local-advisory-{inputs_hash[:16]}"
     model_run = _no_model_marker(inputs_hash, run_at, bundle)
-    evidence_items, chunks, claims = _evidence_records(bundle, run_at, model_run.model_run_id)
+    evidence_items, chunks, claims = _evidence_records(
+        bundle, run_at, model_run.model_run_id
+    )
     if not claims:
         raise ValueError("at least one evidence claim is required")
 
-    portfolio_snapshot_id = str(uuid5(NAMESPACE_URL, f"ai-infra-fund:portfolio:{inputs_hash}"))
-    signals = _signal_bundles(bundle, claims, run_at, inputs_hash)
+    portfolio_snapshot_id = str(
+        uuid5(NAMESPACE_URL, f"ai-infra-fund:portfolio:{inputs_hash}")
+    )
+    signals = _signal_bundles(
+        bundle,
+        claims,
+        run_at,
+        inputs_hash,
+        event_sink=event_sink,
+        run_id=run_id,
+    )
     intelligence_records = _equity_intelligence_records(
         bundle=bundle,
         evidence_items=evidence_items,
@@ -185,9 +226,13 @@ def _build_success_result(bundle: LocalInputBundle) -> _SuccessResult:
         model_run_ids=(model_run.model_run_id,),
         created_at=run_at,
         policy_context=policy_context,
+        event_sink=event_sink,
+        run_id=run_id,
     )
     backtest_run_id = f"backtest-local-advisory-{inputs_hash[:16]}"
-    evaluation_run_artifact = _evaluation_artifact(inputs_hash, run_at, recommendation.artifact.recommendation_id, backtest_run_id)
+    evaluation_run_artifact = _evaluation_artifact(
+        inputs_hash, run_at, recommendation.artifact.recommendation_id, backtest_run_id
+    )
     run_artifact = _local_run_artifact(
         inputs_hash=inputs_hash,
         run_at=run_at,
@@ -236,8 +281,13 @@ def _failed_result(input_dir: Path, error: Exception) -> _FailedResult:
     return _FailedResult(run_artifact)
 
 
-def _no_model_marker(inputs_hash: str, run_at: datetime, bundle: LocalInputBundle) -> ModelRun:
-    output_hash = _hash_payload("local_advisory_no_model_output", {"inputs_hash": inputs_hash, "marker": NO_MODEL_ID})
+def _no_model_marker(
+    inputs_hash: str, run_at: datetime, bundle: LocalInputBundle
+) -> ModelRun:
+    output_hash = _hash_payload(
+        "local_advisory_no_model_output",
+        {"inputs_hash": inputs_hash, "marker": NO_MODEL_ID},
+    )
     return ModelRun(
         model_run_id=f"model-run-local-{NO_MODEL_ID}-{inputs_hash[:16]}",
         task_role="local_advisory_deterministic_marker",
@@ -263,7 +313,9 @@ def _evidence_records(
     bundle: LocalInputBundle,
     run_at: datetime,
     model_run_id: str,
-) -> tuple[tuple[EvidenceItem, ...], tuple[EvidenceChunk, ...], tuple[EvidenceClaim, ...]]:
+) -> tuple[
+    tuple[EvidenceItem, ...], tuple[EvidenceChunk, ...], tuple[EvidenceClaim, ...]
+]:
     evidence_items: list[EvidenceItem] = []
     chunks: list[EvidenceChunk] = []
     claims: list[EvidenceClaim] = []
@@ -340,11 +392,16 @@ def _signal_bundles(
     claims: Sequence[EvidenceClaim],
     run_at: datetime,
     inputs_hash: str,
+    *,
+    event_sink: EventSink | None = None,
+    run_id: str | None = None,
 ) -> tuple[SignalBundle, ...]:
     claim_by_ticker: dict[str, list[EvidenceClaim]] = {}
     for claim in claims:
         claim_by_ticker.setdefault(claim.ticker_or_theme.upper(), []).append(claim)
-    market_by_ticker = {snapshot.ticker: snapshot for snapshot in bundle.market_snapshots}
+    market_by_ticker = {
+        snapshot.ticker: snapshot for snapshot in bundle.market_snapshots
+    }
     weights = _current_weights(bundle.portfolio_positions)
     theme_by_ticker = {member.ticker: member.theme for member in bundle.universe}
     theme_totals = _theme_totals(weights, theme_by_ticker)
@@ -353,30 +410,50 @@ def _signal_bundles(
         ticker_claims = claim_by_ticker[ticker]
         universe = _universe_for(bundle.universe, ticker)
         market = market_by_ticker.get(ticker)
-        signal_hash = _hash_payload("local_signal", {"ticker": ticker, "inputs_hash": inputs_hash})
+        signal_hash = _hash_payload(
+            "local_signal", {"ticker": ticker, "inputs_hash": inputs_hash}
+        )
         inputs = SignalInputs(
             strategic=StrategicThesisInputs(
                 evidence_confidence=_average_confidence(ticker_claims),
                 thesis_alignment=_theme_alignment(universe),
-                market_importance=Decimal("0.80") if ticker in weights else Decimal("0.65"),
+                market_importance=Decimal("0.80")
+                if ticker in weights
+                else Decimal("0.65"),
                 staleness_days=0,
             ),
             tactical=TacticalTechnicalInputs(
-                trend_strength=_trend_strength(ticker, bundle.portfolio_positions, market),
-                momentum=Decimal("0.58") if market and market.close_price else Decimal("0.52"),
+                trend_strength=_trend_strength(
+                    ticker, bundle.portfolio_positions, market
+                ),
+                momentum=Decimal("0.58")
+                if market and market.close_price
+                else Decimal("0.52"),
                 relative_strength=Decimal("0.56"),
-                volume_confirmation=Decimal("0.60") if market and market.volume and market.volume > 0 else Decimal("0.50"),
+                volume_confirmation=Decimal("0.60")
+                if market and market.volume and market.volume > 0
+                else Decimal("0.50"),
             ),
             forward=ForwardIndicatorInputs(
                 futures_pressure=Decimal("0.55"),
-                capex_revision=Decimal("0.65") if _theme_alignment(universe) >= Decimal("0.70") else Decimal("0.55"),
+                capex_revision=Decimal("0.65")
+                if _theme_alignment(universe) >= Decimal("0.70")
+                else Decimal("0.55"),
                 supply_chain_pressure=Decimal("0.60"),
                 power_availability=Decimal("0.55"),
             ),
             risk=PortfolioRiskInputs(
-                concentration_risk=min(Decimal("1"), weights.get(ticker, Decimal("0")) / Decimal("0.35")),
-                theme_exposure_risk=min(Decimal("1"), theme_totals.get(theme_by_ticker.get(ticker, ""), Decimal("0")) / Decimal("0.70")),
-                liquidity_risk=Decimal("0.25") if market and market.volume and market.volume > 0 else Decimal("0.45"),
+                concentration_risk=min(
+                    Decimal("1"), weights.get(ticker, Decimal("0")) / Decimal("0.35")
+                ),
+                theme_exposure_risk=min(
+                    Decimal("1"),
+                    theme_totals.get(theme_by_ticker.get(ticker, ""), Decimal("0"))
+                    / Decimal("0.70"),
+                ),
+                liquidity_risk=Decimal("0.25")
+                if market and market.volume and market.volume > 0
+                else Decimal("0.45"),
                 drawdown_risk=Decimal("0.35"),
             ),
         )
@@ -388,6 +465,8 @@ def _signal_bundles(
                 created_at=run_at,
                 input_snapshot_hash=inputs_hash,
                 inputs=inputs,
+                event_sink=event_sink,
+                run_id=run_id,
             )
         )
     if not signals:
@@ -409,7 +488,9 @@ def _equity_intelligence_records(
     claims_by_ticker: dict[str, list[EvidenceClaim]] = {}
     for claim in claims:
         claims_by_ticker.setdefault(claim.ticker_or_theme.upper(), []).append(claim)
-    market_by_ticker = {snapshot.ticker: snapshot for snapshot in bundle.market_snapshots}
+    market_by_ticker = {
+        snapshot.ticker: snapshot for snapshot in bundle.market_snapshots
+    }
     records: list[SimpleNamespace] = []
     for signal in signals:
         ticker_claims = tuple(claims_by_ticker.get(signal.ticker, ()))
@@ -418,20 +499,33 @@ def _equity_intelligence_records(
         source_evidence = evidence_by_id.get(evidence_ids[0]) if evidence_ids else None
         capture_id = f"capture-local-{_hash_payload('local_capture', {'ticker': signal.ticker, 'inputs_hash': inputs_hash})[:16]}"
         event_id = f"equity-event-local-{signal.ticker.lower()}-{_hash_payload('local_event', {'ticker': signal.ticker, 'claims': claim_ids})[:12]}"
-        sentiment = _local_sentiment_snapshot(signal.ticker, run_at, ticker_claims, evidence_by_id)
-        technical = _local_technical_snapshot(signal.ticker, run_at, market_by_ticker.get(signal.ticker))
-        fundamental = _local_fundamental_snapshot(signal.ticker, run_at, signal, bundle.universe)
+        sentiment = _local_sentiment_snapshot(
+            signal.ticker, run_at, ticker_claims, evidence_by_id
+        )
+        technical = _local_technical_snapshot(
+            signal.ticker, run_at, market_by_ticker.get(signal.ticker)
+        )
+        fundamental = _local_fundamental_snapshot(
+            signal.ticker, run_at, signal, bundle.universe
+        )
         records.append(
             SimpleNamespace(
                 source_raw_capture=SimpleNamespace(
                     capture_id=capture_id,
                     frontier_url_id=None,
                     source_id="source-local-manual",
-                    url=source_evidence.source_uri if source_evidence else f"local://advisory/{signal.ticker}",
+                    url=source_evidence.source_uri
+                    if source_evidence
+                    else f"local://advisory/{signal.ticker}",
                     captured_at=run_at,
                     http_status=None,
-                    content_hash=_hash_payload("local_source_capture", {"ticker": signal.ticker, "evidence_ids": evidence_ids}),
-                    storage_uri=source_evidence.storage_uri if source_evidence else f"local://advisory/{signal.ticker}",
+                    content_hash=_hash_payload(
+                        "local_source_capture",
+                        {"ticker": signal.ticker, "evidence_ids": evidence_ids},
+                    ),
+                    storage_uri=source_evidence.storage_uri
+                    if source_evidence
+                    else f"local://advisory/{signal.ticker}",
                     content_type="text/markdown",
                     byte_size=None,
                     metadata={
@@ -459,7 +553,10 @@ def _equity_intelligence_records(
                         "source": "local_advisory_run",
                         "signal_bundle_id": signal.signal_bundle_id,
                     },
-                    content_hash=_hash_payload("local_equity_event", {"event_id": event_id, "evidence_ids": evidence_ids}),
+                    content_hash=_hash_payload(
+                        "local_equity_event",
+                        {"event_id": event_id, "evidence_ids": evidence_ids},
+                    ),
                     created_at=run_at,
                 ),
                 sentiment_snapshot=SimpleNamespace(
@@ -476,7 +573,10 @@ def _equity_intelligence_records(
                         "evidence_ids": sentiment.evidence_ids,
                         "fallback": not bool(ticker_claims),
                     },
-                    content_hash=_hash_payload("local_sentiment_snapshot", {"ticker": signal.ticker, "inputs_hash": inputs_hash}),
+                    content_hash=_hash_payload(
+                        "local_sentiment_snapshot",
+                        {"ticker": signal.ticker, "inputs_hash": inputs_hash},
+                    ),
                     created_at=run_at,
                 ),
                 technical_snapshot=SimpleNamespace(
@@ -492,10 +592,15 @@ def _equity_intelligence_records(
                         "rsi_score": str(technical.rsi_score),
                         "drawdown": str(technical.drawdown),
                         "volume_confirmation": str(technical.volume_confirmation),
-                        "tactical_technical_score": str(technical.tactical_technical_score),
+                        "tactical_technical_score": str(
+                            technical.tactical_technical_score
+                        ),
                     },
                     trend_label=_trend_label(technical.trend_strength),
-                    content_hash=_hash_payload("local_technical_snapshot", {"ticker": signal.ticker, "inputs_hash": inputs_hash}),
+                    content_hash=_hash_payload(
+                        "local_technical_snapshot",
+                        {"ticker": signal.ticker, "inputs_hash": inputs_hash},
+                    ),
                     created_at=run_at,
                 ),
                 fundamental_snapshot=SimpleNamespace(
@@ -513,7 +618,10 @@ def _equity_intelligence_records(
                         "fundamental_score": str(fundamental.fundamental_score),
                     },
                     rating_label=_fundamental_label(fundamental.fundamental_score),
-                    content_hash=_hash_payload("local_fundamental_snapshot", {"ticker": signal.ticker, "inputs_hash": inputs_hash}),
+                    content_hash=_hash_payload(
+                        "local_fundamental_snapshot",
+                        {"ticker": signal.ticker, "inputs_hash": inputs_hash},
+                    ),
                     created_at=run_at,
                 ),
                 intelligence_run=SimpleNamespace(
@@ -555,7 +663,9 @@ def _local_sentiment_snapshot(
         SentimentEvidence(
             evidence_id=claim.evidence_id,
             source_type=_sentiment_source_type(evidence_by_id.get(claim.evidence_id)),
-            direction=claim.direction if claim.direction in {"positive", "neutral", "negative"} else "neutral",
+            direction=claim.direction
+            if claim.direction in {"positive", "neutral", "negative"}
+            else "neutral",
             confidence=claim.confidence,
             horizon_days=_horizon_days(claim.time_horizon),
         )
@@ -564,7 +674,9 @@ def _local_sentiment_snapshot(
     return compute_sentiment_snapshot(ticker=ticker, as_of=run_at, evidence=evidence)
 
 
-def _local_technical_snapshot(ticker: str, run_at: datetime, market: MarketSnapshotInput | None) -> object:
+def _local_technical_snapshot(
+    ticker: str, run_at: datetime, market: MarketSnapshotInput | None
+) -> object:
     close = market.close_price if market and market.close_price else Decimal("100")
     volume = Decimal(market.volume or 1) if market else Decimal("1")
     points = tuple(
@@ -573,9 +685,24 @@ def _local_technical_snapshot(ticker: str, run_at: datetime, market: MarketSnaps
             close=(close * multiplier).quantize(Decimal("0.01")),
             volume=volume,
         )
-        for index, multiplier in enumerate((Decimal("0.96"), Decimal("0.98"), Decimal("0.99"), Decimal("1.01"), Decimal("1.00")))
+        for index, multiplier in enumerate(
+            (
+                Decimal("0.96"),
+                Decimal("0.98"),
+                Decimal("0.99"),
+                Decimal("1.01"),
+                Decimal("1.00"),
+            )
+        )
     )
-    return compute_technical_snapshot(ticker=ticker, as_of=run_at, points=points, short_window=3, long_window=5, momentum_window=3)
+    return compute_technical_snapshot(
+        ticker=ticker,
+        as_of=run_at,
+        points=points,
+        short_window=3,
+        long_window=5,
+        momentum_window=3,
+    )
 
 
 def _local_fundamental_snapshot(
@@ -600,11 +727,16 @@ def _local_fundamental_snapshot(
     )
     latest = FundamentalPeriodSnapshot(
         period_end=run_at,
-        revenue=Decimal("100") * (Decimal("1") + (alignment - Decimal("0.5")) / Decimal("2")),
-        operating_margin=Decimal("0.20") + (signal.strategic_thesis_score - Decimal("0.5")) / Decimal("10"),
-        valuation_multiple=Decimal("30") + signal.forward_indicator_score * Decimal("15"),
+        revenue=Decimal("100")
+        * (Decimal("1") + (alignment - Decimal("0.5")) / Decimal("2")),
+        operating_margin=Decimal("0.20")
+        + (signal.strategic_thesis_score - Decimal("0.5")) / Decimal("10"),
+        valuation_multiple=Decimal("30")
+        + signal.forward_indicator_score * Decimal("15"),
         guidance_revenue_growth=(alignment - Decimal("0.5")) / Decimal("2"),
-        capex_to_revenue=Decimal("0.12") if alignment >= Decimal("0.70") else Decimal("0.08"),
+        capex_to_revenue=Decimal("0.12")
+        if alignment >= Decimal("0.70")
+        else Decimal("0.08"),
         debt_to_equity=Decimal("0.20"),
         cash_to_debt=Decimal("1.20"),
         eps_actual=Decimal("1.10"),
@@ -616,54 +748,6 @@ def _local_fundamental_snapshot(
         periods=(prior, latest),
         benchmark_valuation_multiple=Decimal("35"),
     )
-
-
-def _sentiment_source_type(evidence_item: EvidenceItem | None) -> str:
-    if evidence_item is None:
-        return "unknown"
-    if evidence_item.source_type in {"company_release", "regulatory_filing", "research_report", "news"}:
-        return evidence_item.source_type
-    if evidence_item.source_type in {"manual_report", "local_file"}:
-        return "research_report"
-    return "unknown"
-
-
-def _horizon_days(horizon: str) -> int:
-    normalized = horizon.strip().lower().replace("-", "_")
-    mapping = {
-        "short_term": 30,
-        "medium_term": 180,
-        "long_term": 365,
-        "1m": 30,
-        "3m": 90,
-        "6m": 180,
-        "12m": 365,
-    }
-    return mapping.get(normalized, 180)
-
-
-def _event_severity(signal: SignalBundle) -> str:
-    if signal.strategic_thesis_score >= Decimal("0.75") or signal.forward_indicator_score >= Decimal("0.75"):
-        return "high"
-    if signal.strategic_thesis_score >= Decimal("0.60") or signal.forward_indicator_score >= Decimal("0.60"):
-        return "medium"
-    return "low"
-
-
-def _trend_label(trend_strength: Decimal) -> str:
-    if trend_strength >= Decimal("0.70"):
-        return "constructive"
-    if trend_strength <= Decimal("0.35"):
-        return "weak"
-    return "neutral"
-
-
-def _fundamental_label(fundamental_score: Decimal) -> str:
-    if fundamental_score >= Decimal("0.70"):
-        return "strong"
-    if fundamental_score <= Decimal("0.35"):
-        return "weak"
-    return "neutral"
 
 
 def _target_weights(
@@ -686,13 +770,17 @@ def _target_weights(
         as_of=run_at,
         created_at=run_at,
         theme_by_ticker={ticker: member.theme for ticker, member in universe.items()},
-        liquidity_by_ticker={ticker: member.liquidity_floor for ticker, member in universe.items()},
+        liquidity_by_ticker={
+            ticker: member.liquidity_floor for ticker, member in universe.items()
+        },
         current_weights=_current_weights(bundle.portfolio_positions),
         current_cash_weight=_current_cash_weight(bundle.portfolio_positions),
     )
 
 
-def _primary_signal(signals: Sequence[SignalBundle], target_weights: TargetWeights) -> SignalBundle:
+def _primary_signal(
+    signals: Sequence[SignalBundle], target_weights: TargetWeights
+) -> SignalBundle:
     return max(
         signals,
         key=lambda signal: (
@@ -712,7 +800,9 @@ def _persist_success(connection: Connection, result: _SuccessResult) -> None:
     repository.save_signals(result.signals)
     repository.save_equity_intelligence(result)
     repository.save_target_weights(result.target_weights)
-    repository.save_recommendation(result.recommendation_artifact, result.recommendation_audit)
+    repository.save_recommendation(
+        result.recommendation_artifact, result.recommendation_audit
+    )
     repository.save_backtest(result)
     _persist_run_artifact(connection, result.evaluation_run_artifact)
     _persist_run_artifact(connection, result.run_artifact)
@@ -752,7 +842,11 @@ class LocalAdvisoryRepository:
             )
             for position in positions:
                 market_value = position.quantity * position.market_price
-                weight = Decimal("0") if total_market_value == 0 else (market_value / total_market_value).quantize(Decimal("0.0001"))
+                weight = (
+                    Decimal("0")
+                    if total_market_value == 0
+                    else (market_value / total_market_value).quantize(Decimal("0.0001"))
+                )
                 cursor.execute(
                     """
                     INSERT INTO core.portfolio_snapshot_positions (
@@ -789,7 +883,13 @@ class LocalAdvisoryRepository:
                         notes = EXCLUDED.notes;
                     """,
                     (
-                        _uuid("trade", result.inputs_hash, trade.ticker, trade.trade_date.isoformat(), trade.side.value),
+                        _uuid(
+                            "trade",
+                            result.inputs_hash,
+                            trade.ticker,
+                            trade.trade_date.isoformat(),
+                            trade.side.value,
+                        ),
                         trade.ticker,
                         trade.side.value,
                         trade.quantity,
@@ -1273,7 +1373,9 @@ class LocalAdvisoryRepository:
                 ),
             )
 
-    def save_recommendation(self, artifact: RecommendationArtifact, audit: RecommendationAudit) -> None:
+    def save_recommendation(
+        self, artifact: RecommendationArtifact, audit: RecommendationAudit
+    ) -> None:
         with self._connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -1397,10 +1499,16 @@ def _persist_run_artifact(connection: Connection, artifact: RunArtifact) -> None
         )
 
 
-def _evaluation_artifact(inputs_hash: str, run_at: datetime, recommendation_id: str, backtest_run_id: str) -> RunArtifact:
+def _evaluation_artifact(
+    inputs_hash: str, run_at: datetime, recommendation_id: str, backtest_run_id: str
+) -> RunArtifact:
     output_hash = _hash_payload(
         "local_advisory_evaluation",
-        {"inputs_hash": inputs_hash, "recommendation_id": recommendation_id, "backtest_run_id": backtest_run_id},
+        {
+            "inputs_hash": inputs_hash,
+            "recommendation_id": recommendation_id,
+            "backtest_run_id": backtest_run_id,
+        },
     )
     return RunArtifact(
         run_id=f"run-local-evaluation-{inputs_hash[:16]}",
@@ -1437,7 +1545,12 @@ def _local_run_artifact(
     artifact_uri = f"artifact://local/advisory-run/{run_id}?{query}"
     output_hash = _hash_payload(
         "local_advisory_output",
-        {"run_id": run_id, "artifact_uri": artifact_uri, "recommendation_id": recommendation_id, "audit_id": audit_id},
+        {
+            "run_id": run_id,
+            "artifact_uri": artifact_uri,
+            "recommendation_id": recommendation_id,
+            "audit_id": audit_id,
+        },
     )
     return RunArtifact(
         run_id=run_id,
@@ -1483,7 +1596,9 @@ def _failure_response(artifact: RunArtifact) -> dict[str, object]:
     }
 
 
-def _policy_context(evidence_files: Sequence[EvidenceFileInput], evidence_items: Sequence[EvidenceItem]) -> RecommendationPolicyContext:
+def _policy_context(
+    evidence_files: Sequence[EvidenceFileInput], evidence_items: Sequence[EvidenceItem]
+) -> RecommendationPolicyContext:
     stale: list[str] = []
     quarantined: list[str] = []
     by_source_uri = {item.source_uri: item.evidence_id for item in evidence_items}
@@ -1510,7 +1625,9 @@ def _run_at(bundle: LocalInputBundle) -> datetime:
 
 def _bundle_hash_payload(bundle: LocalInputBundle) -> dict[str, object]:
     return {
-        "portfolio_positions": [asdict(position) for position in bundle.portfolio_positions],
+        "portfolio_positions": [
+            asdict(position) for position in bundle.portfolio_positions
+        ],
         "trades": [asdict(trade) for trade in bundle.trades],
         "universe": [asdict(member) for member in bundle.universe],
         "market_snapshots": [asdict(snapshot) for snapshot in bundle.market_snapshots],
@@ -1529,7 +1646,9 @@ def _bundle_hash_payload(bundle: LocalInputBundle) -> dict[str, object]:
     }
 
 
-def _claim_target(evidence_file: EvidenceFileInput, universe_tickers: Sequence[str]) -> str:
+def _claim_target(
+    evidence_file: EvidenceFileInput, universe_tickers: Sequence[str]
+) -> str:
     if evidence_file.tickers:
         return evidence_file.tickers[0]
     if evidence_file.themes:
@@ -1544,7 +1663,9 @@ def _summary(content: str) -> str:
     return normalized[:240]
 
 
-def _universe_for(universe: Sequence[UniverseInput], ticker: str) -> UniverseInput | None:
+def _universe_for(
+    universe: Sequence[UniverseInput], ticker: str
+) -> UniverseInput | None:
     for member in universe:
         if member.ticker == ticker:
             return member
@@ -1555,7 +1676,10 @@ def _theme_alignment(universe: UniverseInput | None) -> Decimal:
     if universe is None:
         return Decimal("0.55")
     text = f"{universe.theme} {universe.role or ''}".lower()
-    if any(token in text for token in ("ai", "accelerator", "compute", "cloud", "power", "quantum")):
+    if any(
+        token in text
+        for token in ("ai", "accelerator", "compute", "cloud", "power", "quantum")
+    ):
         return Decimal("0.78")
     return Decimal("0.60")
 
@@ -1566,7 +1690,12 @@ def _trend_strength(
     market: MarketSnapshotInput | None,
 ) -> Decimal:
     position = next((item for item in positions if item.ticker == ticker), None)
-    if position is None or market is None or market.close_price is None or position.cost_basis <= 0:
+    if (
+        position is None
+        or market is None
+        or market.close_price is None
+        or position.cost_basis <= 0
+    ):
         return Decimal("0.52")
     if market.close_price >= position.cost_basis:
         return Decimal("0.62")
@@ -1576,7 +1705,9 @@ def _trend_strength(
 def _average_confidence(claims: Sequence[EvidenceClaim]) -> Decimal:
     if not claims:
         return Decimal("0")
-    return (sum((claim.confidence for claim in claims), Decimal("0")) / Decimal(len(claims))).quantize(Decimal("0.0001"))
+    return (
+        sum((claim.confidence for claim in claims), Decimal("0")) / Decimal(len(claims))
+    ).quantize(Decimal("0.0001"))
 
 
 def _current_weights(positions: Sequence[PortfolioPositionInput]) -> dict[str, Decimal]:
@@ -1584,7 +1715,9 @@ def _current_weights(positions: Sequence[PortfolioPositionInput]) -> dict[str, D
     if total == 0:
         return {}
     return {
-        position.ticker: (position.quantity * position.market_price / total).quantize(Decimal("0.0001"))
+        position.ticker: (position.quantity * position.market_price / total).quantize(
+            Decimal("0.0001")
+        )
         for position in positions
         if position.asset_type.value != "cash"
     }
@@ -1599,16 +1732,25 @@ def _current_cash_weight(positions: Sequence[PortfolioPositionInput]) -> Decimal
 
 def _cash_value(positions: Sequence[PortfolioPositionInput]) -> Decimal:
     return sum(
-        (position.quantity * position.market_price for position in positions if position.asset_type.value == "cash"),
+        (
+            position.quantity * position.market_price
+            for position in positions
+            if position.asset_type.value == "cash"
+        ),
         Decimal("0"),
     )
 
 
 def _total_market_value(positions: Sequence[PortfolioPositionInput]) -> Decimal:
-    return sum((position.quantity * position.market_price for position in positions), Decimal("0"))
+    return sum(
+        (position.quantity * position.market_price for position in positions),
+        Decimal("0"),
+    )
 
 
-def _theme_totals(weights: Mapping[str, Decimal], theme_by_ticker: Mapping[str, str]) -> dict[str, Decimal]:
+def _theme_totals(
+    weights: Mapping[str, Decimal], theme_by_ticker: Mapping[str, str]
+) -> dict[str, Decimal]:
     totals: dict[str, Decimal] = {}
     for ticker, weight in weights.items():
         theme = theme_by_ticker.get(ticker, "")
@@ -1623,15 +1765,32 @@ def _sentiment_source_type(evidence: EvidenceItem | None) -> str:
         return "unknown"
     if evidence.source_type in {"filing", "regulatory_filing"}:
         return "regulatory_filing"
-    if evidence.source_type in {"company_release", "investor_relations", "press_release"}:
+    if evidence.source_type in {
+        "company_release",
+        "investor_relations",
+        "press_release",
+    }:
         return "company_release"
+    if evidence.source_type in {"manual_report", "local_file"}:
+        return "research_report"
     if evidence.data_class is DataClass.PRIVATE_RESEARCH:
         return "research_report"
     return evidence.source_type or "unknown"
 
 
 def _horizon_days(horizon: str) -> int:
-    normalized = horizon.lower()
+    normalized = horizon.strip().lower().replace("-", "_")
+    explicit = {
+        "short_term": 30,
+        "medium_term": 180,
+        "long_term": 365,
+        "1m": 30,
+        "3m": 90,
+        "6m": 180,
+        "12m": 365,
+    }
+    if normalized in explicit:
+        return explicit[normalized]
     if "short" in normalized:
         return 30
     if "long" in normalized:
@@ -1640,9 +1799,13 @@ def _horizon_days(horizon: str) -> int:
 
 
 def _event_severity(signal: SignalBundle) -> str:
-    if signal.forward_indicator_score >= Decimal("0.75") or signal.portfolio_risk_score >= Decimal("0.75"):
+    if signal.forward_indicator_score >= Decimal(
+        "0.75"
+    ) or signal.portfolio_risk_score >= Decimal("0.75"):
         return "high"
-    if signal.forward_indicator_score <= Decimal("0.35") or signal.portfolio_risk_score <= Decimal("0.35"):
+    if signal.forward_indicator_score <= Decimal(
+        "0.35"
+    ) or signal.portfolio_risk_score <= Decimal("0.35"):
         return "low"
     return "medium"
 
@@ -1675,7 +1838,12 @@ def _watchlist_priority(member: UniverseInput) -> int:
 
 
 def _data_classes(bundle: LocalInputBundle) -> set[DataClass]:
-    classes = {DataClass.USER_PORTFOLIO, DataClass.PUBLIC_MARKET_DATA, DataClass.DERIVED_ANALYTICS, DataClass.RUN_AUDIT}
+    classes = {
+        DataClass.USER_PORTFOLIO,
+        DataClass.PUBLIC_MARKET_DATA,
+        DataClass.DERIVED_ANALYTICS,
+        DataClass.RUN_AUDIT,
+    }
     classes.update(evidence.data_class for evidence in bundle.evidence_files)
     return classes
 
@@ -1703,12 +1871,16 @@ def _hashable(value: object) -> object:
 
 
 def _uuid(*parts: object) -> str:
-    digest = hashlib.sha256(json.dumps(parts, sort_keys=True, default=_json_default).encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(
+        json.dumps(parts, sort_keys=True, default=_json_default).encode("utf-8")
+    ).hexdigest()
     return str(uuid5(NAMESPACE_URL, f"ai-infra-fund:{digest}"))
 
 
 def _json(value: object) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), default=_json_default)
+    return json.dumps(
+        value, sort_keys=True, separators=(",", ":"), default=_json_default
+    )
 
 
 def _json_default(value: object) -> str:

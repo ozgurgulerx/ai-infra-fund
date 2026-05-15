@@ -67,6 +67,50 @@ class FakeFetcher:
         )
 
 
+class ExplodingFetcher:
+    def fetch(
+        self,
+        url: str,
+        *,
+        etag: str | None = None,
+        last_modified: str | None = None,
+    ) -> FetchResult:
+        raise TimeoutError("request failed with provider credentials in URL")
+
+
+class FakeFrontierRepository:
+    def __init__(self) -> None:
+        self.failures: list[dict[str, object]] = []
+
+    def get_frontier_metadata(self, *, frontier_url_id: str) -> dict[str, object]:
+        return {}
+
+    def record_frontier_failure(
+        self,
+        *,
+        frontier_url_id: str,
+        error_summary: str,
+        next_attempt_at: datetime,
+        now: datetime,
+    ) -> None:
+        self.failures.append(
+            {
+                "frontier_url_id": frontier_url_id,
+                "error_summary": error_summary,
+                "next_attempt_at": next_attempt_at,
+                "now": now,
+            }
+        )
+
+
+class FakeCrawlLogRepository:
+    def __init__(self) -> None:
+        self.records: list[object] = []
+
+    def record_attempt(self, record: object) -> None:
+        self.records.append(record)
+
+
 def _reset_one_queued(connection, ticker: str) -> tuple[str, str]:
     """Mark all frontier URLs for the ticker as 'skipped', then re-queue one.
 
@@ -293,7 +337,43 @@ class CrawlBatchFailureTests(unittest.TestCase):
             # HTTP 5xx — server gave us a real response, so fetch_method is
             # 'http_get' and error_summary captures the category.
             self.assertEqual("http_get", row[0])
-            self.assertEqual("server_error", row[1])
+        self.assertEqual("server_error", row[1])
+
+
+class CrawlProcessOneUnitTests(unittest.TestCase):
+    def test_unexpected_fetch_exception_records_failure_and_audit_log(self) -> None:
+        from ai_infra_fund_worker.crawl.worker_loop import _process_one
+
+        repo = FakeFrontierRepository()
+        crawl_log_repo = FakeCrawlLogRepository()
+        now = datetime(2026, 5, 14, 12, 0, tzinfo=timezone.utc)
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _process_one(
+                repo=repo,
+                row={
+                    "frontier_url_id": "frontier-nvda-unit",
+                    "ticker": "NVDA",
+                    "source_id": "source-api-finnhub",
+                    "url": "https://finnhub.io/api/v1/company-news?symbol=NVDA",
+                    "attempt_count": 0,
+                    "max_attempts": 3,
+                },
+                crawl_log_repo=crawl_log_repo,
+                policy=FrontierPolicy(batch_size=1, domain_cap=1),
+                fetcher=ExplodingFetcher(),
+                capture_store=LocalCaptureStore(Path(tmp)),
+                research_extractor=StubLLMClaimExtractor(),
+                now=now,
+            )
+
+        self.assertEqual("failed", result)
+        self.assertEqual(1, len(repo.failures))
+        self.assertEqual("unexpected_exception:TimeoutError", repo.failures[0]["error_summary"])
+        self.assertEqual(1, len(crawl_log_repo.records))
+        record = crawl_log_repo.records[0]
+        self.assertEqual("error", record.fetch_method)
+        self.assertEqual("unexpected_exception:TimeoutError", record.error_summary)
+        self.assertNotIn("credentials", record.error_summary)
 
 
 if __name__ == "__main__":

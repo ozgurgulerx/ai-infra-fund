@@ -4,7 +4,7 @@ import logging
 import signal
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
@@ -30,14 +30,34 @@ LOGGER = logging.getLogger("ai_infra_fund.worker.crawl")
 
 @dataclass(frozen=True, slots=True)
 class SchedulerConfig:
+    """Crawl scheduler config.
+
+    ``user_agent`` is required because SEC EDGAR (and other publishers) require
+    a real contact in the UA. The host crawler may route ``data.sec.gov`` URLs,
+    so a generic UA can get the whole worker rate-limited or blocked. We
+    enforce that the UA contains either an email (``@``) or a URL (``http``).
+    """
+
     worker_id: str
     policy: FrontierPolicy
     captures_root: Path
+    user_agent: str
     idle_sleep_seconds: float = 30.0
     stale_lease_check_every: int = 10  # loops
-    user_agent: str = "ai-infra-fund/0.1 (advisory; contact: local-only)"
     request_timeout: float = 10.0
     domain_min_delay: float = 2.0
+
+    def __post_init__(self) -> None:
+        ua = self.user_agent.strip()
+        if not ua:
+            raise ValueError(
+                "SchedulerConfig.user_agent is required (set SEC_EDGAR_USER_AGENT)"
+            )
+        if "@" not in ua and "http" not in ua.lower():
+            raise ValueError(
+                "SchedulerConfig.user_agent must contain a contact email or URL "
+                "to comply with SEC EDGAR fair-use policy"
+            )
 
 
 def build_default_fetcher(config: SchedulerConfig) -> HttpFetcher:
@@ -78,44 +98,50 @@ def run_forever(
     config.captures_root.mkdir(parents=True, exist_ok=True)
     capture_store = LocalCaptureStore(config.captures_root)
     research_extractor = StubLLMClaimExtractor()
+    active_fetcher = fetcher or build_default_fetcher(config)
 
-    while not stop["signal"]:
-        loops += 1
-        if max_loops is not None and loops > max_loops:
-            break
+    try:
+        while not stop["signal"]:
+            loops += 1
+            if max_loops is not None and loops > max_loops:
+                break
 
-        if loops % config.stale_lease_check_every == 1:
-            _reclaim_stale(connection_factory)
+            if loops % config.stale_lease_check_every == 1:
+                _reclaim_stale(connection_factory)
 
-        active_fetcher = fetcher or build_default_fetcher(config)
-        connection = connection_factory()
-        try:
-            now = datetime.now(tz=timezone.utc)
-            report = run_crawl_batch(
-                connection,
-                worker_id=config.worker_id,
-                policy=config.policy,
-                fetcher=active_fetcher,
-                capture_store=capture_store,
-                research_extractor=research_extractor,
-                now=now,
+            connection = connection_factory()
+            try:
+                now = datetime.now(tz=timezone.utc)
+                report = run_crawl_batch(
+                    connection,
+                    worker_id=config.worker_id,
+                    policy=config.policy,
+                    fetcher=active_fetcher,
+                    capture_store=capture_store,
+                    research_extractor=research_extractor,
+                    now=now,
+                )
+            finally:
+                close = getattr(connection, "close", None)
+                if callable(close):
+                    close()
+
+            total_succeeded += report.succeeded
+            LOGGER.info(
+                "crawl batch leased=%d succeeded=%d not_modified=%d failed=%d",
+                report.leased,
+                report.succeeded,
+                report.not_modified,
+                report.failed,
             )
-        finally:
-            close = getattr(connection, "close", None)
-            if callable(close):
-                close()
 
-        total_succeeded += report.succeeded
-        LOGGER.info(
-            "crawl batch leased=%d succeeded=%d not_modified=%d failed=%d",
-            report.leased,
-            report.succeeded,
-            report.not_modified,
-            report.failed,
-        )
-
-        if report.leased == 0:
-            time.sleep(config.idle_sleep_seconds)
+            if report.leased == 0:
+                time.sleep(config.idle_sleep_seconds)
+    finally:
+        if fetcher is None:
+            close_fetcher = getattr(active_fetcher, "close", None)
+            if callable(close_fetcher):
+                close_fetcher()
 
     LOGGER.info(
         "crawl scheduler exited after %d loops (succeeded=%d)", loops, total_succeeded

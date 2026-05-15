@@ -73,6 +73,12 @@ def cmd_seed(_args: argparse.Namespace) -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
+    user_agent = (os.environ.get("SEC_EDGAR_USER_AGENT") or "").strip()
+    if not user_agent:
+        raise SystemExit(
+            "SEC_EDGAR_USER_AGENT must be set before running the crawler "
+            "(e.g. 'AI Infra Fund Research <contact@example.com>')"
+        )
     config = SchedulerConfig(
         worker_id=_worker_id(),
         policy=FrontierPolicy(
@@ -80,6 +86,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             domain_cap=args.domain_cap,
         ),
         captures_root=_captures_root(),
+        user_agent=user_agent,
         idle_sleep_seconds=args.idle_sleep,
     )
 

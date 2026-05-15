@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from hashlib import sha256
 import re
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from ai_infra_fund_core.contracts.common import require_aware_datetime
 from ai_infra_fund_core.local_inputs.watchlist import AIEquityWatchlist
@@ -224,7 +224,7 @@ def build_provider_frontier_urls(
         for entry in watchlist.entries:
             priority = _priority_score(entry.priority)
             for template in provider.url_templates:
-                url = template.format(ticker=entry.ticker)
+                url = _frontier_url_from_template(template, ticker=entry.ticker)
                 url_hash = sha256(url.encode("utf-8")).hexdigest()
                 records.append(
                     FrontierUrlRecord(
@@ -279,6 +279,32 @@ def _priority_score(priority_label: str) -> int:
         return PRIORITY_SCORES[priority_label.lower()]
     except KeyError as exc:
         raise ValueError(f"unknown priority label: {priority_label}") from exc
+
+
+class _PreserveUnknownPlaceholders(dict[str, str]):
+    def __missing__(self, key: str) -> str:
+        return "{" + key + "}"
+
+
+def _frontier_url_from_template(template: str, *, ticker: str) -> str:
+    formatted = template.format_map(_PreserveUnknownPlaceholders(ticker=ticker))
+    parsed = urlparse(formatted)
+    secret_placeholders = {"{api_key}", "{api_token}"}
+    query_pairs = [
+        (key, value)
+        for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+        if value not in secret_placeholders
+    ]
+    return urlunparse(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            urlencode(query_pairs, doseq=True),
+            parsed.fragment,
+        )
+    )
 
 
 _SLUG_PATTERN = re.compile(r"[^a-z0-9]+")

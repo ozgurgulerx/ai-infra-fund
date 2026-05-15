@@ -126,7 +126,27 @@ def _process_one(
     etag = _maybe_str(metadata.get("etag"))
     last_modified = _maybe_str(metadata.get("last_modified"))
 
-    result = fetcher.fetch(url, etag=etag, last_modified=last_modified)
+    try:
+        result = fetcher.fetch(url, etag=etag, last_modified=last_modified)
+    except Exception as error:
+        return _record_failed_attempt(
+            repo=repo,
+            crawl_log_repo=crawl_log_repo,
+            frontier_url_id=frontier_url_id,
+            ticker=ticker,
+            source_id=source_id,
+            url=url,
+            attempt_id=attempt_id,
+            attempt_count_before=attempt_count_before,
+            max_attempts=max_attempts,
+            policy=policy,
+            now=now,
+            error_summary=_safe_exception_summary(error),
+            fetch_method="error",
+            http_status=None,
+            latency_ms=0,
+            bytes_fetched=None,
+        )
 
     # 304: nothing changed, write log + complete.
     if result.http_status == 304:
@@ -156,40 +176,28 @@ def _process_one(
         or result.http_status >= 400
     ):
         error_summary = result.error_summary or f"http_{result.http_status}"
-        next_attempt_count = attempt_count_before + 1
-        if next_attempt_count >= max_attempts:
-            next_attempt_at = now + _BLOCKED_BACKOFF
-        else:
-            next_attempt_at = now + policy.backoff_base * (
-                2 ** (next_attempt_count - 1)
-            )
-        repo.record_frontier_failure(
-            frontier_url_id=frontier_url_id,
-            error_summary=error_summary,
-            next_attempt_at=next_attempt_at,
-            now=now,
-        )
         # Transport-level vs HTTP-status failures: keep `error` for the former
         # so the dashboard's "client_error"/"server_error" buckets reflect real
         # 4xx/5xx responses, not connect/timeout failures.
         log_fetch_method = "error" if result.http_status is None else "http_get"
-        crawl_log_repo.record_attempt(
-            CrawlLogRecord(
-                attempt_id=attempt_id,
-                frontier_url_id=frontier_url_id,
-                ticker=ticker,
-                source_id=source_id,
-                url=url,
-                attempted_at=now,
-                fetch_method=log_fetch_method,
-                http_status=result.http_status,
-                latency_ms=result.latency_ms,
-                bytes_fetched=len(result.body_bytes) or None,
-                capture_id=None,
-                error_summary=error_summary,
-            )
+        return _record_failed_attempt(
+            repo=repo,
+            crawl_log_repo=crawl_log_repo,
+            frontier_url_id=frontier_url_id,
+            ticker=ticker,
+            source_id=source_id,
+            url=url,
+            attempt_id=attempt_id,
+            attempt_count_before=attempt_count_before,
+            max_attempts=max_attempts,
+            policy=policy,
+            now=now,
+            error_summary=error_summary,
+            fetch_method=log_fetch_method,
+            http_status=result.http_status,
+            latency_ms=result.latency_ms,
+            bytes_fetched=len(result.body_bytes) or None,
         )
-        return "failed"
 
     # Success: capture, extract, persist atomically.
     stored = capture_store.store(
@@ -315,6 +323,73 @@ def _maybe_str(value: object) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _record_failed_attempt(
+    *,
+    repo: EquityIntelligenceRepository,
+    crawl_log_repo: CrawlLogRepository,
+    frontier_url_id: str,
+    ticker: str | None,
+    source_id: str | None,
+    url: str,
+    attempt_id: str,
+    attempt_count_before: int,
+    max_attempts: int,
+    policy: FrontierPolicy,
+    now: datetime,
+    error_summary: str,
+    fetch_method: str,
+    http_status: int | None,
+    latency_ms: int | None,
+    bytes_fetched: int | None,
+) -> str:
+    next_attempt_at = _next_attempt_at(
+        attempt_count_before=attempt_count_before,
+        max_attempts=max_attempts,
+        policy=policy,
+        now=now,
+    )
+    repo.record_frontier_failure(
+        frontier_url_id=frontier_url_id,
+        error_summary=error_summary,
+        next_attempt_at=next_attempt_at,
+        now=now,
+    )
+    crawl_log_repo.record_attempt(
+        CrawlLogRecord(
+            attempt_id=attempt_id,
+            frontier_url_id=frontier_url_id,
+            ticker=ticker,
+            source_id=source_id,
+            url=url,
+            attempted_at=now,
+            fetch_method=fetch_method,
+            http_status=http_status,
+            latency_ms=latency_ms,
+            bytes_fetched=bytes_fetched,
+            capture_id=None,
+            error_summary=error_summary,
+        )
+    )
+    return "failed"
+
+
+def _next_attempt_at(
+    *,
+    attempt_count_before: int,
+    max_attempts: int,
+    policy: FrontierPolicy,
+    now: datetime,
+) -> datetime:
+    next_attempt_count = attempt_count_before + 1
+    if next_attempt_count >= max_attempts:
+        return now + _BLOCKED_BACKOFF
+    return now + policy.backoff_base * (2 ** (next_attempt_count - 1))
+
+
+def _safe_exception_summary(error: Exception) -> str:
+    return f"unexpected_exception:{type(error).__name__}"
 
 
 def _ticker_from_frontier_id(frontier_url_id: str) -> str:

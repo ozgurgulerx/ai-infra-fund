@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
+from ai_infra_fund_core.audit.experiment_events import EventSink, build_event
 from ai_infra_fund_core.contracts.signals import SignalBundle
 
 from .formulas import FORMULA_VERSIONS, SCORE_QUANT
@@ -73,7 +74,10 @@ def score_tactical_technical(inputs: TacticalTechnicalInputs) -> Decimal:
                 (_unit(inputs.trend_strength, "trend_strength"), Decimal("0.35")),
                 (_unit(inputs.momentum, "momentum"), Decimal("0.30")),
                 (_unit(inputs.relative_strength, "relative_strength"), Decimal("0.20")),
-                (_unit(inputs.volume_confirmation, "volume_confirmation"), Decimal("0.15")),
+                (
+                    _unit(inputs.volume_confirmation, "volume_confirmation"),
+                    Decimal("0.15"),
+                ),
             )
         )
     )
@@ -85,8 +89,14 @@ def score_forward_indicator(inputs: ForwardIndicatorInputs) -> Decimal:
             (
                 (_unit(inputs.futures_pressure, "futures_pressure"), Decimal("0.35")),
                 (_unit(inputs.capex_revision, "capex_revision"), Decimal("0.25")),
-                (_unit(inputs.supply_chain_pressure, "supply_chain_pressure"), Decimal("0.25")),
-                (_unit(inputs.power_availability, "power_availability"), Decimal("0.15")),
+                (
+                    _unit(inputs.supply_chain_pressure, "supply_chain_pressure"),
+                    Decimal("0.25"),
+                ),
+                (
+                    _unit(inputs.power_availability, "power_availability"),
+                    Decimal("0.15"),
+                ),
             )
         )
     )
@@ -96,8 +106,14 @@ def score_portfolio_risk(inputs: PortfolioRiskInputs) -> Decimal:
     return _quantize(
         _weighted_sum(
             (
-                (_unit(inputs.concentration_risk, "concentration_risk"), Decimal("0.30")),
-                (_unit(inputs.theme_exposure_risk, "theme_exposure_risk"), Decimal("0.30")),
+                (
+                    _unit(inputs.concentration_risk, "concentration_risk"),
+                    Decimal("0.30"),
+                ),
+                (
+                    _unit(inputs.theme_exposure_risk, "theme_exposure_risk"),
+                    Decimal("0.30"),
+                ),
                 (_unit(inputs.liquidity_risk, "liquidity_risk"), Decimal("0.20")),
                 (_unit(inputs.drawdown_risk, "drawdown_risk"), Decimal("0.20")),
             )
@@ -113,8 +129,10 @@ def compute_signal_bundle(
     created_at: datetime,
     input_snapshot_hash: str,
     inputs: SignalInputs,
+    event_sink: EventSink | None = None,
+    run_id: str | None = None,
 ) -> SignalBundle:
-    return SignalBundle(
+    bundle = SignalBundle(
         signal_bundle_id=signal_bundle_id,
         ticker=ticker,
         as_of=as_of,
@@ -126,6 +144,23 @@ def compute_signal_bundle(
         input_snapshot_hash=input_snapshot_hash,
         created_at=created_at,
     )
+    if event_sink is not None:
+        event = build_event(
+            kind="signal_computed",
+            run_id=run_id,
+            payload={
+                "signal_bundle_id": bundle.signal_bundle_id,
+                "ticker": bundle.ticker,
+                "as_of": bundle.as_of.isoformat(),
+                "strategic_thesis_score": str(bundle.strategic_thesis_score),
+                "tactical_technical_score": str(bundle.tactical_technical_score),
+                "forward_indicator_score": str(bundle.forward_indicator_score),
+                "portfolio_risk_score": str(bundle.portfolio_risk_score),
+            },
+            occurred_at=created_at,
+        )
+        event_sink(event)
+    return bundle
 
 
 def _weighted_sum(weighted_values: tuple[tuple[Decimal, Decimal], ...]) -> Decimal:
@@ -138,7 +173,9 @@ def _staleness_multiplier(staleness_days: int) -> Decimal:
     days = Decimal(staleness_days)
     if days <= stale_after_days:
         return ONE
-    penalty = min(max_penalty, ((days - stale_after_days) / stale_after_days) * max_penalty)
+    penalty = min(
+        max_penalty, ((days - stale_after_days) / stale_after_days) * max_penalty
+    )
     return ONE - penalty
 
 

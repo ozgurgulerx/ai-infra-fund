@@ -13,6 +13,9 @@ data:
   AI_INFRA_FUND_DATA_DIR: /app/data
   AI_INFRA_FUND_MODEL_PROFILES: config/model_profiles.yaml
   AI_INFRA_FUND_CORS_ORIGINS: https://ai-infra-fund-frontend.azurewebsites.net,https://fundrag-frontend.azurewebsites.net
+  AI_INFRA_FUND_WORKER_MODE: crawl
+  AI_INFRA_FUND_CAPTURES_ROOT: /app/data/captures
+  SEC_EDGAR_USER_AGENT: "AI Infra Fund Research <ozgur.guler1@gmail.com>"
 ---
 apiVersion: v1
 kind: Service
@@ -108,7 +111,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: migrate
-          image: aistartuptr.azurecr.io/ai-infra-fund-api:20260514190742
+          image: aistartuptr.azurecr.io/ai-infra-fund-api:20260515170723
           imagePullPolicy: Always
           command:
             - python
@@ -139,7 +142,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: aistartuptr.azurecr.io/ai-infra-fund-api:20260514190742
+          image: aistartuptr.azurecr.io/ai-infra-fund-api:20260515170723
           imagePullPolicy: Always
           ports:
             - name: http
@@ -149,6 +152,12 @@ spec:
                 name: ai-infra-fund-config
             - secretRef:
                 name: ai-infra-fund-db
+          env:
+            - name: AI_INFRA_FUND_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ai-infra-fund-db
+                  key: AI_INFRA_FUND_INTERNAL_TOKEN
           livenessProbe:
             httpGet:
               path: /health
@@ -203,7 +212,7 @@ spec:
     spec:
       containers:
         - name: worker
-          image: aistartuptr.azurecr.io/ai-infra-fund-worker:20260514190742
+          image: aistartuptr.azurecr.io/ai-infra-fund-worker:20260515170723
           imagePullPolicy: Always
           envFrom:
             - configMapRef:

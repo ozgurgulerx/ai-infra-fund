@@ -187,8 +187,19 @@ class ArchitecturePolicyTests(unittest.TestCase):
     def test_trade_journal_proxy_uses_container_internal_api_url(self) -> None:
         route = read_text("apps/web/app/api/trade-journal/entries/route.ts")
         self.assertIn("AI_INFRA_FUND_INTERNAL_API_BASE_URL", route)
+        self.assertIn("AI_INFRA_FUND_INTERNAL_TOKEN", route)
+        self.assertIn("X-Internal-Token", route)
         self.assertIn("NEXT_PUBLIC_API_BASE_URL", route)
         self.assertIn("/internal/trade-journal/entries", route)
+
+    def test_read_only_backend_proxy_forwards_internal_token_server_side(self) -> None:
+        route = read_text("apps/web/app/api/backend/[...path]/route.ts")
+        client = read_text("apps/web/lib/api.ts")
+        self.assertIn("AI_INFRA_FUND_INTERNAL_TOKEN", route)
+        self.assertIn("X-Internal-Token", route)
+        self.assertNotIn("AI_INFRA_FUND_INTERNAL_TOKEN", client)
+        self.assertIn("/api/backend", client)
+        self.assertNotRegex(client, r"\$\{apiBaseUrl\(\)\}/internal")
 
     def test_migrate_service_owns_schema_migrations(self) -> None:
         text = read_text("docker-compose.yml")
@@ -238,9 +249,15 @@ class ArchitecturePolicyTests(unittest.TestCase):
                 service,
             )
         self.assertIn("POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD", text)
+        self.assertIn("AI_INFRA_FUND_INTERNAL_TOKEN:?Set AI_INFRA_FUND_INTERNAL_TOKEN", text)
         self.assertIn("ports: !reset []", text)
         self.assertNotIn("ai_infra_fund:ai_infra_fund@", text)
         self.assertNotRegex(text, r"sk-[A-Za-z0-9_-]+")
+
+    def test_aks_manifest_wires_internal_token_from_secret(self) -> None:
+        text = read_text("deploy/aks-ai-infra-fund.yaml")
+        self.assertIn("AI_INFRA_FUND_INTERNAL_TOKEN", text)
+        self.assertIn("secretKeyRef:", text)
 
     def test_docs_distinguish_local_and_production_readiness(self) -> None:
         deployment_plan = read_text("docs/plans/deployment_readiness_plan.md")

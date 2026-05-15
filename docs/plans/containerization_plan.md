@@ -87,10 +87,10 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 For production-like Compose validation:
 
 ```bash
-POSTGRES_PASSWORD=replace-with-secret docker compose -f docker-compose.yml -f docker-compose.prod.example.yml config
+POSTGRES_PASSWORD=replace-with-secret AI_INFRA_FUND_INTERNAL_TOKEN=replace-with-secret docker compose -f docker-compose.yml -f docker-compose.prod.example.yml config
 ```
 
-The production overlay removes the host-published PostgreSQL port and replaces local/dev database defaults with environment-provided credentials.
+The production overlay removes the host-published PostgreSQL port and replaces local/dev database defaults with environment-provided credentials and an internal API token.
 
 ## Startup Order
 

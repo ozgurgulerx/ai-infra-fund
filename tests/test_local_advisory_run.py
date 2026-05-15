@@ -34,7 +34,9 @@ class LocalAdvisoryRunTests(unittest.TestCase):
         self.assertIn("backtest_run_id=", str(result["artifact_uri"]))
         self.assertIn("advisory_label=advisory_only", str(result["artifact_uri"]))
 
-        statements = "\n".join(statement for statement, _params in connection.cursor_instance.executions)
+        statements = "\n".join(
+            statement for statement, _params in connection.cursor_instance.executions
+        )
         for table_name in (
             "core.portfolio_snapshots",
             "core.portfolio_snapshot_positions",
@@ -72,7 +74,9 @@ class LocalAdvisoryRunTests(unittest.TestCase):
         self.assertIn("model_run_ids", statements)
         self.assertIn("review_status", statements)
 
-    def test_missing_evidence_provenance_fails_closed_and_writes_failed_run_artifact(self) -> None:
+    def test_missing_evidence_provenance_fails_closed_and_writes_failed_run_artifact(
+        self,
+    ) -> None:
         from ai_infra_fund_worker.local_advisory_run import run_local_advisory
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -84,9 +88,37 @@ class LocalAdvisoryRunTests(unittest.TestCase):
         self.assertEqual("failed", result["status"])
         self.assertEqual(1, result["exit_code"])
         self.assertIn("license_label", str(result["error_summary"]))
-        statements = [statement for statement, _params in connection.cursor_instance.executions]
+        statements = [
+            statement for statement, _params in connection.cursor_instance.executions
+        ]
         self.assertEqual(1, len(statements))
         self.assertIn("INSERT INTO audit.run_artifacts", statements[0])
+
+    def test_event_sink_receives_signal_weights_and_recommendation_events(self) -> None:
+        from ai_infra_fund_worker.local_advisory_run import run_local_advisory
+
+        emitted: list[object] = []
+
+        with tempfile.TemporaryDirectory() as tmp:
+            input_dir = write_sample_inputs(Path(tmp))
+            connection = FakeConnection()
+
+            run_local_advisory(connection, input_dir, event_sink=emitted.append)
+
+        kinds = [event.kind for event in emitted]  # type: ignore[attr-defined]
+        self.assertIn("signal_computed", kinds)
+        self.assertIn("weights_generated", kinds)
+        self.assertIn("recommendation_issued", kinds)
+        # weights_generated must precede recommendation_issued.
+        self.assertLess(
+            kinds.index("weights_generated"), kinds.index("recommendation_issued")
+        )
+        # All events should carry the same advisory run_id.
+        run_ids = {event.run_id for event in emitted}  # type: ignore[attr-defined]
+        self.assertEqual(1, len(run_ids))
+        run_id = run_ids.pop()
+        assert run_id is not None
+        self.assertTrue(run_id.startswith("run-local-advisory-"))
 
     def test_local_advisory_run_uses_deterministic_no_model_marker(self) -> None:
         from ai_infra_fund_worker.local_advisory_run import run_local_advisory
@@ -105,7 +137,9 @@ class LocalAdvisoryRunTests(unittest.TestCase):
         self.assertIn("deterministic-no-model", model_run_inserts[0])
         self.assertIn("success", model_run_inserts[0])
 
-    def test_sample_local_advisory_script_exists_and_invokes_worker_module(self) -> None:
+    def test_sample_local_advisory_script_exists_and_invokes_worker_module(
+        self,
+    ) -> None:
         script = ROOT / "scripts" / "run_local_advisory_sample.sh"
 
         self.assertTrue(script.is_file())
@@ -116,8 +150,17 @@ class LocalAdvisoryRunTests(unittest.TestCase):
         self.assertIn("AI_INFRA_FUND_LOCAL_INPUT_DIR", text)
         self.assertNotIn("curl", text)
 
-    def test_local_advisory_module_has_no_external_model_or_execution_surface(self) -> None:
-        module = ROOT / "services" / "worker" / "src" / "ai_infra_fund_worker" / "local_advisory_run.py"
+    def test_local_advisory_module_has_no_external_model_or_execution_surface(
+        self,
+    ) -> None:
+        module = (
+            ROOT
+            / "services"
+            / "worker"
+            / "src"
+            / "ai_infra_fund_worker"
+            / "local_advisory_run.py"
+        )
         text = module.read_text(encoding="utf-8").lower()
 
         forbidden = [

@@ -152,6 +152,103 @@ class Phase4SignalScoringTests(unittest.TestCase):
         self.assertEqual(Decimal("0.67"), bundle.forward_indicator_score)
         self.assertEqual(Decimal("0.59"), bundle.portfolio_risk_score)
 
+    def test_compute_signal_bundle_emits_event_when_sink_provided(self) -> None:
+        emitted: list[object] = []
+
+        bundle = compute_signal_bundle(
+            signal_bundle_id="signal-bundle-1",
+            ticker="NVDA",
+            as_of=NOW,
+            created_at=NOW,
+            input_snapshot_hash="b" * 64,
+            inputs=SignalInputs(
+                strategic=StrategicThesisInputs(
+                    evidence_confidence=Decimal("0.8"),
+                    thesis_alignment=Decimal("0.6"),
+                    market_importance=Decimal("1.0"),
+                    staleness_days=30,
+                ),
+                tactical=TacticalTechnicalInputs(
+                    trend_strength=Decimal("0.8"),
+                    momentum=Decimal("0.6"),
+                    relative_strength=Decimal("0.4"),
+                    volume_confirmation=Decimal("1.0"),
+                ),
+                forward=ForwardIndicatorInputs(
+                    futures_pressure=Decimal("0.7"),
+                    capex_revision=Decimal("0.8"),
+                    supply_chain_pressure=Decimal("0.6"),
+                    power_availability=Decimal("0.5"),
+                ),
+                risk=PortfolioRiskInputs(
+                    concentration_risk=Decimal("0.8"),
+                    theme_exposure_risk=Decimal("0.7"),
+                    liquidity_risk=Decimal("0.2"),
+                    drawdown_risk=Decimal("0.5"),
+                ),
+            ),
+            event_sink=emitted.append,
+            run_id="run-signal-001",
+        )
+
+        self.assertIsInstance(bundle, SignalBundle)
+        self.assertEqual(1, len(emitted))
+        event = emitted[0]
+        self.assertEqual("signal_computed", event.kind)  # type: ignore[attr-defined]
+        self.assertEqual("run-signal-001", event.run_id)  # type: ignore[attr-defined]
+
+    def test_compute_signal_bundle_default_behavior_unchanged_without_sink(
+        self,
+    ) -> None:
+        inputs = SignalInputs(
+            strategic=StrategicThesisInputs(
+                evidence_confidence=Decimal("0.8"),
+                thesis_alignment=Decimal("0.6"),
+                market_importance=Decimal("1.0"),
+                staleness_days=30,
+            ),
+            tactical=TacticalTechnicalInputs(
+                trend_strength=Decimal("0.8"),
+                momentum=Decimal("0.6"),
+                relative_strength=Decimal("0.4"),
+                volume_confirmation=Decimal("1.0"),
+            ),
+            forward=ForwardIndicatorInputs(
+                futures_pressure=Decimal("0.7"),
+                capex_revision=Decimal("0.8"),
+                supply_chain_pressure=Decimal("0.6"),
+                power_availability=Decimal("0.5"),
+            ),
+            risk=PortfolioRiskInputs(
+                concentration_risk=Decimal("0.8"),
+                theme_exposure_risk=Decimal("0.7"),
+                liquidity_risk=Decimal("0.2"),
+                drawdown_risk=Decimal("0.5"),
+            ),
+        )
+
+        first = compute_signal_bundle(
+            signal_bundle_id="signal-bundle-1",
+            ticker="NVDA",
+            as_of=NOW,
+            created_at=NOW,
+            input_snapshot_hash="c" * 64,
+            inputs=inputs,
+        )
+        second = compute_signal_bundle(
+            signal_bundle_id="signal-bundle-1",
+            ticker="NVDA",
+            as_of=NOW,
+            created_at=NOW,
+            input_snapshot_hash="c" * 64,
+            inputs=inputs,
+            event_sink=lambda _event: None,
+            run_id="run-signal-001",
+        )
+
+        self.assertEqual(first.signal_bundle_id, second.signal_bundle_id)
+        self.assertEqual(first.strategic_thesis_score, second.strategic_thesis_score)
+
     def test_score_bounds_and_invalid_inputs_are_rejected(self) -> None:
         with self.assertRaises(ValueError):
             score_tactical_technical(
