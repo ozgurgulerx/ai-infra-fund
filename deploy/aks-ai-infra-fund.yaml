@@ -111,7 +111,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: migrate
-          image: aistartuptr.azurecr.io/ai-infra-fund-api:20260515170723
+          image: aistartuptr.azurecr.io/ai-infra-fund-api:20260515195102
           imagePullPolicy: Always
           command:
             - python
@@ -142,7 +142,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: aistartuptr.azurecr.io/ai-infra-fund-api:20260515170723
+          image: aistartuptr.azurecr.io/ai-infra-fund-api:20260515195102
           imagePullPolicy: Always
           ports:
             - name: http
@@ -158,6 +158,7 @@ spec:
                 secretKeyRef:
                   name: ai-infra-fund-db
                   key: AI_INFRA_FUND_INTERNAL_TOKEN
+                  optional: true
           livenessProbe:
             httpGet:
               path: /health
@@ -212,7 +213,7 @@ spec:
     spec:
       containers:
         - name: worker
-          image: aistartuptr.azurecr.io/ai-infra-fund-worker:20260515170723
+          image: aistartuptr.azurecr.io/ai-infra-fund-worker:20260515195102
           imagePullPolicy: Always
           envFrom:
             - configMapRef:
