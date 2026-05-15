@@ -45,6 +45,7 @@ class AIEquityProvider:
     ticker_fanout: bool
     series_fanout: tuple[str, ...]
     theme_fanout: bool
+    cik_fanout: bool
     url_templates: tuple[str, ...]
 
 
@@ -123,6 +124,7 @@ def _provider(raw: object, index: int) -> AIEquityProvider:
     requires_secret = bool(raw.get("requires_secret", False))
     ticker_fanout = bool(raw.get("ticker_fanout", False))
     theme_fanout = bool(raw.get("theme_fanout", False))
+    cik_fanout = bool(raw.get("cik_fanout", False))
     series_fanout = _text_tuple(
         raw.get("series_fanout"), "series_fanout", index, required=False
     )
@@ -134,6 +136,7 @@ def _provider(raw: object, index: int) -> AIEquityProvider:
         ("ticker_fanout", ticker_fanout),
         ("series_fanout", bool(series_fanout)),
         ("theme_fanout", theme_fanout),
+        ("cik_fanout", cik_fanout),
     ]
     active = [name for name, flag in fanout_flags if flag]
     if len(active) != 1:
@@ -157,6 +160,11 @@ def _provider(raw: object, index: int) -> AIEquityProvider:
             f"provider {index} declares theme_fanout but a url_template "
             f"is missing the {{theme}} placeholder"
         )
+    if cik_fanout and not all("{cik}" in t for t in url_templates):
+        raise ValueError(
+            f"provider {index} declares cik_fanout but a url_template "
+            f"is missing the {{cik}} placeholder"
+        )
 
     return AIEquityProvider(
         source_id=source_id,
@@ -170,6 +178,7 @@ def _provider(raw: object, index: int) -> AIEquityProvider:
         ticker_fanout=ticker_fanout,
         series_fanout=series_fanout,
         theme_fanout=theme_fanout,
+        cik_fanout=cik_fanout,
         url_templates=url_templates,
     )
 

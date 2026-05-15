@@ -201,6 +201,84 @@ class LocalInputValidatorTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "themes"):
                 load_ai_equity_watchlist(path)
 
+    def test_provider_accepts_cik_fanout_with_cik_placeholder(self) -> None:
+        from ai_infra_fund_core.local_inputs.watchlist import (
+            validate_ai_equity_watchlist,
+        )
+
+        raw = {
+            "version": 1,
+            "entries": [
+                {
+                    "ticker": "NVDA",
+                    "company_name": "NVIDIA",
+                    "themes": ["ai_accelerators"],
+                    "sector_tags": ["semiconductors"],
+                    "priority": "critical",
+                }
+            ],
+            "providers": [
+                {
+                    "source_id": "source_api_sec_edgar",
+                    "source_name": "SEC EDGAR",
+                    "source_type": "filings_api",
+                    "base_url": "https://data.sec.gov",
+                    "license_label": "public",
+                    "data_class": "public_evidence",
+                    "reliability_score": 0.98,
+                    "requires_secret": False,
+                    "cik_fanout": True,
+                    "url_templates": [
+                        "https://data.sec.gov/submissions/CIK{cik}.json",
+                    ],
+                }
+            ],
+        }
+
+        watchlist = validate_ai_equity_watchlist(raw)
+
+        self.assertEqual(1, len(watchlist.providers))
+        provider = watchlist.providers[0]
+        self.assertTrue(provider.cik_fanout)
+        self.assertFalse(provider.ticker_fanout)
+
+    def test_provider_rejects_cik_fanout_without_cik_placeholder(self) -> None:
+        from ai_infra_fund_core.local_inputs.watchlist import (
+            validate_ai_equity_watchlist,
+        )
+
+        raw = {
+            "version": 1,
+            "entries": [
+                {
+                    "ticker": "NVDA",
+                    "company_name": "NVIDIA",
+                    "themes": ["ai_accelerators"],
+                    "sector_tags": ["semiconductors"],
+                    "priority": "critical",
+                }
+            ],
+            "providers": [
+                {
+                    "source_id": "source_api_sec_edgar",
+                    "source_name": "SEC EDGAR",
+                    "source_type": "filings_api",
+                    "base_url": "https://data.sec.gov",
+                    "license_label": "public",
+                    "data_class": "public_evidence",
+                    "reliability_score": 0.98,
+                    "requires_secret": False,
+                    "cik_fanout": True,
+                    "url_templates": [
+                        "https://data.sec.gov/submissions/CIK0001045810.json",
+                    ],
+                }
+            ],
+        }
+
+        with self.assertRaisesRegex(ValueError, r"\{cik\} placeholder"):
+            validate_ai_equity_watchlist(raw)
+
 
 if __name__ == "__main__":
     unittest.main()
