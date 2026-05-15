@@ -66,7 +66,7 @@ class SeedWatchlistIntegrationTests(unittest.TestCase):
 
             cursor.execute(
                 "SELECT COUNT(*) FROM evidence.source_registry "
-                "WHERE source_id LIKE 'source-host-%' OR source_id LIKE 'source-api-%';"
+                "WHERE source_id ~ '^source[-_](host|api)[-_]';"
             )
             row = cursor.fetchone()
             assert row is not None
