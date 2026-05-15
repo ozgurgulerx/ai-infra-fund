@@ -13,7 +13,9 @@ sys.path.insert(0, str(CORE_SRC))
 
 class LocalInputValidatorTests(unittest.TestCase):
     def test_portfolio_csv_validation_normalizes_positions(self) -> None:
-        from ai_infra_fund_core.local_inputs.csv_validators import load_portfolio_positions_csv
+        from ai_infra_fund_core.local_inputs.csv_validators import (
+            load_portfolio_positions_csv,
+        )
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "portfolio_positions.csv"
@@ -30,14 +32,20 @@ class LocalInputValidatorTests(unittest.TestCase):
 
             positions = load_portfolio_positions_csv(path)
 
-        self.assertEqual(("NVDA", "CASH"), tuple(position.ticker for position in positions))
+        self.assertEqual(
+            ("NVDA", "CASH"), tuple(position.ticker for position in positions)
+        )
         self.assertEqual("USD", positions[0].currency)
         self.assertEqual("equity", positions[0].asset_type.value)
         self.assertEqual("2026-05-14T10:00:00+00:00", positions[0].as_of.isoformat())
-        self.assertEqual("2026-05-14T10:05:00+00:00", positions[0].available_at.isoformat())
+        self.assertEqual(
+            "2026-05-14T10:05:00+00:00", positions[0].available_at.isoformat()
+        )
 
     def test_trade_journal_csv_validation_rejects_invalid_side(self) -> None:
-        from ai_infra_fund_core.local_inputs.csv_validators import load_trade_journal_csv
+        from ai_infra_fund_core.local_inputs.csv_validators import (
+            load_trade_journal_csv,
+        )
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "trade_journal.csv"
@@ -74,7 +82,9 @@ class LocalInputValidatorTests(unittest.TestCase):
                 load_universe_csv(path)
 
     def test_market_snapshot_csv_validation_requires_point_in_time_fields(self) -> None:
-        from ai_infra_fund_core.local_inputs.csv_validators import load_market_snapshots_csv
+        from ai_infra_fund_core.local_inputs.csv_validators import (
+            load_market_snapshots_csv,
+        )
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "market_snapshots.csv"
@@ -91,12 +101,16 @@ class LocalInputValidatorTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "available_at"):
                 load_market_snapshots_csv(path)
 
-    def test_evidence_file_import_requires_provenance_and_rejects_missing_license(self) -> None:
+    def test_evidence_file_import_requires_provenance_and_rejects_missing_license(
+        self,
+    ) -> None:
         from ai_infra_fund_core.local_inputs.csv_validators import load_evidence_files
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "nvda-note.md").write_text("NVDA accelerator supply remains tight.", encoding="utf-8")
+            (root / "nvda-note.md").write_text(
+                "NVDA accelerator supply remains tight.", encoding="utf-8"
+            )
             index = root / "evidence_index.csv"
             index.write_text(
                 "\n".join(
@@ -116,7 +130,9 @@ class LocalInputValidatorTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "nvda-note.md").write_text("NVDA accelerator supply remains tight.", encoding="utf-8")
+            (root / "nvda-note.md").write_text(
+                "NVDA accelerator supply remains tight.", encoding="utf-8"
+            )
             index = root / "evidence_index.csv"
             index.write_text(
                 "\n".join(
@@ -138,12 +154,16 @@ class LocalInputValidatorTests(unittest.TestCase):
 
     def test_sensitive_schwab_pdf_is_quarantined_before_evidence_import(self) -> None:
         from ai_infra_fund_core.local_inputs.csv_validators import load_evidence_files
-        from ai_infra_fund_core.local_inputs.file_validators import validate_local_file_candidate
+        from ai_infra_fund_core.local_inputs.file_validators import (
+            validate_local_file_candidate,
+        )
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             sensitive_pdf = root / "schwab-routing-instructions.pdf"
-            sensitive_pdf.write_bytes(b"%PDF-1.7\nSchwab routing number and account transfer instructions")
+            sensitive_pdf.write_bytes(
+                b"%PDF-1.7\nSchwab routing number and account transfer instructions"
+            )
 
             validation = validate_local_file_candidate(sensitive_pdf)
 
@@ -167,7 +187,9 @@ class LocalInputValidatorTests(unittest.TestCase):
     def test_ai_equity_watchlist_yaml_is_config_driven_and_validated(self) -> None:
         from ai_infra_fund_core.local_inputs.watchlist import load_ai_equity_watchlist
 
-        watchlist = load_ai_equity_watchlist(ROOT / "config" / "ai_equity_watchlist.yaml")
+        watchlist = load_ai_equity_watchlist(
+            ROOT / "config" / "ai_equity_watchlist.yaml"
+        )
 
         tickers = tuple(item.ticker for item in watchlist.entries)
         self.assertIn("NVDA", tickers)
@@ -178,7 +200,9 @@ class LocalInputValidatorTests(unittest.TestCase):
             self.assertGreaterEqual(len(entry.sector_tags), 1)
             self.assertIn(entry.priority, {"critical", "high", "medium", "low"})
 
-    def test_ai_equity_watchlist_validation_rejects_missing_required_fields(self) -> None:
+    def test_ai_equity_watchlist_validation_rejects_missing_required_fields(
+        self,
+    ) -> None:
         from ai_infra_fund_core.local_inputs.watchlist import load_ai_equity_watchlist
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -226,7 +250,6 @@ class LocalInputValidatorTests(unittest.TestCase):
                     "license_label": "public",
                     "data_class": "public_evidence",
                     "reliability_score": 0.98,
-                    "requires_secret": False,
                     "cik_fanout": True,
                     "url_templates": [
                         "https://data.sec.gov/submissions/CIK{cik}.json",
@@ -267,7 +290,6 @@ class LocalInputValidatorTests(unittest.TestCase):
                     "license_label": "public",
                     "data_class": "public_evidence",
                     "reliability_score": 0.98,
-                    "requires_secret": False,
                     "cik_fanout": True,
                     "url_templates": [
                         "https://data.sec.gov/submissions/CIK0001045810.json",

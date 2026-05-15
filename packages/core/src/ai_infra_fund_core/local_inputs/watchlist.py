@@ -142,7 +142,7 @@ def _provider(raw: object, index: int) -> AIEquityProvider:
     if len(active) != 1:
         raise ValueError(
             f"provider {index} must declare exactly one fanout dimension "
-            f"(ticker_fanout, series_fanout, or theme_fanout); got {active}"
+            f"(ticker_fanout, series_fanout, theme_fanout, or cik_fanout); got {active}"
         )
 
     if ticker_fanout and not all("{ticker}" in t for t in url_templates):
