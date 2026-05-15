@@ -28,7 +28,9 @@ SUMMARY_ENDPOINTS = {
 
 
 class DashboardApiTests(unittest.TestCase):
-    def test_summary_endpoints_return_read_only_data_from_injected_repository(self) -> None:
+    def test_summary_endpoints_return_read_only_data_from_injected_repository(
+        self,
+    ) -> None:
         from fastapi.testclient import TestClient
 
         from ai_infra_fund_api import main
@@ -42,7 +44,9 @@ class DashboardApiTests(unittest.TestCase):
                 response = client.get(endpoint)
 
                 self.assertEqual(200, response.status_code)
-                self.assertEqual({"data": repository.responses[method_name]}, response.json())
+                self.assertEqual(
+                    {"data": repository.responses[method_name]}, response.json()
+                )
 
         self.assertEqual(list(SUMMARY_ENDPOINTS.values()), repository.calls)
 
@@ -58,17 +62,25 @@ class DashboardApiTests(unittest.TestCase):
         modules = client.get("/internal/status/modules")
 
         self.assertEqual(200, overview.status_code)
-        self.assertEqual({"data": repository.responses["get_status_overview"]}, overview.json())
+        self.assertEqual(
+            {"data": repository.responses["get_status_overview"]}, overview.json()
+        )
         self.assertEqual(200, modules.status_code)
-        self.assertEqual({"data": repository.responses["get_status_modules"]}, modules.json())
-        self.assertEqual(["get_status_overview", "get_status_modules"], repository.calls)
+        self.assertEqual(
+            {"data": repository.responses["get_status_modules"]}, modules.json()
+        )
+        self.assertEqual(
+            ["get_status_overview", "get_status_modules"], repository.calls
+        )
 
     def test_dashboard_summary_endpoint_rejects_unsupported_methods(self) -> None:
         from fastapi.testclient import TestClient
 
         from ai_infra_fund_api import main
 
-        client = TestClient(main.create_app(dashboard_repository=FakeDashboardRepository()))
+        client = TestClient(
+            main.create_app(dashboard_repository=FakeDashboardRepository())
+        )
         endpoint = "/internal/dashboard/evidence-summary"
 
         for request in (client.post, client.put, client.patch, client.delete):
@@ -77,7 +89,9 @@ class DashboardApiTests(unittest.TestCase):
 
                 self.assertEqual(405, response.status_code)
 
-    def test_ticker_intelligence_endpoint_returns_read_only_ticker_payload(self) -> None:
+    def test_ticker_intelligence_endpoint_returns_read_only_ticker_payload(
+        self,
+    ) -> None:
         from fastapi.testclient import TestClient
 
         from ai_infra_fund_api import main
@@ -88,10 +102,77 @@ class DashboardApiTests(unittest.TestCase):
         response = client.get("/internal/dashboard/ticker-intelligence/NVDA")
 
         self.assertEqual(200, response.status_code)
-        self.assertEqual({"data": repository.responses["get_ticker_intelligence_summary"]}, response.json())
-        self.assertEqual([("get_ticker_intelligence_summary", "NVDA")], repository.ticker_calls)
+        self.assertEqual(
+            {"data": repository.responses["get_ticker_intelligence_summary"]},
+            response.json(),
+        )
+        self.assertEqual(
+            [("get_ticker_intelligence_summary", "NVDA")], repository.ticker_calls
+        )
 
-    def test_dashboard_routes_do_not_expose_broker_order_or_execution_names(self) -> None:
+    def test_portfolio_summary_endpoint_returns_data_envelope(self) -> None:
+        from fastapi.testclient import TestClient
+
+        from ai_infra_fund_api import main
+
+        repository = FakeDashboardRepository()
+        client = TestClient(main.create_app(dashboard_repository=repository))
+
+        response = client.get("/internal/dashboard/portfolio-summary")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            {"data": repository.responses["get_portfolio_summary"]},
+            response.json(),
+        )
+        self.assertIn("get_portfolio_summary", repository.calls)
+
+    def test_latest_recommendations_endpoint_passes_bounded_limit(self) -> None:
+        from fastapi.testclient import TestClient
+
+        from ai_infra_fund_api import main
+
+        repository = FakeDashboardRepository()
+        client = TestClient(main.create_app(dashboard_repository=repository))
+
+        response = client.get("/internal/dashboard/latest-recommendations?limit=5")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            {"data": repository.responses["get_latest_recommendations"]},
+            response.json(),
+        )
+        self.assertEqual([("get_latest_recommendations", 5)], repository.limit_calls)
+
+    def test_latest_recommendations_endpoint_caps_limit_to_50(self) -> None:
+        from fastapi.testclient import TestClient
+
+        from ai_infra_fund_api import main
+
+        repository = FakeDashboardRepository()
+        client = TestClient(main.create_app(dashboard_repository=repository))
+
+        response = client.get("/internal/dashboard/latest-recommendations?limit=9999")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual([("get_latest_recommendations", 50)], repository.limit_calls)
+
+    def test_latest_recommendations_endpoint_defaults_to_ten(self) -> None:
+        from fastapi.testclient import TestClient
+
+        from ai_infra_fund_api import main
+
+        repository = FakeDashboardRepository()
+        client = TestClient(main.create_app(dashboard_repository=repository))
+
+        response = client.get("/internal/dashboard/latest-recommendations")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual([("get_latest_recommendations", 10)], repository.limit_calls)
+
+    def test_dashboard_routes_do_not_expose_broker_order_or_execution_names(
+        self,
+    ) -> None:
         from ai_infra_fund_api import main
 
         app = main.create_app(dashboard_repository=FakeDashboardRepository())
@@ -122,7 +203,9 @@ class DashboardApiTests(unittest.TestCase):
         response = TestClient(app).get("/internal/dashboard/incident-summary")
 
         self.assertEqual(200, response.status_code)
-        self.assertEqual({"data": repository.responses["get_incident_summary"]}, response.json())
+        self.assertEqual(
+            {"data": repository.responses["get_incident_summary"]}, response.json()
+        )
 
 
 class FakeDashboardRepository:
@@ -194,8 +277,46 @@ class FakeDashboardRepository:
                 "watchlist_status": "active",
                 "latest_recommendation": {"advisory_label": "advisory_only"},
             },
+            "get_portfolio_summary": {
+                "status": "available",
+                "advisory_label": "advisory_only",
+                "snapshot_id": "snap-1",
+                "as_of": "2026-05-15T12:00:00+00:00",
+                "total_market_value": "1240000",
+                "cash_value": "421600",
+                "previous_total_market_value": "1218000",
+                "day_delta_pct": 0.018,
+                "positions": [
+                    {
+                        "ticker": "NVDA",
+                        "quantity": "120",
+                        "market_price": "850",
+                        "market_value": "102000",
+                        "portfolio_weight": "0.18",
+                        "unrealized_pnl": "12000",
+                    }
+                ],
+            },
+            "get_latest_recommendations": {
+                "status": "available",
+                "advisory_label": "advisory_only",
+                "items": [
+                    {
+                        "recommendation_id": "rec-nvda-1",
+                        "ticker_or_portfolio": "NVDA",
+                        "action": "accumulate",
+                        "horizon": "1M",
+                        "advisory_label": "advisory_only",
+                        "evidence_count": 4,
+                        "model_run_count": 2,
+                        "schema_valid": True,
+                        "created_at": "2026-05-15T13:00:00+00:00",
+                    }
+                ],
+            },
         }
         self.ticker_calls: list[tuple[str, str]] = []
+        self.limit_calls: list[tuple[str, int]] = []
 
     def get_status_overview(self) -> dict[str, object]:
         return self._record("get_status_overview")
@@ -239,6 +360,13 @@ class FakeDashboardRepository:
     def get_ticker_intelligence_summary(self, ticker: str) -> dict[str, object]:
         self.ticker_calls.append(("get_ticker_intelligence_summary", ticker))
         return self.responses["get_ticker_intelligence_summary"]
+
+    def get_portfolio_summary(self) -> dict[str, object]:
+        return self._record("get_portfolio_summary")
+
+    def get_latest_recommendations(self, limit: int = 10) -> dict[str, object]:
+        self.limit_calls.append(("get_latest_recommendations", limit))
+        return self.responses["get_latest_recommendations"]
 
     def _record(self, method_name: str) -> dict[str, object]:
         self.calls.append(method_name)

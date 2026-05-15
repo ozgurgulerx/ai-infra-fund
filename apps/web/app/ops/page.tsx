@@ -120,28 +120,28 @@ export default function OpsPage() {
                 unreachable.
               </p>
             ) : (
-              <dl className="crawl-activity-grid">
-                <div>
+              <dl className="metric-grid">
+                <div className="metric-card">
                   <dt>Total attempts</dt>
                   <dd>{crawlActivity.total}</dd>
                 </div>
-                <div>
+                <div className="metric-card">
                   <dt>Succeeded (2xx)</dt>
                   <dd>{crawlActivity.succeeded}</dd>
                 </div>
-                <div>
+                <div className="metric-card">
                   <dt>Not modified (304)</dt>
                   <dd>{crawlActivity.not_modified}</dd>
                 </div>
-                <div>
+                <div className="metric-card">
                   <dt>Client error (4xx)</dt>
                   <dd>{crawlActivity.client_error}</dd>
                 </div>
-                <div>
+                <div className="metric-card">
                   <dt>Server error (5xx)</dt>
                   <dd>{crawlActivity.server_error}</dd>
                 </div>
-                <div>
+                <div className="metric-card">
                   <dt>Transport failed</dt>
                   <dd>{crawlActivity.failed}</dd>
                 </div>

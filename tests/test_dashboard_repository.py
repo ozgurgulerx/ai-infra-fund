@@ -185,12 +185,21 @@ class DashboardRepositoryTests(unittest.TestCase):
     def test_route_adapter_methods_delegate_to_read_only_summaries(self) -> None:
         connection = FakeConnection(
             result_sets=[
-                ResultSet([(1, 2, 3, {"public_evidence": 1}, NOW, LATER)], SUMMARY_COLUMNS),
+                ResultSet(
+                    [(1, 2, 3, {"public_evidence": 1}, NOW, LATER)], SUMMARY_COLUMNS
+                ),
                 ResultSet([(4, 5, 5, 0, LATER)], RECOMMENDATION_COLUMNS),
                 ResultSet([(6, {"success": 5, "denied": 1}, LATER)], MODEL_RUN_COLUMNS),
-                ResultSet([(7, {"succeeded": 7}, 8, {"succeeded": 8}, LATER)], EVALUATION_COLUMNS),
-                ResultSet([(9, {"pass": 9}, {"low": 9}, NOW, LATER)], DATA_QUALITY_COLUMNS),
-                ResultSet([(10, {"low": 10}, {"resolved": 10}, 0, LATER)], INCIDENT_COLUMNS),
+                ResultSet(
+                    [(7, {"succeeded": 7}, 8, {"succeeded": 8}, LATER)],
+                    EVALUATION_COLUMNS,
+                ),
+                ResultSet(
+                    [(9, {"pass": 9}, {"low": 9}, NOW, LATER)], DATA_QUALITY_COLUMNS
+                ),
+                ResultSet(
+                    [(10, {"low": 10}, {"resolved": 10}, 0, LATER)], INCIDENT_COLUMNS
+                ),
             ],
         )
 
@@ -265,7 +274,10 @@ class DashboardRepositoryTests(unittest.TestCase):
     def test_counts_model_runs_by_status(self) -> None:
         connection = FakeConnection(
             result_sets=[
-                ResultSet([(4, {"succeeded": 2, "failed": 1, "running": 1}, LATER)], MODEL_RUN_COLUMNS),
+                ResultSet(
+                    [(4, {"succeeded": 2, "failed": 1, "running": 1}, LATER)],
+                    MODEL_RUN_COLUMNS,
+                ),
             ],
         )
 
@@ -277,14 +289,24 @@ class DashboardRepositoryTests(unittest.TestCase):
         self.assertNotIn("deployment", statement)
         self.assertEqual((), params)
         self.assertEqual(4, summary["total_model_runs"])
-        self.assertEqual({"succeeded": 2, "failed": 1, "running": 1}, summary["runs_by_status"])
+        self.assertEqual(
+            {"succeeded": 2, "failed": 1, "running": 1}, summary["runs_by_status"]
+        )
         self.assertEqual("available", summary["status"])
 
     def test_counts_evaluation_backtest_and_run_artifact_records(self) -> None:
         connection = FakeConnection(
             result_sets=[
                 ResultSet(
-                    [(2, {"succeeded": 1, "failed": 1}, 3, {"succeeded": 2, "pending": 1}, LATER)],
+                    [
+                        (
+                            2,
+                            {"succeeded": 1, "failed": 1},
+                            3,
+                            {"succeeded": 2, "pending": 1},
+                            LATER,
+                        )
+                    ],
                     EVALUATION_COLUMNS,
                 ),
             ],
@@ -298,15 +320,27 @@ class DashboardRepositoryTests(unittest.TestCase):
         self.assertNotIn("artifact_uri", statement)
         self.assertEqual((), params)
         self.assertEqual(2, summary["total_backtest_runs"])
-        self.assertEqual({"succeeded": 1, "failed": 1}, summary["backtest_runs_by_status"])
+        self.assertEqual(
+            {"succeeded": 1, "failed": 1}, summary["backtest_runs_by_status"]
+        )
         self.assertEqual(3, summary["total_run_artifacts"])
-        self.assertEqual({"succeeded": 2, "pending": 1}, summary["run_artifacts_by_status"])
+        self.assertEqual(
+            {"succeeded": 2, "pending": 1}, summary["run_artifacts_by_status"]
+        )
 
     def test_counts_data_quality_checks_by_status_and_severity(self) -> None:
         connection = FakeConnection(
             result_sets=[
                 ResultSet(
-                    [(3, {"passed": 2, "failed": 1}, {"low": 1, "high": 2}, NOW, LATER)],
+                    [
+                        (
+                            3,
+                            {"passed": 2, "failed": 1},
+                            {"low": 1, "high": 2},
+                            NOW,
+                            LATER,
+                        )
+                    ],
                     DATA_QUALITY_COLUMNS,
                 ),
             ],
@@ -326,7 +360,15 @@ class DashboardRepositoryTests(unittest.TestCase):
         connection = FakeConnection(
             result_sets=[
                 ResultSet(
-                    [(4, {"critical": 1, "medium": 3}, {"frozen": 2, "none": 2}, 1, LATER)],
+                    [
+                        (
+                            4,
+                            {"critical": 1, "medium": 3},
+                            {"frozen": 2, "none": 2},
+                            1,
+                            LATER,
+                        )
+                    ],
                     INCIDENT_COLUMNS,
                 ),
             ],
@@ -339,7 +381,9 @@ class DashboardRepositoryTests(unittest.TestCase):
         self.assertEqual((), params)
         self.assertEqual(4, summary["total_incidents"])
         self.assertEqual({"critical": 1, "medium": 3}, summary["incidents_by_severity"])
-        self.assertEqual({"frozen": 2, "none": 2}, summary["incidents_by_freeze_status"])
+        self.assertEqual(
+            {"frozen": 2, "none": 2}, summary["incidents_by_freeze_status"]
+        )
         self.assertEqual(1, summary["open_incidents"])
         self.assertEqual("degraded", summary["status"])
 
@@ -499,7 +543,9 @@ class DashboardRepositoryTests(unittest.TestCase):
         self.assertEqual("0.61", snapshot["technical_score"])
         self.assertEqual("0.84", snapshot["fundamental_score"])
 
-    def test_phase10_latest_advisory_run_is_read_only_and_advisory_labeled(self) -> None:
+    def test_phase10_latest_advisory_run_is_read_only_and_advisory_labeled(
+        self,
+    ) -> None:
         connection = FakeConnection(
             result_sets=[
                 ResultSet(
@@ -609,14 +655,18 @@ class DashboardRepositoryTests(unittest.TestCase):
         self.assertEqual("NVDA", summary["ticker"])
         self.assertEqual("active", summary["watchlist"]["watchlist_status"])
         self.assertEqual("0.61", summary["latest_scores"]["technical_score"])
-        self.assertEqual("advisory_only", summary["latest_recommendation"]["advisory_label"])
+        self.assertEqual(
+            "advisory_only", summary["latest_recommendation"]["advisory_label"]
+        )
         self.assertEqual("evidence-nvda", summary["latest_events"][0]["evidence_id"])
         for _statement, params in connection.cursor_instance.executions:
             self.assertIn("NVDA", params)
 
 
 class ResultSet:
-    def __init__(self, rows: list[tuple[object, ...]], columns: tuple[str, ...]) -> None:
+    def __init__(
+        self, rows: list[tuple[object, ...]], columns: tuple[str, ...]
+    ) -> None:
         self.rows = rows
         self.columns = columns
 
@@ -656,6 +706,223 @@ class FakeConnection:
 
     def commit(self) -> None:
         self.commit_count += 1
+
+
+PORTFOLIO_SNAPSHOT_COLUMNS = (
+    "snapshot_id",
+    "as_of",
+    "cash_value",
+    "total_market_value",
+    "source",
+)
+
+PORTFOLIO_POSITION_COLUMNS = (
+    "ticker",
+    "quantity",
+    "market_price",
+    "market_value",
+    "portfolio_weight",
+    "unrealized_pnl",
+)
+
+RECOMMENDATION_SUMMARY_COLUMNS = (
+    "recommendation_id",
+    "ticker_or_portfolio",
+    "action",
+    "horizon",
+    "advisory_label",
+    "signal_bundle_id",
+    "target_weights_id",
+    "evidence_count",
+    "model_run_count",
+    "created_at",
+    "schema_valid",
+)
+
+
+class PortfolioSummaryTests(unittest.TestCase):
+    def test_returns_latest_snapshot_with_day_delta_against_previous(self) -> None:
+        latest_id = "11111111-1111-1111-1111-111111111111"
+        previous_id = "22222222-2222-2222-2222-222222222222"
+        connection = FakeConnection(
+            result_sets=[
+                ResultSet(
+                    [
+                        (latest_id, LATER, "100", "1200", "manual"),
+                        (previous_id, NOW, "100", "1000", "manual"),
+                    ],
+                    PORTFOLIO_SNAPSHOT_COLUMNS,
+                ),
+                ResultSet(
+                    [
+                        ("NVDA", "10", "100", "1000", "0.8333", "200"),
+                        ("CASH", "100", "1", "100", "0.0833", "0"),
+                    ],
+                    PORTFOLIO_POSITION_COLUMNS,
+                ),
+            ],
+        )
+
+        summary = DashboardRepository(connection).portfolio_summary()
+
+        statements = [
+            statement for statement, _ in connection.cursor_instance.executions
+        ]
+        self.assertEqual(2, len(statements))
+        self.assertIn("FROM core.portfolio_snapshots", statements[0])
+        self.assertIn("ORDER BY as_of DESC", statements[0])
+        self.assertIn("FROM core.portfolio_snapshot_positions", statements[1])
+        self.assertEqual("available", summary["status"])
+        self.assertEqual("advisory_only", summary["advisory_label"])
+        self.assertEqual(latest_id, summary["snapshot_id"])
+        self.assertEqual("1200", summary["total_market_value"])
+        self.assertEqual("100", summary["cash_value"])
+        self.assertEqual("1000", summary["previous_total_market_value"])
+        self.assertAlmostEqual(0.2, summary["day_delta_pct"], places=6)
+        self.assertEqual(2, len(summary["positions"]))
+        self.assertEqual("NVDA", summary["positions"][0]["ticker"])
+        self.assertEqual("0.8333", summary["positions"][0]["portfolio_weight"])
+
+    def test_returns_empty_when_no_snapshots(self) -> None:
+        connection = FakeConnection(
+            result_sets=[
+                ResultSet([], PORTFOLIO_SNAPSHOT_COLUMNS),
+            ],
+        )
+
+        summary = DashboardRepository(connection).portfolio_summary()
+
+        self.assertEqual("empty", summary["status"])
+        self.assertIsNone(summary["snapshot_id"])
+        self.assertIsNone(summary["day_delta_pct"])
+        self.assertEqual([], summary["positions"])
+        self.assertEqual(1, len(connection.cursor_instance.executions))
+
+    def test_day_delta_is_none_when_only_one_snapshot_exists(self) -> None:
+        latest_id = "33333333-3333-3333-3333-333333333333"
+        connection = FakeConnection(
+            result_sets=[
+                ResultSet(
+                    [(latest_id, NOW, "0", "500", "manual")],
+                    PORTFOLIO_SNAPSHOT_COLUMNS,
+                ),
+                ResultSet([], PORTFOLIO_POSITION_COLUMNS),
+            ],
+        )
+
+        summary = DashboardRepository(connection).portfolio_summary()
+
+        self.assertEqual("available", summary["status"])
+        self.assertIsNone(summary["previous_total_market_value"])
+        self.assertIsNone(summary["day_delta_pct"])
+
+
+class LatestRecommendationsTests(unittest.TestCase):
+    def test_returns_summary_items_ordered_by_created_at(self) -> None:
+        connection = FakeConnection(
+            result_sets=[
+                ResultSet(
+                    [
+                        (
+                            "rec-nvda-1",
+                            "NVDA",
+                            "accumulate",
+                            "1M",
+                            "advisory_only",
+                            "sb-1",
+                            "tw-1",
+                            4,
+                            2,
+                            LATER,
+                            True,
+                        ),
+                        (
+                            "rec-msft-1",
+                            "MSFT",
+                            "hold",
+                            "QTR",
+                            "advisory_only",
+                            "sb-2",
+                            "tw-2",
+                            3,
+                            1,
+                            NOW,
+                            True,
+                        ),
+                    ],
+                    RECOMMENDATION_SUMMARY_COLUMNS,
+                ),
+            ],
+        )
+
+        summary = DashboardRepository(connection).latest_recommendations(5)
+
+        statement, params = connection.cursor_instance.executions[0]
+        self.assertIn("FROM recommendations.recommendation_artifacts", statement)
+        self.assertIn("LEFT JOIN recommendations.recommendation_audits", statement)
+        self.assertIn("ORDER BY artifact.created_at DESC", statement)
+        self.assertIn("LIMIT %s", statement)
+        self.assertEqual((5,), params)
+        self.assertEqual("available", summary["status"])
+        self.assertEqual("advisory_only", summary["advisory_label"])
+        self.assertEqual(2, len(summary["items"]))
+        first = summary["items"][0]
+        self.assertEqual("rec-nvda-1", first["recommendation_id"])
+        self.assertEqual("NVDA", first["ticker_or_portfolio"])
+        self.assertEqual("accumulate", first["action"])
+        self.assertEqual("advisory_only", first["advisory_label"])
+        self.assertEqual(4, first["evidence_count"])
+        self.assertEqual(2, first["model_run_count"])
+        self.assertTrue(first["schema_valid"])
+
+    def test_returns_empty_status_with_no_recommendations(self) -> None:
+        connection = FakeConnection(
+            result_sets=[
+                ResultSet([], RECOMMENDATION_SUMMARY_COLUMNS),
+            ],
+        )
+
+        summary = DashboardRepository(connection).latest_recommendations(10)
+
+        self.assertEqual("empty", summary["status"])
+        self.assertEqual([], summary["items"])
+
+    def test_rejects_non_positive_limit(self) -> None:
+        connection = FakeConnection(
+            result_sets=[ResultSet([], RECOMMENDATION_SUMMARY_COLUMNS)],
+        )
+
+        with self.assertRaises(ValueError):
+            DashboardRepository(connection).latest_recommendations(0)
+
+
+class RouteAdapterDelegationTests(unittest.TestCase):
+    def test_get_portfolio_summary_delegates_to_portfolio_summary(self) -> None:
+        latest_id = "44444444-4444-4444-4444-444444444444"
+        connection = FakeConnection(
+            result_sets=[
+                ResultSet(
+                    [(latest_id, NOW, "0", "100", "manual")],
+                    PORTFOLIO_SNAPSHOT_COLUMNS,
+                ),
+                ResultSet([], PORTFOLIO_POSITION_COLUMNS),
+            ],
+        )
+
+        summary = DashboardRepository(connection).get_portfolio_summary()
+
+        self.assertEqual("available", summary["status"])
+
+    def test_get_latest_recommendations_delegates_with_default_limit(self) -> None:
+        connection = FakeConnection(
+            result_sets=[ResultSet([], RECOMMENDATION_SUMMARY_COLUMNS)],
+        )
+
+        summary = DashboardRepository(connection).get_latest_recommendations()
+
+        _statement, params = connection.cursor_instance.executions[0]
+        self.assertEqual((10,), params)
+        self.assertEqual("empty", summary["status"])
 
 
 if __name__ == "__main__":

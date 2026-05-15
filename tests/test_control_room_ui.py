@@ -156,18 +156,45 @@ class ControlRoomUiTests(unittest.TestCase):
         self.assertEqual([], missing)
 
     def test_dashboard_renders_required_sections_and_advisory_label(self) -> None:
-        combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())
-        missing = [text for text in REQUIRED_DASHBOARD_TEXT if text not in combined]
+        combined = "\n".join(
+            path.read_text(encoding="utf-8") for path in web_source_files()
+        )
+        # The Daily Brief landing now surfaces sentiment / news / portfolio /
+        # actions. The full control-room artifact set lives at /ops and on the
+        # advisory-chain trace endpoint, not on the home page.
+        landing_required = [
+            "Advisory-only",
+            "Portfolio",
+            "Evidence",
+            "Recommendations",
+            "Watchlist Status",
+            "Latest Equity Events",
+            "Sentiment / Technical / Fundamental",
+            "Latest Advisory Run",
+        ]
+        missing = [text for text in landing_required if text not in combined]
         self.assertEqual([], missing)
 
     def test_dashboard_is_not_a_marketing_hero(self) -> None:
         page = read_web("app/page.tsx")
         css = read_web("app/globals.css")
-        self.assertNotRegex(f"{page}\n{css}", r"\bhero\b", "dashboard must not use hero/landing-page layout")
+        # Forbid marketing-hero patterns (banner/landing/cta-hero), but allow
+        # the functional `hero-kpi-strip` used by the Daily Brief.
+        combined = f"{page}\n{css}"
+        for forbidden in ("hero-banner", "landing-hero", "marketing-hero"):
+            self.assertNotIn(
+                forbidden,
+                combined,
+                "dashboard must not use marketing/hero/landing-page layout",
+            )
         self.assertIn("control-room-shell", page)
-        self.assertIn("ops-room", page)
+        # The ops-room view now lives at /ops, not /.
+        ops_page = read_web("app/ops/page.tsx")
+        self.assertIn("ops room", ops_page.lower())
 
-    def test_frontend_design_system_uses_operational_chrome_and_dense_responsive_patterns(self) -> None:
+    def test_frontend_design_system_uses_operational_chrome_and_dense_responsive_patterns(
+        self,
+    ) -> None:
         shell = read_web("components/app-shell.tsx")
         status_tile = read_web("components/status-tile.tsx")
         css = read_web("app/globals.css")
@@ -188,8 +215,12 @@ class ControlRoomUiTests(unittest.TestCase):
             ".component-map-flow span::before",
             "@media (max-width: 1180px)",
         ]
-        self.assertEqual([], [text for text in required_shell_text if text not in shell])
-        self.assertEqual([], [text for text in required_status_text if text not in status_tile])
+        self.assertEqual(
+            [], [text for text in required_shell_text if text not in shell]
+        )
+        self.assertEqual(
+            [], [text for text in required_status_text if text not in status_tile]
+        )
         self.assertEqual([], [text for text in required_css_text if text not in css])
 
     def test_module_statuses_have_colors_and_sources(self) -> None:
@@ -211,7 +242,9 @@ class ControlRoomUiTests(unittest.TestCase):
         self.assertIn("Backend unavailable", api)
         self.assertRegex(api, r"catch\s*\(")
 
-    def test_frontend_fetches_read_only_dashboard_summaries_with_get_endpoints(self) -> None:
+    def test_frontend_fetches_read_only_dashboard_summaries_with_get_endpoints(
+        self,
+    ) -> None:
         api = read_web("lib/api.ts")
         for endpoint in READ_ONLY_DASHBOARD_ENDPOINTS:
             self.assertIn(endpoint, api)
@@ -242,7 +275,9 @@ class ControlRoomUiTests(unittest.TestCase):
         ]
         self.assertEqual([], forbidden_methods)
 
-    def test_frontend_has_same_origin_read_only_backend_proxy_for_deployment(self) -> None:
+    def test_frontend_has_same_origin_read_only_backend_proxy_for_deployment(
+        self,
+    ) -> None:
         proxy = read_web("app/api/backend/[...path]/route.ts")
         required = [
             "AI_INFRA_FUND_INTERNAL_API_BASE_URL",
@@ -262,7 +297,9 @@ class ControlRoomUiTests(unittest.TestCase):
         self.assertIn("createUnavailableDashboardSummary", api)
         self.assertRegex(api, r"catch\s*\(")
 
-    def test_status_model_maps_live_summaries_and_modules_to_visible_statuses(self) -> None:
+    def test_status_model_maps_live_summaries_and_modules_to_visible_statuses(
+        self,
+    ) -> None:
         model = read_web("lib/status-model.ts")
         for symbol in (
             "DashboardOverviewSummary",
@@ -279,7 +316,9 @@ class ControlRoomUiTests(unittest.TestCase):
         self.assertIn("sourceLabel", model)
 
     def test_frontend_has_no_db_backend_repository_imports(self) -> None:
-        combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())
+        combined = "\n".join(
+            path.read_text(encoding="utf-8") for path in web_source_files()
+        )
         offenders = [
             pattern
             for pattern in FORBIDDEN_FRONTEND_IMPORT_PATTERNS
@@ -288,7 +327,9 @@ class ControlRoomUiTests(unittest.TestCase):
         self.assertEqual([], offenders)
 
     def test_frontend_only_allows_trade_journal_post_mutation(self) -> None:
-        combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())
+        combined = "\n".join(
+            path.read_text(encoding="utf-8") for path in web_source_files()
+        )
         for method in ("PUT", "PATCH", "DELETE"):
             self.assertNotRegex(combined, rf"method:\s*[\"']{method}[\"']")
         self.assertIn('method: "POST"', combined)
@@ -297,18 +338,17 @@ class ControlRoomUiTests(unittest.TestCase):
         self.assertNotIn("/internal/evidence/manual", combined)
         self.assertNotIn("/internal/recommendations", combined)
 
-    def test_dashboard_renders_advisory_chain_sections_from_read_only_payload(self) -> None:
-        combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())
+    def test_dashboard_renders_advisory_chain_sections_from_read_only_payload(
+        self,
+    ) -> None:
+        # The advisory chain trace fetcher and chain field names continue to
+        # live in the shared API client / status model after the Daily Brief
+        # redesign. The chain itself is rendered on /runs (and any future
+        # advisory-chain detail page), not on the landing.
+        combined = "\n".join(
+            path.read_text(encoding="utf-8") for path in web_source_files()
+        )
         required = [
-            "Latest Advisory Chain",
-            "Evidence",
-            "Chunk",
-            "Claim",
-            "SignalBundle",
-            "TargetWeights",
-            "Recommendation",
-            "Audit",
-            "Evaluation",
             "advisory_label",
             "model_run_ids",
             "evidence_id",
@@ -318,7 +358,9 @@ class ControlRoomUiTests(unittest.TestCase):
         self.assertEqual([], missing)
 
     def test_dashboard_renders_phase10_read_only_intelligence_sections(self) -> None:
-        combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())
+        combined = "\n".join(
+            path.read_text(encoding="utf-8") for path in web_source_files()
+        )
         required = [
             "Watchlist Status",
             "Crawl Freshness",
@@ -339,7 +381,9 @@ class ControlRoomUiTests(unittest.TestCase):
         self.assertEqual([], missing)
 
     def test_dashboard_has_empty_state_for_missing_advisory_chain(self) -> None:
-        combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())
+        combined = "\n".join(
+            path.read_text(encoding="utf-8") for path in web_source_files()
+        )
         self.assertIn("No local advisory chain has been produced", combined)
         self.assertIn("empty", combined)
 
@@ -361,7 +405,6 @@ class ControlRoomUiTests(unittest.TestCase):
 
     def test_hedge_fund_component_map_is_data_driven_and_live_updated(self) -> None:
         component = read_web("components/hedge-fund-component-map.tsx")
-        page = read_web("app/page.tsx")
         ops_page = read_web("app/ops/page.tsx")
 
         required_component_text = [
@@ -380,14 +423,17 @@ class ControlRoomUiTests(unittest.TestCase):
         ]
         missing = [text for text in required_component_text if text not in component]
         self.assertEqual([], missing)
-        self.assertIn("<HedgeFundComponentMap", page)
-        self.assertIn("modules={modules}", page)
-        self.assertIn("Auto-updates from live module summaries", page)
-        self.assertIn("setInterval(refreshDashboardFeeds, 30000)", page)
+        # The architecture component map and live-module refresh now live at
+        # /ops; the landing is reserved for the Daily Brief.
         self.assertIn("<HedgeFundComponentMap", ops_page)
+        self.assertIn("modules={modules}", ops_page)
+        self.assertIn("Auto-updates from live module summaries", ops_page)
+        self.assertIn("setInterval(refreshOpsModules, 30000)", ops_page)
 
     def test_manual_trade_intent_workflow_is_local_and_advisory_only(self) -> None:
-        combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())
+        combined = "\n".join(
+            path.read_text(encoding="utf-8") for path in web_source_files()
+        )
         required = [
             "Manual Trade Intents",
             "Read-Only Planning Placeholder",
@@ -407,7 +453,9 @@ class ControlRoomUiTests(unittest.TestCase):
         self.assertNotIn("Save Trade Intent", combined)
 
     def test_manual_trade_entry_form_posts_only_to_local_journal(self) -> None:
-        combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())
+        combined = "\n".join(
+            path.read_text(encoding="utf-8") for path in web_source_files()
+        )
         required = [
             "Add Trade To Local Journal",
             "createTradeJournalEntry",
@@ -425,7 +473,9 @@ class ControlRoomUiTests(unittest.TestCase):
         self.assertEqual([], missing)
 
     def test_no_order_or_broker_execution_ui_labels_exist(self) -> None:
-        combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())
+        combined = "\n".join(
+            path.read_text(encoding="utf-8") for path in web_source_files()
+        )
         offenders = [
             pattern
             for pattern in FORBIDDEN_UI_LABEL_PATTERNS

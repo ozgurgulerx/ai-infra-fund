@@ -99,14 +99,11 @@ export async function fetchDashboardModules(): Promise<
   );
 
   try {
-    const response = await fetch(
-      backendProxyUrl(DASHBOARD_MODULES_ENDPOINT),
-      {
-        cache: "no-store",
-        method: "GET",
-        signal: controller.signal,
-      },
-    );
+    const response = await fetch(backendProxyUrl(DASHBOARD_MODULES_ENDPOINT), {
+      cache: "no-store",
+      method: "GET",
+      signal: controller.signal,
+    });
     const payload = (await response.json()) as {
       data?: DashboardModuleSummary[] | { modules?: DashboardModuleSummary[] };
       modules?: DashboardModuleSummary[];
@@ -184,6 +181,102 @@ export async function fetchCrawlActivity(): Promise<CrawlActivitySummary | null>
       return null;
     }
     const payload = (await response.json()) as { data?: CrawlActivitySummary };
+    return payload.data ?? null;
+  } catch {
+    return null;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+export type PortfolioPosition = {
+  ticker: string;
+  quantity: string;
+  market_price: string | null;
+  market_value: string | null;
+  portfolio_weight: string | null;
+  unrealized_pnl: string | null;
+};
+
+export type PortfolioSummary = {
+  status: "available" | "empty";
+  advisory_label: "advisory_only";
+  snapshot_id: string | null;
+  as_of: string | null;
+  total_market_value: string | null;
+  cash_value: string | null;
+  previous_total_market_value: string | null;
+  day_delta_pct: number | null;
+  source?: string | null;
+  positions: PortfolioPosition[];
+};
+
+export async function fetchPortfolioSummary(): Promise<PortfolioSummary | null> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(
+    () => controller.abort(),
+    DEFAULT_TIMEOUT_MS,
+  );
+  try {
+    const response = await fetch(
+      backendProxyUrl("/internal/dashboard/portfolio-summary"),
+      { cache: "no-store", method: "GET", signal: controller.signal },
+    );
+    if (!response.ok) {
+      return null;
+    }
+    const payload = (await response.json()) as { data?: PortfolioSummary };
+    return payload.data ?? null;
+  } catch {
+    return null;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+export type RecommendationSummaryItem = {
+  recommendation_id: string;
+  ticker_or_portfolio: string;
+  action: string;
+  horizon: string;
+  advisory_label: "advisory_only";
+  signal_bundle_id: string | null;
+  target_weights_id: string | null;
+  evidence_count: number;
+  model_run_count: number;
+  schema_valid: boolean;
+  created_at: string | null;
+};
+
+export type LatestRecommendationsPayload = {
+  status: "available" | "empty";
+  advisory_label: "advisory_only";
+  items: RecommendationSummaryItem[];
+};
+
+export async function fetchLatestRecommendations(
+  limit = 10,
+): Promise<LatestRecommendationsPayload | null> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(
+    () => controller.abort(),
+    DEFAULT_TIMEOUT_MS,
+  );
+  try {
+    const response = await fetch(
+      backendProxyUrl(
+        `/internal/dashboard/latest-recommendations?limit=${encodeURIComponent(
+          String(limit),
+        )}`,
+      ),
+      { cache: "no-store", method: "GET", signal: controller.signal },
+    );
+    if (!response.ok) {
+      return null;
+    }
+    const payload = (await response.json()) as {
+      data?: LatestRecommendationsPayload;
+    };
     return payload.data ?? null;
   } catch {
     return null;

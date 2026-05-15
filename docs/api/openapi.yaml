@@ -296,6 +296,30 @@ paths:
               schema: {}
           description: Successful Response
       summary: Latest Equity Events
+  /internal/dashboard/latest-recommendations:
+    get:
+      operationId: latest_recommendations_internal_dashboard_latest_recommendations_get
+      parameters:
+      - in: query
+        name: limit
+        required: false
+        schema:
+          default: 10
+          title: Limit
+          type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Latest Recommendations
   /internal/dashboard/latest-signal-snapshots:
     get:
       operationId: latest_signal_snapshots_internal_dashboard_latest_signal_snapshots_get
@@ -316,6 +340,16 @@ paths:
               schema: {}
           description: Successful Response
       summary: Model Run Summary
+  /internal/dashboard/portfolio-summary:
+    get:
+      operationId: portfolio_summary_internal_dashboard_portfolio_summary_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Portfolio Summary
   /internal/dashboard/recommendation-summary:
     get:
       operationId: recommendation_summary_internal_dashboard_recommendation_summary_get

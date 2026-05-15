@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from typing import Protocol
 import json
 
@@ -9,16 +10,15 @@ import json
 class Cursor(Protocol):
     description: object
 
-    def execute(self, statement: str, params: tuple[object, ...] | None = None) -> None:
-        ...
+    def execute(
+        self, statement: str, params: tuple[object, ...] | None = None
+    ) -> None: ...
 
-    def fetchall(self) -> list[object]:
-        ...
+    def fetchall(self) -> list[object]: ...
 
 
 class Connection(Protocol):
-    def cursor(self) -> object:
-        ...
+    def cursor(self) -> object: ...
 
 
 EVIDENCE_SUMMARY_SQL = """
@@ -398,6 +398,54 @@ LIMIT %s;
 """
 
 
+LATEST_PORTFOLIO_SNAPSHOTS_SQL = """
+SELECT
+    snapshot_id,
+    as_of,
+    cash_value,
+    total_market_value,
+    source
+FROM core.portfolio_snapshots
+ORDER BY as_of DESC, created_at DESC, snapshot_id DESC
+LIMIT 2;
+"""
+
+
+PORTFOLIO_SNAPSHOT_POSITIONS_SQL = """
+SELECT
+    ticker,
+    quantity,
+    market_price,
+    market_value,
+    portfolio_weight,
+    unrealized_pnl
+FROM core.portfolio_snapshot_positions
+WHERE snapshot_id = %s::uuid
+ORDER BY ticker ASC;
+"""
+
+
+LATEST_RECOMMENDATIONS_SQL = """
+SELECT
+    artifact.recommendation_id,
+    artifact.ticker_or_portfolio,
+    artifact.action,
+    artifact.horizon,
+    artifact.advisory_label,
+    artifact.signal_bundle_id,
+    artifact.target_weights_id,
+    COALESCE(cardinality(artifact.evidence_ids), 0) AS evidence_count,
+    COALESCE(cardinality(artifact.model_run_ids), 0) AS model_run_count,
+    artifact.created_at,
+    COALESCE(audit.schema_valid, false) AS schema_valid
+FROM recommendations.recommendation_artifacts AS artifact
+LEFT JOIN recommendations.recommendation_audits AS audit
+    ON audit.recommendation_id = artifact.recommendation_id
+ORDER BY artifact.created_at DESC, artifact.recommendation_id DESC
+LIMIT %s;
+"""
+
+
 class DashboardRepository:
     def __init__(self, connection: Connection) -> None:
         self._connection = connection
@@ -515,6 +563,12 @@ class DashboardRepository:
     def get_ticker_intelligence_summary(self, ticker: str) -> dict[str, object]:
         return self.ticker_intelligence_summary(ticker)
 
+    def get_portfolio_summary(self) -> dict[str, object]:
+        return self.portfolio_summary()
+
+    def get_latest_recommendations(self, limit: int = 10) -> dict[str, object]:
+        return self.latest_recommendations(limit)
+
     def evidence_summary(self) -> dict[str, object]:
         row = self._fetch_one(EVIDENCE_SUMMARY_SQL)
         total_items = _int(row.get("total_items"))
@@ -586,14 +640,19 @@ class DashboardRepository:
             "status": "degraded" if open_incidents > 0 else _status(total_incidents),
             "total_incidents": total_incidents,
             "incidents_by_severity": _count_map(row.get("incidents_by_severity")),
-            "incidents_by_freeze_status": _count_map(row.get("incidents_by_freeze_status")),
+            "incidents_by_freeze_status": _count_map(
+                row.get("incidents_by_freeze_status")
+            ),
             "open_incidents": open_incidents,
             "latest_created_at": _iso_or_none(row.get("latest_created_at")),
         }
 
     def watchlist_summary(self) -> dict[str, object]:
         row = self._fetch_one(WATCHLIST_SUMMARY_SQL)
-        members = [_watchlist_member_payload(member) for member in self._fetch_many(WATCHLIST_MEMBERS_SQL, (25,))]
+        members = [
+            _watchlist_member_payload(member)
+            for member in self._fetch_many(WATCHLIST_MEMBERS_SQL, (25,))
+        ]
         total_members = _int(row.get("total_members"))
         return {
             "status": _status(total_members),
@@ -606,7 +665,9 @@ class DashboardRepository:
     def crawl_frontier_health(self) -> dict[str, object]:
         rows = self._fetch_many(CRAWL_FRONTIER_HEALTH_SQL)
         datasets = [_crawl_frontier_payload(row) for row in rows]
-        latest_available_at = _latest_iso(row.get("latest_available_at") for row in rows)
+        latest_available_at = _latest_iso(
+            row.get("latest_available_at") for row in rows
+        )
         return {
             "status": _status(len(datasets)),
             "total_datasets": len(datasets),
@@ -654,19 +715,81 @@ class DashboardRepository:
             "created_at": _iso_or_none(row.get("created_at")),
         }
 
+    def portfolio_summary(self) -> dict[str, object]:
+        snapshot_rows = self._fetch_many(LATEST_PORTFOLIO_SNAPSHOTS_SQL)
+        if not snapshot_rows:
+            return {
+                "status": "empty",
+                "advisory_label": "advisory_only",
+                "snapshot_id": None,
+                "as_of": None,
+                "total_market_value": None,
+                "cash_value": None,
+                "previous_total_market_value": None,
+                "day_delta_pct": None,
+                "positions": [],
+            }
+        latest = snapshot_rows[0]
+        previous = snapshot_rows[1] if len(snapshot_rows) > 1 else None
+        latest_total = _decimal_or_none(latest.get("total_market_value"))
+        previous_total = (
+            _decimal_or_none(previous.get("total_market_value")) if previous else None
+        )
+        day_delta_pct: float | None = None
+        if latest_total is not None and previous_total not in (None, 0):
+            day_delta_pct = float((latest_total - previous_total) / previous_total)
+        positions_rows = self._fetch_many(
+            PORTFOLIO_SNAPSHOT_POSITIONS_SQL,
+            (str(latest.get("snapshot_id")),),
+        )
+        positions = [_portfolio_position_payload(row) for row in positions_rows]
+        return {
+            "status": "available",
+            "advisory_label": "advisory_only",
+            "snapshot_id": str(latest.get("snapshot_id"))
+            if latest.get("snapshot_id")
+            else None,
+            "as_of": _iso_or_none(latest.get("as_of")),
+            "total_market_value": _decimal_text(latest.get("total_market_value")),
+            "cash_value": _decimal_text(latest.get("cash_value")),
+            "previous_total_market_value": (
+                _decimal_text(previous.get("total_market_value")) if previous else None
+            ),
+            "day_delta_pct": day_delta_pct,
+            "source": latest.get("source"),
+            "positions": positions,
+        }
+
+    def latest_recommendations(self, limit: int = 10) -> dict[str, object]:
+        if not isinstance(limit, int) or isinstance(limit, bool) or limit <= 0:
+            raise ValueError("limit must be a positive integer")
+        rows = self._fetch_many(LATEST_RECOMMENDATIONS_SQL, (limit,))
+        items = [_recommendation_summary_payload(row) for row in rows]
+        return {
+            "status": _status(len(items)),
+            "advisory_label": "advisory_only",
+            "items": items,
+        }
+
     def ticker_intelligence_summary(self, ticker: str) -> dict[str, object]:
         normalized_ticker = ticker.upper()
         watchlist = self._fetch_one(TICKER_WATCHLIST_SQL, (normalized_ticker,))
         signal = self._fetch_one(TICKER_SIGNAL_SQL, (normalized_ticker,))
-        recommendation = self._fetch_one(TICKER_RECOMMENDATION_SQL, (normalized_ticker,))
+        recommendation = self._fetch_one(
+            TICKER_RECOMMENDATION_SQL, (normalized_ticker,)
+        )
         events = self._fetch_many(TICKER_EVIDENCE_EVENTS_SQL, (normalized_ticker, 5))
-        available_sections = sum(1 for section in (watchlist, signal, recommendation, events) if section)
+        available_sections = sum(
+            1 for section in (watchlist, signal, recommendation, events) if section
+        )
         return {
             "status": _status(available_sections),
             "ticker": normalized_ticker,
             "watchlist": _watchlist_member_payload(watchlist) if watchlist else None,
             "latest_scores": _signal_snapshot_payload(signal) if signal else None,
-            "latest_recommendation": _recommendation_trace_payload(recommendation) if recommendation else None,
+            "latest_recommendation": _recommendation_trace_payload(recommendation)
+            if recommendation
+            else None,
             "latest_events": [_equity_event_payload(row) for row in events],
         }
 
@@ -677,7 +800,14 @@ class DashboardRepository:
         evaluations = self.evaluation_summary()
         data_quality = self.data_quality_summary()
         incidents = self.incident_summary()
-        sections = (evidence, recommendations, model_runs, evaluations, data_quality, incidents)
+        sections = (
+            evidence,
+            recommendations,
+            model_runs,
+            evaluations,
+            data_quality,
+            incidents,
+        )
         return {
             "status": _overview_status(sections),
             "evidence": evidence,
@@ -808,6 +938,42 @@ def _recommendation_trace_payload(row: Mapping[str, object]) -> dict[str, object
         "model_run_ids": _text_list(row.get("model_run_ids")),
         "created_at": _iso_or_none(row.get("created_at")),
     }
+
+
+def _portfolio_position_payload(row: Mapping[str, object]) -> dict[str, object]:
+    return {
+        "ticker": row.get("ticker"),
+        "quantity": _decimal_text(row.get("quantity")),
+        "market_price": _decimal_text(row.get("market_price")),
+        "market_value": _decimal_text(row.get("market_value")),
+        "portfolio_weight": _decimal_text(row.get("portfolio_weight")),
+        "unrealized_pnl": _decimal_text(row.get("unrealized_pnl")),
+    }
+
+
+def _recommendation_summary_payload(row: Mapping[str, object]) -> dict[str, object]:
+    return {
+        "recommendation_id": row.get("recommendation_id"),
+        "ticker_or_portfolio": row.get("ticker_or_portfolio"),
+        "action": row.get("action"),
+        "horizon": row.get("horizon"),
+        "advisory_label": row.get("advisory_label"),
+        "signal_bundle_id": row.get("signal_bundle_id"),
+        "target_weights_id": row.get("target_weights_id"),
+        "evidence_count": _int(row.get("evidence_count")),
+        "model_run_count": _int(row.get("model_run_count")),
+        "schema_valid": bool(row.get("schema_valid")),
+        "created_at": _iso_or_none(row.get("created_at")),
+    }
+
+
+def _decimal_or_none(value: object) -> Decimal | None:
+    if value is None:
+        return None
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return None
 
 
 def _status(total_count: int) -> str:
