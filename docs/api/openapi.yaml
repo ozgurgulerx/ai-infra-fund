@@ -1,0 +1,709 @@
+components:
+  schemas:
+    BacktestRequestBody:
+      properties:
+        as_of:
+          format: date-time
+          title: As Of
+          type: string
+        cost_assumptions:
+          additionalProperties: true
+          title: Cost Assumptions
+          type: object
+        dataset_snapshot_ids:
+          items:
+            type: string
+          minItems: 1
+          title: Dataset Snapshot Ids
+          type: array
+        pipeline_inputs:
+          additionalProperties: true
+          title: Pipeline Inputs
+          type: object
+        strategy_id:
+          minLength: 1
+          title: Strategy Id
+          type: string
+        validation_protocol:
+          minLength: 1
+          title: Validation Protocol
+          type: string
+      required:
+      - strategy_id
+      - dataset_snapshot_ids
+      - validation_protocol
+      - cost_assumptions
+      - as_of
+      title: BacktestRequestBody
+      type: object
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          title: Detail
+          type: array
+      title: HTTPValidationError
+      type: object
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          title: Location
+          type: array
+        msg:
+          title: Message
+          type: string
+        type:
+          title: Error Type
+          type: string
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+      type: object
+info:
+  title: AI Infrastructure Fund API
+  version: 0.1.0
+openapi: 3.1.0
+paths:
+  /health:
+    get:
+      operationId: health_health_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Health
+  /internal/advisory-chain/demo:
+    get:
+      operationId: demo_advisory_chain_internal_advisory_chain_demo_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Demo Advisory Chain
+  /internal/advisory-chain/latest:
+    get:
+      operationId: latest_advisory_chain_internal_advisory_chain_latest_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Latest Advisory Chain
+  /internal/agent/openapi.json:
+    get:
+      operationId: agent_openapi_json_internal_agent_openapi_json_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Agent Openapi Json
+  /internal/agent/openapi.yaml:
+    get:
+      operationId: agent_openapi_yaml_internal_agent_openapi_yaml_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Agent Openapi Yaml
+  /internal/agent/skill:
+    get:
+      operationId: agent_skill_internal_agent_skill_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Agent Skill
+  /internal/backtests:
+    post:
+      operationId: create_backtest_internal_backtests_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BacktestRequestBody'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Create Backtest
+  /internal/backtests/recent:
+    get:
+      operationId: recent_backtests_internal_backtests_recent_get
+      parameters:
+      - in: query
+        name: limit
+        required: false
+        schema:
+          default: 50
+          minimum: 1
+          title: Limit
+          type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Recent Backtests
+  /internal/backtests/{request_id}:
+    get:
+      operationId: get_backtest_internal_backtests__request_id__get
+      parameters:
+      - in: path
+        name: request_id
+        required: true
+        schema:
+          title: Request Id
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Get Backtest
+  /internal/dashboard/crawl-activity:
+    get:
+      operationId: crawl_activity_internal_dashboard_crawl_activity_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Crawl Activity
+  /internal/dashboard/crawl-frontier-health:
+    get:
+      operationId: crawl_frontier_health_internal_dashboard_crawl_frontier_health_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Crawl Frontier Health
+  /internal/dashboard/data-quality-summary:
+    get:
+      operationId: data_quality_summary_internal_dashboard_data_quality_summary_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Data Quality Summary
+  /internal/dashboard/evaluation-summary:
+    get:
+      operationId: evaluation_summary_internal_dashboard_evaluation_summary_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Evaluation Summary
+  /internal/dashboard/evidence-summary:
+    get:
+      operationId: evidence_summary_internal_dashboard_evidence_summary_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Evidence Summary
+  /internal/dashboard/incident-summary:
+    get:
+      operationId: incident_summary_internal_dashboard_incident_summary_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Incident Summary
+  /internal/dashboard/latest-advisory-run:
+    get:
+      operationId: latest_advisory_run_internal_dashboard_latest_advisory_run_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Latest Advisory Run
+  /internal/dashboard/latest-equity-events:
+    get:
+      operationId: latest_equity_events_internal_dashboard_latest_equity_events_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Latest Equity Events
+  /internal/dashboard/latest-signal-snapshots:
+    get:
+      operationId: latest_signal_snapshots_internal_dashboard_latest_signal_snapshots_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Latest Signal Snapshots
+  /internal/dashboard/model-run-summary:
+    get:
+      operationId: model_run_summary_internal_dashboard_model_run_summary_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Model Run Summary
+  /internal/dashboard/recommendation-summary:
+    get:
+      operationId: recommendation_summary_internal_dashboard_recommendation_summary_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Recommendation Summary
+  /internal/dashboard/ticker-intelligence/{ticker}:
+    get:
+      operationId: ticker_intelligence_internal_dashboard_ticker_intelligence__ticker__get
+      parameters:
+      - in: path
+        name: ticker
+        required: true
+        schema:
+          title: Ticker
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Ticker Intelligence
+  /internal/dashboard/watchlist-summary:
+    get:
+      operationId: watchlist_summary_internal_dashboard_watchlist_summary_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Watchlist Summary
+  /internal/evaluations:
+    post:
+      operationId: persist_evaluation_internal_evaluations_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              title: Payload
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Persist Evaluation
+  /internal/events/by-run/{run_id}:
+    get:
+      operationId: for_run_events_internal_events_by_run__run_id__get
+      parameters:
+      - in: path
+        name: run_id
+        required: true
+        schema:
+          title: Run Id
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          default: 200
+          minimum: 1
+          title: Limit
+          type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: For Run Events
+  /internal/events/recent:
+    get:
+      operationId: recent_events_internal_events_recent_get
+      parameters:
+      - in: query
+        name: limit
+        required: false
+        schema:
+          default: 50
+          minimum: 1
+          title: Limit
+          type: integer
+      - in: query
+        name: since
+        required: false
+        schema:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Since
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Recent Events
+  /internal/evidence/file:
+    post:
+      operationId: submit_file_evidence_internal_evidence_file_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              title: Payload
+              type: object
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Submit File Evidence
+  /internal/evidence/manual:
+    post:
+      operationId: submit_manual_evidence_internal_evidence_manual_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              title: Payload
+              type: object
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Submit Manual Evidence
+  /internal/recommendations:
+    post:
+      operationId: create_recommendation_internal_recommendations_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              title: Payload
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Create Recommendation
+  /internal/recommendations/{recommendation_id}:
+    get:
+      operationId: get_recommendation_internal_recommendations__recommendation_id__get
+      parameters:
+      - in: path
+        name: recommendation_id
+        required: true
+        schema:
+          title: Recommendation Id
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Get Recommendation
+  /internal/runs/latest:
+    get:
+      operationId: latest_run_internal_runs_latest_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Latest Run
+  /internal/runs/{run_id}:
+    get:
+      operationId: get_run_internal_runs__run_id__get
+      parameters:
+      - in: path
+        name: run_id
+        required: true
+        schema:
+          title: Run Id
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Get Run
+  /internal/shadow-portfolio/drift:
+    get:
+      operationId: shadow_drift_internal_shadow_portfolio_drift_get
+      parameters:
+      - in: query
+        name: as_of
+        required: false
+        schema:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: As Of
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Shadow Drift
+  /internal/shadow-portfolio/simulation:
+    get:
+      operationId: shadow_simulation_internal_shadow_portfolio_simulation_get
+      parameters:
+      - in: query
+        name: as_of
+        required: false
+        schema:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: As Of
+      - in: query
+        name: horizon_days
+        required: false
+        schema:
+          default: 30
+          maximum: 365
+          minimum: 1
+          title: Horizon Days
+          type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Shadow Simulation
+  /internal/status/modules:
+    get:
+      operationId: status_modules_internal_status_modules_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Status Modules
+  /internal/status/overview:
+    get:
+      operationId: status_overview_internal_status_overview_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Status Overview
+  /internal/trade-journal/entries:
+    get:
+      operationId: list_trade_entries_internal_trade_journal_entries_get
+      parameters:
+      - in: query
+        name: limit
+        required: false
+        schema:
+          default: 25
+          maximum: 100
+          minimum: 1
+          title: Limit
+          type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: List Trade Entries
+    post:
+      operationId: create_trade_entry_internal_trade_journal_entries_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              title: Payload
+              type: object
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Create Trade Entry
+  /ready:
+    get:
+      operationId: ready_ready_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Ready
+  /version:
+    get:
+      operationId: version_version_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Version

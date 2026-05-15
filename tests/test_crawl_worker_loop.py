@@ -1,0 +1,300 @@
+from __future__ import annotations
+
+import os
+import sys
+import tempfile
+import unittest
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+import psycopg
+
+
+ROOT = Path(__file__).resolve().parents[1]
+CORE_SRC = ROOT / "packages" / "core" / "src"
+API_SRC = ROOT / "services" / "api" / "src"
+WORKER_SRC = ROOT / "services" / "worker" / "src"
+for path in (CORE_SRC, API_SRC, WORKER_SRC):
+    sys.path.insert(0, str(path))
+
+from ai_infra_fund_core.equity_intelligence.capture import LocalCaptureStore  # noqa: E402
+from ai_infra_fund_core.equity_intelligence.fetcher import FetchResult  # noqa: E402
+from ai_infra_fund_core.equity_intelligence.frontier import FrontierPolicy  # noqa: E402
+from ai_infra_fund_core.equity_intelligence.research_extractor import (  # noqa: E402
+    StubLLMClaimExtractor,
+)
+from ai_infra_fund_worker.crawl.seed import seed_watchlist  # noqa: E402
+from ai_infra_fund_worker.crawl.worker_loop import (  # noqa: E402
+    CrawlBatchReport,
+    run_crawl_batch,
+)
+
+
+DATABASE_URL = os.getenv(
+    "AI_INFRA_FUND_DATABASE_URL",
+    "postgresql://ai_infra_fund:ai_infra_fund@localhost:5432/ai_infra_fund",
+)
+
+
+class FakeFetcher:
+    """Records calls and returns canned responses keyed by URL."""
+
+    def __init__(self, responses: dict[str, FetchResult]) -> None:
+        self._responses = responses
+        self.calls: list[tuple[str, str | None, str | None]] = []
+
+    def fetch(
+        self,
+        url: str,
+        *,
+        etag: str | None = None,
+        last_modified: str | None = None,
+    ) -> FetchResult:
+        self.calls.append((url, etag, last_modified))
+        if url in self._responses:
+            return self._responses[url]
+        # Default to 200 success with a small HTML body.
+        return FetchResult(
+            final_url=url,
+            http_status=200,
+            content_type="text/html",
+            body_bytes=b"<html><title>Default</title><body>hello</body></html>",
+            etag=None,
+            last_modified=None,
+            latency_ms=10,
+            fetch_method="http_get",
+            error_summary=None,
+        )
+
+
+def _reset_one_queued(connection, ticker: str) -> tuple[str, str]:
+    """Mark all frontier URLs for the ticker as 'skipped', then re-queue one.
+
+    Returns (frontier_url_id, url) of the single queued URL so the test can
+    inject a canned response keyed by that exact URL. Required because
+    `seed_watchlist` creates several URLs per ticker and the worker leases by
+    priority — pre-picking one with `fetchone()` doesn't guarantee it'll be
+    the one leased.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "UPDATE evidence.source_frontier_urls "
+            "SET status = 'skipped', leased_by = NULL, lease_expires_at = NULL "
+            "WHERE status IN ('queued', 'retry', 'leased');"
+        )
+        cursor.execute(
+            "UPDATE evidence.crawl_frontier_queue "
+            "SET status = 'skipped', leased_by = NULL, lease_expires_at = NULL "
+            "WHERE status IN ('queued', 'retry', 'leased');"
+        )
+        cursor.execute(
+            "SELECT frontier_url_id, url FROM evidence.source_frontier_urls "
+            "WHERE ticker = %s ORDER BY frontier_url_id LIMIT 1;",
+            (ticker,),
+        )
+        row = cursor.fetchone()
+        assert row is not None, f"no frontier URL seeded for {ticker}"
+        frontier_url_id, url = str(row[0]), str(row[1])
+        cursor.execute(
+            "UPDATE evidence.source_frontier_urls "
+            "SET status = 'queued', leased_by = NULL, lease_expires_at = NULL, "
+            "attempt_count = 0, last_error_summary = NULL, "
+            "next_attempt_at = now() - interval '1 minute' "
+            "WHERE frontier_url_id = %s;",
+            (frontier_url_id,),
+        )
+        cursor.execute(
+            "UPDATE evidence.crawl_frontier_queue "
+            "SET status = 'queued', leased_by = NULL, lease_expires_at = NULL, "
+            "next_attempt_at = now() - interval '1 minute' "
+            "WHERE frontier_url_id = %s;",
+            (frontier_url_id,),
+        )
+    connection.commit()
+    return frontier_url_id, url
+
+
+@unittest.skipUnless(
+    os.getenv("AI_INFRA_FUND_DATABASE_URL"),
+    "set AI_INFRA_FUND_DATABASE_URL to enable integration tests",
+)
+class CrawlBatchSuccessTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.connection = psycopg.connect(DATABASE_URL)
+        self.addCleanup(self.connection.close)
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.capture_root = Path(self._tmp.name)
+
+        # Ensure watchlist is seeded.
+        now = datetime.now(tz=timezone.utc).replace(microsecond=0)
+        watchlist_path = ROOT / "config" / "ai_equity_watchlist.yaml"
+        seed_watchlist(self.connection, watchlist_path=watchlist_path, now=now)
+
+        self.frontier_url_id, self.target_url = _reset_one_queued(
+            self.connection, "NVDA"
+        )
+
+    def test_success_path_writes_capture_event_run_and_log_and_completes_frontier(
+        self,
+    ) -> None:
+        now = datetime.now(tz=timezone.utc).replace(microsecond=0)
+        canned = {
+            self.target_url: FetchResult(
+                final_url=self.target_url,
+                http_status=200,
+                content_type="text/html",
+                body_bytes=(
+                    b"<html><head><title>NVIDIA Announces Q1 Press Release</title></head>"
+                    b"<body><article><p>NVIDIA today reported record results.</p></article></body></html>"
+                ),
+                etag='"abc123"',
+                last_modified="Wed, 14 May 2026 12:00:00 GMT",
+                latency_ms=42,
+                fetch_method="http_get",
+                error_summary=None,
+            )
+        }
+        fetcher = FakeFetcher(canned)
+
+        report = run_crawl_batch(
+            self.connection,
+            worker_id=f"worker-test-{now.timestamp()}",
+            policy=FrontierPolicy(batch_size=1, domain_cap=1),
+            fetcher=fetcher,
+            capture_store=LocalCaptureStore(self.capture_root),
+            research_extractor=StubLLMClaimExtractor(),
+            now=now,
+        )
+
+        self.assertIsInstance(report, CrawlBatchReport)
+        self.assertEqual(1, report.leased)
+        self.assertEqual(1, report.succeeded)
+        self.assertEqual(0, report.failed)
+        self.assertEqual(0, report.not_modified)
+
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT status FROM evidence.source_frontier_urls WHERE frontier_url_id = %s;",
+                (self.frontier_url_id,),
+            )
+            row = cursor.fetchone()
+            assert row is not None
+            self.assertEqual("captured", row[0])
+
+            cursor.execute(
+                "SELECT COUNT(*) FROM evidence.source_raw_captures WHERE frontier_url_id = %s;",
+                (self.frontier_url_id,),
+            )
+            row = cursor.fetchone()
+            assert row is not None
+            self.assertEqual(1, int(row[0]))
+
+            cursor.execute(
+                "SELECT COUNT(*) FROM signals.equity_events WHERE ticker = 'NVDA' "
+                "AND created_at >= %s;",
+                (now - timedelta(seconds=5),),
+            )
+            row = cursor.fetchone()
+            assert row is not None
+            self.assertGreaterEqual(int(row[0]), 1)
+
+            cursor.execute(
+                "SELECT COUNT(*) FROM evidence.crawl_logs WHERE frontier_url_id = %s "
+                "AND attempted_at >= %s;",
+                (self.frontier_url_id, now - timedelta(seconds=5)),
+            )
+            row = cursor.fetchone()
+            assert row is not None
+            self.assertEqual(1, int(row[0]))
+
+            cursor.execute(
+                "SELECT COUNT(*) FROM audit.equity_intelligence_runs "
+                "WHERE ticker = 'NVDA' AND created_at >= %s;",
+                (now - timedelta(seconds=5),),
+            )
+            row = cursor.fetchone()
+            assert row is not None
+            self.assertGreaterEqual(int(row[0]), 1)
+
+        # On-disk capture exists.
+        captures = list(self.capture_root.glob("captures/*/*.body"))
+        self.assertGreaterEqual(len(captures), 1)
+
+
+@unittest.skipUnless(
+    os.getenv("AI_INFRA_FUND_DATABASE_URL"),
+    "set AI_INFRA_FUND_DATABASE_URL to enable integration tests",
+)
+class CrawlBatchFailureTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.connection = psycopg.connect(DATABASE_URL)
+        self.addCleanup(self.connection.close)
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.capture_root = Path(self._tmp.name)
+        now = datetime.now(tz=timezone.utc).replace(microsecond=0)
+        watchlist_path = ROOT / "config" / "ai_equity_watchlist.yaml"
+        seed_watchlist(self.connection, watchlist_path=watchlist_path, now=now)
+
+        self.frontier_url_id, self.target_url = _reset_one_queued(
+            self.connection, "MSFT"
+        )
+
+    def test_5xx_records_failure_and_writes_crawl_log_with_error_summary(self) -> None:
+        now = datetime.now(tz=timezone.utc).replace(microsecond=0)
+        canned = {
+            self.target_url: FetchResult(
+                final_url=self.target_url,
+                http_status=503,
+                content_type=None,
+                body_bytes=b"",
+                etag=None,
+                last_modified=None,
+                latency_ms=5,
+                fetch_method="http_get",
+                error_summary="server_error",
+            )
+        }
+        fetcher = FakeFetcher(canned)
+
+        report = run_crawl_batch(
+            self.connection,
+            worker_id=f"worker-test-{now.timestamp()}",
+            policy=FrontierPolicy(batch_size=1, domain_cap=1),
+            fetcher=fetcher,
+            capture_store=LocalCaptureStore(self.capture_root),
+            research_extractor=StubLLMClaimExtractor(),
+            now=now,
+        )
+
+        self.assertEqual(1, report.failed)
+
+        with self.connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT status, attempt_count, last_error_summary "
+                "FROM evidence.source_frontier_urls WHERE frontier_url_id = %s;",
+                (self.frontier_url_id,),
+            )
+            row = cursor.fetchone()
+            assert row is not None
+            self.assertIn(row[0], ("retry", "failed"))
+            self.assertEqual(1, int(row[1]))
+            self.assertEqual("server_error", row[2])
+
+            cursor.execute(
+                "SELECT fetch_method, error_summary FROM evidence.crawl_logs "
+                "WHERE frontier_url_id = %s AND attempted_at >= %s "
+                "ORDER BY attempted_at DESC LIMIT 1;",
+                (self.frontier_url_id, now - timedelta(seconds=5)),
+            )
+            row = cursor.fetchone()
+            assert row is not None
+            # HTTP 5xx — server gave us a real response, so fetch_method is
+            # 'http_get' and error_summary captures the category.
+            self.assertEqual("http_get", row[0])
+            self.assertEqual("server_error", row[1])
+
+
+if __name__ == "__main__":
+    unittest.main()

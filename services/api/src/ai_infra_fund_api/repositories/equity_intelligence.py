@@ -17,22 +17,19 @@ from ai_infra_fund_core.contracts.common import (
 class Cursor(Protocol):
     description: object
 
-    def execute(self, statement: str, params: tuple[object, ...] | None = None) -> None:
-        ...
+    def execute(
+        self, statement: str, params: tuple[object, ...] | None = None
+    ) -> None: ...
 
-    def fetchall(self) -> list[object]:
-        ...
+    def fetchall(self) -> list[object]: ...
 
-    def fetchone(self) -> object | None:
-        ...
+    def fetchone(self) -> object | None: ...
 
 
 class Connection(Protocol):
-    def cursor(self) -> object:
-        ...
+    def cursor(self) -> object: ...
 
-    def commit(self) -> None:
-        ...
+    def commit(self) -> None: ...
 
 
 FRONTIER_COLUMNS = (
@@ -82,8 +79,12 @@ LATEST_SUMMARY_COLUMNS = (
     "latest_run_status",
 )
 
-FRONTIER_STATUSES = frozenset({"queued", "leased", "captured", "retry", "failed", "skipped"})
-REFRESH_JOB_STATUSES = frozenset({"queued", "running", "succeeded", "failed", "cancelled"})
+FRONTIER_STATUSES = frozenset(
+    {"queued", "leased", "captured", "retry", "failed", "skipped"}
+)
+REFRESH_JOB_STATUSES = frozenset(
+    {"queued", "running", "succeeded", "failed", "cancelled"}
+)
 RUN_STATUSES = frozenset({"pending", "running", "succeeded", "failed", "cancelled"})
 SEVERITIES = frozenset({"low", "medium", "high", "critical"})
 
@@ -380,7 +381,7 @@ INSERT INTO signals.equity_events (
     content_hash,
     created_at
 ) VALUES (
-    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s
+    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s
 ) ON CONFLICT (content_hash) DO UPDATE SET
     event_type = EXCLUDED.event_type,
     event_time = EXCLUDED.event_time,
@@ -490,6 +491,34 @@ INSERT INTO audit.equity_intelligence_runs (
 """
 
 
+RECLAIM_STALE_LEASES_SQL = """
+UPDATE evidence.source_frontier_urls
+SET
+    status = 'retry',
+    leased_by = NULL,
+    lease_expires_at = NULL,
+    updated_at = %s
+WHERE status = 'leased'
+    AND lease_expires_at < %s;
+"""
+
+
+GET_FRONTIER_METADATA_SQL = """
+SELECT metadata_json
+FROM evidence.source_frontier_urls
+WHERE frontier_url_id = %s;
+"""
+
+
+UPDATE_FRONTIER_METADATA_SQL = """
+UPDATE evidence.source_frontier_urls
+SET
+    metadata_json = %s::jsonb,
+    updated_at = %s
+WHERE frontier_url_id = %s;
+"""
+
+
 LATEST_EQUITY_SUMMARY_SQL = """
 SELECT
     watched.ticker,
@@ -583,7 +612,12 @@ class EquityIntelligenceRepository:
         with self._connection.cursor() as cursor:
             cursor.execute(
                 LEASE_DUE_FRONTIER_URLS_SQL,
-                (require_text(worker_id, "worker_id"), lease_expires_at, now, normalized_limit),
+                (
+                    require_text(worker_id, "worker_id"),
+                    lease_expires_at,
+                    now,
+                    normalized_limit,
+                ),
             )
             rows = cursor.fetchall()
             column_names = _column_names(cursor.description) or FRONTIER_COLUMNS
@@ -614,12 +648,17 @@ class EquityIntelligenceRepository:
     def complete_frontier_url(self, *, frontier_url_id: str, now: datetime) -> None:
         require_aware_datetime(now, "now")
         with self._connection.cursor() as cursor:
-            cursor.execute(COMPLETE_FRONTIER_URL_SQL, (now, require_text(frontier_url_id, "frontier_url_id")))
+            cursor.execute(
+                COMPLETE_FRONTIER_URL_SQL,
+                (now, require_text(frontier_url_id, "frontier_url_id")),
+            )
         self._connection.commit()
 
     def upsert_crawl_queue_item(self, queue_item: object) -> object:
         with self._connection.cursor() as cursor:
-            cursor.execute(UPSERT_CRAWL_QUEUE_ITEM_SQL, _crawl_queue_item_params(queue_item))
+            cursor.execute(
+                UPSERT_CRAWL_QUEUE_ITEM_SQL, _crawl_queue_item_params(queue_item)
+            )
         self._connection.commit()
         return queue_item
 
@@ -637,7 +676,12 @@ class EquityIntelligenceRepository:
         with self._connection.cursor() as cursor:
             cursor.execute(
                 LEASE_DUE_CRAWL_QUEUE_ITEMS_SQL,
-                (require_text(worker_id, "worker_id"), lease_expires_at, now, normalized_limit),
+                (
+                    require_text(worker_id, "worker_id"),
+                    lease_expires_at,
+                    now,
+                    normalized_limit,
+                ),
             )
             rows = cursor.fetchall()
             column_names = _column_names(cursor.description) or QUEUE_COLUMNS
@@ -647,9 +691,35 @@ class EquityIntelligenceRepository:
         params = _refresh_job_params(refresh_job)
         with self._connection.cursor() as cursor:
             cursor.execute(UPSERT_REFRESH_JOB_SQL, params)
-            cursor.execute(BOOST_FRONTIER_PRIORITY_SQL, (params[3], params[4], params[1]))
+            cursor.execute(
+                BOOST_FRONTIER_PRIORITY_SQL, (params[3], params[4], params[1])
+            )
         self._connection.commit()
         return refresh_job
+
+    def save_crawl_capture_events_and_run(
+        self,
+        *,
+        source_raw_capture: object,
+        equity_events: tuple[object, ...] | list[object],
+        intelligence_run: object,
+    ) -> dict[str, object]:
+        """Atomic write for crawl-derived runs (no sentiment/technical/fundamental).
+
+        Used by `services/worker/src/ai_infra_fund_worker/crawl/worker_loop.py`.
+        Multiple events per capture (e.g. one per RSS item).
+        """
+        with self._connection.cursor() as cursor:
+            cursor.execute(UPSERT_CAPTURE_SQL, _capture_params(source_raw_capture))
+            for event in equity_events:
+                cursor.execute(UPSERT_EQUITY_EVENT_SQL, _event_params(event))
+            cursor.execute(UPSERT_INTELLIGENCE_RUN_SQL, _run_params(intelligence_run))
+        self._connection.commit()
+        return {
+            "source_raw_capture": source_raw_capture,
+            "equity_events": tuple(equity_events),
+            "intelligence_run": intelligence_run,
+        }
 
     def save_capture_event_snapshots_and_run(
         self,
@@ -664,9 +734,16 @@ class EquityIntelligenceRepository:
         with self._connection.cursor() as cursor:
             cursor.execute(UPSERT_CAPTURE_SQL, _capture_params(source_raw_capture))
             cursor.execute(UPSERT_EQUITY_EVENT_SQL, _event_params(equity_event))
-            cursor.execute(UPSERT_SENTIMENT_SNAPSHOT_SQL, _sentiment_params(sentiment_snapshot))
-            cursor.execute(UPSERT_TECHNICAL_SNAPSHOT_SQL, _technical_params(technical_snapshot))
-            cursor.execute(UPSERT_FUNDAMENTAL_SNAPSHOT_SQL, _fundamental_params(fundamental_snapshot))
+            cursor.execute(
+                UPSERT_SENTIMENT_SNAPSHOT_SQL, _sentiment_params(sentiment_snapshot)
+            )
+            cursor.execute(
+                UPSERT_TECHNICAL_SNAPSHOT_SQL, _technical_params(technical_snapshot)
+            )
+            cursor.execute(
+                UPSERT_FUNDAMENTAL_SNAPSHOT_SQL,
+                _fundamental_params(fundamental_snapshot),
+            )
             cursor.execute(UPSERT_INTELLIGENCE_RUN_SQL, _run_params(intelligence_run))
         self._connection.commit()
         return {
@@ -677,6 +754,49 @@ class EquityIntelligenceRepository:
             "fundamental_snapshot": fundamental_snapshot,
             "intelligence_run": intelligence_run,
         }
+
+    def reclaim_stale_leases(self, *, now: datetime) -> int:
+        require_aware_datetime(now, "now")
+        with self._connection.cursor() as cursor:
+            cursor.execute(RECLAIM_STALE_LEASES_SQL, (now, now))
+            reclaimed = getattr(cursor, "rowcount", 0) or 0
+        self._connection.commit()
+        return int(reclaimed)
+
+    def get_frontier_metadata(self, *, frontier_url_id: str) -> dict[str, object]:
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                GET_FRONTIER_METADATA_SQL,
+                (require_text(frontier_url_id, "frontier_url_id"),),
+            )
+            row = cursor.fetchone()
+        if row is None:
+            return {}
+        value = row[0] if not isinstance(row, Mapping) else row.get("metadata_json")
+        if value is None:
+            return {}
+        if isinstance(value, str):
+            return dict(json.loads(value))
+        return dict(value)
+
+    def update_frontier_metadata(
+        self,
+        *,
+        frontier_url_id: str,
+        metadata: Mapping[str, object],
+        now: datetime,
+    ) -> None:
+        require_aware_datetime(now, "now")
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                UPDATE_FRONTIER_METADATA_SQL,
+                (
+                    _json_param(metadata),
+                    now,
+                    require_text(frontier_url_id, "frontier_url_id"),
+                ),
+            )
+        self._connection.commit()
 
     def get_latest_equity_summary(self, ticker: str) -> dict[str, object] | None:
         with self._connection.cursor() as cursor:
@@ -857,7 +977,9 @@ def _run_params(run: object) -> tuple[object, ...]:
         _required_aware_datetime_attr(run, "started_at"),
         completed_at,
         status,
-        _text_array(getattr(run, "source_refresh_job_ids", ()), "source_refresh_job_ids"),
+        _text_array(
+            getattr(run, "source_refresh_job_ids", ()), "source_refresh_job_ids"
+        ),
         _text_array(getattr(run, "frontier_url_ids", ()), "frontier_url_ids"),
         _text_array(getattr(run, "capture_ids", ()), "capture_ids"),
         _text_array(getattr(run, "event_ids", ()), "event_ids"),
@@ -942,7 +1064,9 @@ def _optional_decimal_attr(record: object, field_name: str) -> Decimal | None:
         raise ValueError(f"{field_name} must be numeric") from exc
 
 
-def _decimal_range_attr(record: object, field_name: str, low: Decimal, high: Decimal) -> Decimal:
+def _decimal_range_attr(
+    record: object, field_name: str, low: Decimal, high: Decimal
+) -> Decimal:
     try:
         value = Decimal(str(getattr(record, field_name, None)))
     except (InvalidOperation, ValueError) as exc:

@@ -437,3 +437,130 @@ entries:
     source_urls:
       - https://investors.tranetechnologies.com/
     priority: medium
+
+  - ticker: ARM
+    company_name: Arm Holdings
+    themes:
+      - ai_accelerators
+      - compute_supply_chain
+      - mobile_compute
+    sector_tags:
+      - semiconductors
+      - cpu_architecture
+      - ai_infrastructure
+    source_urls:
+      - https://investors.arm.com/
+    priority: high
+
+  - ticker: SMCI
+    company_name: Super Micro Computer
+    themes:
+      - datacenter_servers
+      - ai_data_centers
+      - hyperscaler_capex
+    sector_tags:
+      - hardware
+      - servers
+      - ai_infrastructure
+    source_urls:
+      - https://ir.supermicro.com/
+    priority: high
+
+  - ticker: DELL
+    company_name: Dell Technologies
+    themes:
+      - datacenter_servers
+      - ai_data_centers
+      - hyperscaler_capex
+    sector_tags:
+      - hardware
+      - servers
+      - ai_infrastructure
+    source_urls:
+      - https://investors.delltechnologies.com/
+    priority: high
+
+  - ticker: HPE
+    company_name: Hewlett Packard Enterprise
+    themes:
+      - datacenter_servers
+      - ai_data_centers
+      - hyperscaler_capex
+    sector_tags:
+      - hardware
+      - servers
+      - ai_infrastructure
+    source_urls:
+      - https://investors.hpe.com/
+    priority: medium
+
+  - ticker: MRVL
+    company_name: Marvell Technology
+    themes:
+      - ai_networking
+      - custom_silicon
+      - data_center_fabrics
+    sector_tags:
+      - semiconductors
+      - networking
+      - ai_infrastructure
+    source_urls:
+      - https://investor.marvell.com/
+    priority: high
+
+  - ticker: NEE
+    company_name: NextEra Energy
+    themes:
+      - data_center_power
+      - renewable_power
+      - hyperscaler_ppa
+    sector_tags:
+      - utilities
+      - power_generation
+      - ai_infrastructure
+    source_urls:
+      - https://www.investor.nexteraenergy.com/
+    priority: medium
+
+  - ticker: SO
+    company_name: Southern Company
+    themes:
+      - data_center_power
+      - nuclear_power
+      - hyperscaler_ppa
+    sector_tags:
+      - utilities
+      - power_generation
+      - ai_infrastructure
+    source_urls:
+      - https://investor.southerncompany.com/
+    priority: medium
+
+  - ticker: DUK
+    company_name: Duke Energy
+    themes:
+      - data_center_power
+      - nuclear_power
+      - hyperscaler_ppa
+    sector_tags:
+      - utilities
+      - power_generation
+      - ai_infrastructure
+    source_urls:
+      - https://investors.duke-energy.com/
+    priority: medium
+
+  - ticker: ORCL
+    company_name: Oracle
+    themes:
+      - ai_cloud
+      - hyperscaler_capex
+      - enterprise_ai
+      - data_center_capacity
+    sector_tags:
+      - cloud_platforms
+      - software
+      - ai_infrastructure
+    source_urls:
+      - https://investor.oracle.com/
+    priority: high

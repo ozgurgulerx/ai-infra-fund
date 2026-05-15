@@ -183,11 +183,15 @@ SUMMARY_COLUMNS = (
 
 
 class EquityIntelligenceRepositoryTests(unittest.TestCase):
-    def test_upserts_watched_equity_source_and_frontier_url_with_parameterized_sql(self) -> None:
+    def test_upserts_watched_equity_source_and_frontier_url_with_parameterized_sql(
+        self,
+    ) -> None:
         connection = FakeConnection()
         repository = EquityIntelligenceRepository(connection)
 
-        repository.upsert_watched_equity(record_from(watched_equity(), WATCHED_EQUITY_FIELDS))
+        repository.upsert_watched_equity(
+            record_from(watched_equity(), WATCHED_EQUITY_FIELDS)
+        )
         repository.upsert_source(record_from(source(), SOURCE_FIELDS))
         repository.upsert_frontier_url(record_from(frontier_url(), FRONTIER_FIELDS))
 
@@ -200,7 +204,9 @@ class EquityIntelligenceRepositoryTests(unittest.TestCase):
         self.assertIn("INSERT INTO evidence.source_registry", source_statement)
         self.assertIn("ON CONFLICT (source_id) DO UPDATE SET", source_statement)
         self.assertIn("INSERT INTO evidence.source_frontier_urls", frontier_statement)
-        self.assertIn("ON CONFLICT (source_id, url_hash) DO UPDATE SET", frontier_statement)
+        self.assertIn(
+            "ON CONFLICT (source_id, url_hash) DO UPDATE SET", frontier_statement
+        )
         for statement in (watched_statement, source_statement, frontier_statement):
             self.assertNotIn("NVDA", statement)
             self.assertNotIn("https://example.test/nvda", statement)
@@ -241,17 +247,24 @@ class EquityIntelligenceRepositoryTests(unittest.TestCase):
         statement, params = connection.cursor_instance.executions[0]
         self.assertIn("attempt_count = attempt_count + 1", statement)
         self.assertIn("next_attempt_at = %s", statement)
-        self.assertIn("CASE WHEN attempt_count + 1 >= max_attempts THEN 'failed' ELSE 'retry' END", statement)
+        self.assertIn(
+            "CASE WHEN attempt_count + 1 >= max_attempts THEN 'failed' ELSE 'retry' END",
+            statement,
+        )
         self.assertNotIn("HTTP 429", statement)
         self.assertEqual(("HTTP 429 from source", BACKOFF, NOW, "frontier-1"), params)
         self.assertEqual(1, connection.commit_count)
 
     def test_upserts_and_leases_crawl_frontier_queue_items(self) -> None:
-        leased_row = crawl_queue_row(status="leased", leased_by="worker-a", lease_expires_at=LATER)
+        leased_row = crawl_queue_row(
+            status="leased", leased_by="worker-a", lease_expires_at=LATER
+        )
         connection = FakeConnection(rows=[leased_row], columns=QUEUE_FIELDS)
         repository = EquityIntelligenceRepository(connection)
 
-        repository.upsert_crawl_queue_item(record_from(crawl_queue_item(), QUEUE_FIELDS))
+        repository.upsert_crawl_queue_item(
+            record_from(crawl_queue_item(), QUEUE_FIELDS)
+        )
         leased = repository.lease_due_crawl_queue_items(
             worker_id="worker-a",
             lease_expires_at=LATER,
@@ -271,7 +284,9 @@ class EquityIntelligenceRepositoryTests(unittest.TestCase):
         self.assertEqual([dict(zip(QUEUE_FIELDS, leased_row, strict=True))], leased)
         self.assertEqual(1, connection.commit_count)
 
-    def test_refresh_priority_boost_records_job_and_updates_due_frontier_urls(self) -> None:
+    def test_refresh_priority_boost_records_job_and_updates_due_frontier_urls(
+        self,
+    ) -> None:
         connection = FakeConnection()
         job = SimpleNamespace(
             refresh_job_id="refresh-nvda-1",
@@ -292,10 +307,15 @@ class EquityIntelligenceRepositoryTests(unittest.TestCase):
         self.assertIn("UPDATE evidence.source_frontier_urls", update_statement)
         self.assertIn("priority = priority + %s", update_statement)
         self.assertNotIn("earnings acceleration", insert_statement)
-        self.assertEqual(("refresh-nvda-1", "NVDA", "earnings acceleration", 25, NOW, "queued"), insert_params)
+        self.assertEqual(
+            ("refresh-nvda-1", "NVDA", "earnings acceleration", 25, NOW, "queued"),
+            insert_params,
+        )
         self.assertEqual((25, NOW, "NVDA"), update_params)
 
-    def test_persists_raw_capture_events_snapshots_and_run_in_one_parameterized_transaction(self) -> None:
+    def test_persists_raw_capture_events_snapshots_and_run_in_one_parameterized_transaction(
+        self,
+    ) -> None:
         connection = FakeConnection()
         repository = EquityIntelligenceRepository(connection)
 
@@ -304,7 +324,9 @@ class EquityIntelligenceRepositoryTests(unittest.TestCase):
             equity_event=record_from(equity_event(), EVENT_FIELDS),
             sentiment_snapshot=record_from(sentiment_snapshot(), SENTIMENT_FIELDS),
             technical_snapshot=record_from(technical_snapshot(), TECHNICAL_FIELDS),
-            fundamental_snapshot=record_from(fundamental_snapshot(), FUNDAMENTAL_FIELDS),
+            fundamental_snapshot=record_from(
+                fundamental_snapshot(), FUNDAMENTAL_FIELDS
+            ),
             intelligence_run=record_from(equity_intelligence_run(), RUN_FIELDS),
         )
 
@@ -312,7 +334,9 @@ class EquityIntelligenceRepositoryTests(unittest.TestCase):
         self.assertEqual("run-1", saved["intelligence_run"].run_id)
         self.assertEqual(1, connection.commit_count)
         self.assertEqual(6, len(connection.cursor_instance.executions))
-        joined_statements = "\n".join(statement for statement, _params in connection.cursor_instance.executions)
+        joined_statements = "\n".join(
+            statement for statement, _params in connection.cursor_instance.executions
+        )
         for table_name in (
             "evidence.source_raw_captures",
             "signals.equity_events",
@@ -325,7 +349,84 @@ class EquityIntelligenceRepositoryTests(unittest.TestCase):
         self.assertNotIn("NVIDIA demand remains strong", joined_statements)
         self.assertNotIn("supply improving", joined_statements)
 
-    def test_latest_summary_read_uses_bound_ticker_and_returns_json_safe_payload(self) -> None:
+    def test_reclaim_stale_leases_updates_only_expired_leases_with_bound_now(
+        self,
+    ) -> None:
+        connection = FakeConnection(rows=[(2,)], columns=("count",))
+        connection.cursor_instance.rowcount = 7
+
+        reclaimed = EquityIntelligenceRepository(connection).reclaim_stale_leases(
+            now=NOW
+        )
+
+        statement, params = connection.cursor_instance.executions[0]
+        self.assertIn("UPDATE evidence.source_frontier_urls", statement)
+        self.assertIn("status = 'retry'", statement)
+        self.assertIn("leased_by = NULL", statement)
+        self.assertIn("lease_expires_at = NULL", statement)
+        self.assertIn("WHERE status = 'leased'", statement)
+        self.assertIn("AND lease_expires_at < %s", statement)
+        self.assertEqual((NOW, NOW), params)
+        self.assertEqual(7, reclaimed)
+        self.assertEqual(1, connection.commit_count)
+
+    def test_get_frontier_metadata_reads_by_id_with_bound_param(self) -> None:
+        connection = FakeConnection(
+            rows=[({"etag": "abc", "last_modified": "Wed, 14 May 2026 12:00 GMT"},)],
+            columns=("metadata_json",),
+        )
+
+        metadata = EquityIntelligenceRepository(connection).get_frontier_metadata(
+            frontier_url_id="frontier-1",
+        )
+
+        statement, params = connection.cursor_instance.executions[0]
+        self.assertIn("SELECT metadata_json", statement)
+        self.assertIn("FROM evidence.source_frontier_urls", statement)
+        self.assertIn("WHERE frontier_url_id = %s", statement)
+        self.assertNotIn("frontier-1", statement)
+        self.assertEqual(("frontier-1",), params)
+        self.assertEqual(
+            {"etag": "abc", "last_modified": "Wed, 14 May 2026 12:00 GMT"}, metadata
+        )
+
+    def test_get_frontier_metadata_returns_empty_when_missing(self) -> None:
+        connection = FakeConnection(rows=[], columns=("metadata_json",))
+
+        metadata = EquityIntelligenceRepository(connection).get_frontier_metadata(
+            frontier_url_id="frontier-missing",
+        )
+
+        self.assertEqual({}, metadata)
+
+    def test_update_frontier_metadata_writes_jsonb_with_bound_params(self) -> None:
+        connection = FakeConnection()
+
+        EquityIntelligenceRepository(connection).update_frontier_metadata(
+            frontier_url_id="frontier-1",
+            metadata={"etag": "v2", "last_modified": "Wed, 14 May 2026 13:00 GMT"},
+            now=NOW,
+        )
+
+        statement, params = connection.cursor_instance.executions[0]
+        self.assertIn("UPDATE evidence.source_frontier_urls", statement)
+        self.assertIn("metadata_json = %s::jsonb", statement)
+        self.assertIn("updated_at = %s", statement)
+        self.assertIn("WHERE frontier_url_id = %s", statement)
+        self.assertNotIn("frontier-1", statement)
+        self.assertNotIn('"etag"', statement)
+        metadata_json, updated_at, frontier_url_id = params
+        self.assertEqual(
+            {"etag": "v2", "last_modified": "Wed, 14 May 2026 13:00 GMT"},
+            json.loads(metadata_json),
+        )
+        self.assertEqual(NOW, updated_at)
+        self.assertEqual("frontier-1", frontier_url_id)
+        self.assertEqual(1, connection.commit_count)
+
+    def test_latest_summary_read_uses_bound_ticker_and_returns_json_safe_payload(
+        self,
+    ) -> None:
         row = (
             "NVDA",
             NOW,
@@ -344,7 +445,9 @@ class EquityIntelligenceRepositoryTests(unittest.TestCase):
         )
         connection = FakeConnection(rows=[row], columns=SUMMARY_COLUMNS)
 
-        summary = EquityIntelligenceRepository(connection).get_latest_equity_summary("NVDA")
+        summary = EquityIntelligenceRepository(connection).get_latest_equity_summary(
+            "NVDA"
+        )
 
         statement, params = connection.cursor_instance.executions[0]
         self.assertIn("FROM core.watched_equities", statement)
@@ -358,7 +461,9 @@ class EquityIntelligenceRepositoryTests(unittest.TestCase):
 
 
 class FakeCursor:
-    def __init__(self, rows: list[tuple[object, ...]], columns: tuple[str, ...]) -> None:
+    def __init__(
+        self, rows: list[tuple[object, ...]], columns: tuple[str, ...]
+    ) -> None:
         self.executions: list[tuple[str, tuple[object, ...]]] = []
         self.rows = rows
         self.description = tuple((column,) for column in columns)

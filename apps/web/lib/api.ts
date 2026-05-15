@@ -15,7 +15,7 @@ import type {
   RecommendationSummary,
   TickerIntelligenceSummary,
   WatchlistSummary,
-  RuntimeProbe
+  RuntimeProbe,
 } from "./status-model";
 
 type ProbeEndpoint = "health" | "ready";
@@ -63,7 +63,9 @@ export type TradeJournalEntry = TradeJournalEntryInput & {
 };
 
 export function apiBaseUrl(): string {
-  return (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000").replace(/\/$/, "");
+  return (
+    process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
+  ).replace(/\/$/, "");
 }
 
 export async function fetchApiHealth(): Promise<RuntimeProbe> {
@@ -75,27 +77,38 @@ export async function fetchApiReadiness(): Promise<RuntimeProbe> {
 }
 
 export async function fetchDashboardOverview(): Promise<DashboardOverviewSummary> {
-  return fetchReadOnlyDashboardSummary("/internal/status/overview", "System overview");
+  return fetchReadOnlyDashboardSummary(
+    "/internal/status/overview",
+    "System overview",
+  );
 }
 
-export async function fetchDashboardModules(): Promise<DashboardModuleSummary[]> {
+export async function fetchDashboardModules(): Promise<
+  DashboardModuleSummary[]
+> {
   const checkedAt = new Date().toISOString();
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+  const timeout = window.setTimeout(
+    () => controller.abort(),
+    DEFAULT_TIMEOUT_MS,
+  );
 
   try {
-    const response = await fetch(`${apiBaseUrl()}${DASHBOARD_MODULES_ENDPOINT}`, {
-      cache: "no-store",
-      method: "GET",
-      signal: controller.signal
-    });
+    const response = await fetch(
+      `${apiBaseUrl()}${DASHBOARD_MODULES_ENDPOINT}`,
+      {
+        cache: "no-store",
+        method: "GET",
+        signal: controller.signal,
+      },
+    );
     const payload = (await response.json()) as {
       data?: DashboardModuleSummary[] | { modules?: DashboardModuleSummary[] };
       modules?: DashboardModuleSummary[];
     };
     const modules = Array.isArray(payload.data)
       ? payload.data
-      : payload.data?.modules ?? payload.modules ?? [];
+      : (payload.data?.modules ?? payload.modules ?? []);
 
     if (!response.ok) {
       return [
@@ -104,15 +117,22 @@ export async function fetchDashboardModules(): Promise<DashboardModuleSummary[]>
           status: "degraded",
           sourceLabel: `API ${DASHBOARD_MODULES_ENDPOINT}`,
           detail: `Backend unavailable: HTTP ${response.status}`,
-          visibleValue: "Backend unavailable"
-        }
+          visibleValue: "Backend unavailable",
+        },
       ];
     }
 
     return modules.map((module) => ({
       ...module,
-      sourceLabel: module.sourceLabel ?? module.source_label ?? `API ${DASHBOARD_MODULES_ENDPOINT}`,
-      detail: module.detail ?? module.visibleValue ?? module.visible_value ?? `Updated ${checkedAt}`
+      sourceLabel:
+        module.sourceLabel ??
+        module.source_label ??
+        `API ${DASHBOARD_MODULES_ENDPOINT}`,
+      detail:
+        module.detail ??
+        module.visibleValue ??
+        module.visible_value ??
+        `Updated ${checkedAt}`,
     }));
   } catch (error) {
     const reason = error instanceof Error ? error.message : "request failed";
@@ -122,60 +142,133 @@ export async function fetchDashboardModules(): Promise<DashboardModuleSummary[]>
         status: "degraded",
         sourceLabel: `API ${DASHBOARD_MODULES_ENDPOINT}`,
         detail: `Backend unavailable: ${reason}`,
-        visibleValue: "Backend unavailable"
-      }
+        visibleValue: "Backend unavailable",
+      },
     ];
   } finally {
     window.clearTimeout(timeout);
   }
 }
 
+export type CrawlActivitySummary = {
+  total: number;
+  succeeded: number;
+  not_modified: number;
+  client_error: number;
+  server_error: number;
+  failed: number;
+  window_hours?: number;
+};
+
+export async function fetchCrawlActivity(): Promise<CrawlActivitySummary | null> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(
+    () => controller.abort(),
+    DEFAULT_TIMEOUT_MS,
+  );
+  try {
+    const response = await fetch(
+      `${apiBaseUrl()}/internal/dashboard/crawl-activity`,
+      {
+        cache: "no-store",
+        method: "GET",
+        signal: controller.signal,
+      },
+    );
+    if (!response.ok) {
+      return null;
+    }
+    const payload = (await response.json()) as { data?: CrawlActivitySummary };
+    return payload.data ?? null;
+  } catch {
+    return null;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
 export async function fetchEvidenceSummary(): Promise<EvidenceSummary> {
-  return fetchReadOnlyDashboardSummary("/internal/dashboard/evidence-summary", "Evidence");
+  return fetchReadOnlyDashboardSummary(
+    "/internal/dashboard/evidence-summary",
+    "Evidence",
+  );
 }
 
 export async function fetchRecommendationSummary(): Promise<RecommendationSummary> {
-  return fetchReadOnlyDashboardSummary("/internal/dashboard/recommendation-summary", "Recommendations");
+  return fetchReadOnlyDashboardSummary(
+    "/internal/dashboard/recommendation-summary",
+    "Recommendations",
+  );
 }
 
 export async function fetchEvaluationSummary(): Promise<EvaluationSummary> {
-  return fetchReadOnlyDashboardSummary("/internal/dashboard/evaluation-summary", "Evaluation");
+  return fetchReadOnlyDashboardSummary(
+    "/internal/dashboard/evaluation-summary",
+    "Evaluation",
+  );
 }
 
 export async function fetchModelRunSummary(): Promise<ModelRunSummary> {
-  return fetchReadOnlyDashboardSummary("/internal/dashboard/model-run-summary", "Model Runs");
+  return fetchReadOnlyDashboardSummary(
+    "/internal/dashboard/model-run-summary",
+    "Model Runs",
+  );
 }
 
 export async function fetchDataQualitySummary(): Promise<DataQualitySummary> {
-  return fetchReadOnlyDashboardSummary("/internal/dashboard/data-quality-summary", "Data Quality");
+  return fetchReadOnlyDashboardSummary(
+    "/internal/dashboard/data-quality-summary",
+    "Data Quality",
+  );
 }
 
 export async function fetchIncidentSummary(): Promise<IncidentSummary> {
-  return fetchReadOnlyDashboardSummary("/internal/dashboard/incident-summary", "Incidents");
+  return fetchReadOnlyDashboardSummary(
+    "/internal/dashboard/incident-summary",
+    "Incidents",
+  );
 }
 
 export async function fetchWatchlistSummary(): Promise<WatchlistSummary> {
-  return fetchReadOnlyDashboardSummary("/internal/dashboard/watchlist-summary", "Watchlist Status");
+  return fetchReadOnlyDashboardSummary(
+    "/internal/dashboard/watchlist-summary",
+    "Watchlist Status",
+  );
 }
 
 export async function fetchCrawlFrontierHealth(): Promise<CrawlFrontierHealth> {
-  return fetchReadOnlyDashboardSummary("/internal/dashboard/crawl-frontier-health", "Crawl Freshness");
+  return fetchReadOnlyDashboardSummary(
+    "/internal/dashboard/crawl-frontier-health",
+    "Crawl Freshness",
+  );
 }
 
 export async function fetchLatestEquityEvents(): Promise<LatestEquityEvents> {
-  return fetchReadOnlyDashboardSummary("/internal/dashboard/latest-equity-events", "Latest Equity Events");
+  return fetchReadOnlyDashboardSummary(
+    "/internal/dashboard/latest-equity-events",
+    "Latest Equity Events",
+  );
 }
 
 export async function fetchLatestSignalSnapshots(): Promise<LatestSignalSnapshots> {
-  return fetchReadOnlyDashboardSummary("/internal/dashboard/latest-signal-snapshots", "Sentiment / Technical / Fundamental");
+  return fetchReadOnlyDashboardSummary(
+    "/internal/dashboard/latest-signal-snapshots",
+    "Sentiment / Technical / Fundamental",
+  );
 }
 
 export async function fetchLatestAdvisoryRun(): Promise<LatestAdvisoryRun> {
-  return fetchReadOnlyDashboardSummary("/internal/dashboard/latest-advisory-run", "Latest Advisory Run");
+  return fetchReadOnlyDashboardSummary(
+    "/internal/dashboard/latest-advisory-run",
+    "Latest Advisory Run",
+  );
 }
 
 export async function fetchTickerIntelligenceSummary(): Promise<TickerIntelligenceSummary> {
-  return fetchReadOnlyDashboardSummary("/internal/dashboard/ticker-intelligence/NVDA", "Ticker Intelligence");
+  return fetchReadOnlyDashboardSummary(
+    "/internal/dashboard/ticker-intelligence/NVDA",
+    "Ticker Intelligence",
+  );
 }
 
 export async function fetchLatestAdvisoryChain(): Promise<AdvisoryChainPayload> {
@@ -188,13 +281,16 @@ export async function fetchDemoAdvisoryChain(): Promise<AdvisoryChainPayload> {
 
 export async function fetchTradeJournalEntries(): Promise<TradeJournalEntry[]> {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+  const timeout = window.setTimeout(
+    () => controller.abort(),
+    DEFAULT_TIMEOUT_MS,
+  );
 
   try {
     const response = await fetch(TRADE_JOURNAL_PROXY_ENDPOINT, {
       cache: "no-store",
       method: "GET",
-      signal: controller.signal
+      signal: controller.signal,
     });
     const payload = (await response.json()) as {
       data?: {
@@ -214,9 +310,14 @@ export async function fetchTradeJournalEntries(): Promise<TradeJournalEntry[]> {
   }
 }
 
-export async function createTradeJournalEntry(input: TradeJournalEntryInput): Promise<TradeJournalEntry> {
+export async function createTradeJournalEntry(
+  input: TradeJournalEntryInput,
+): Promise<TradeJournalEntry> {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+  const timeout = window.setTimeout(
+    () => controller.abort(),
+    DEFAULT_TIMEOUT_MS,
+  );
 
   try {
     const response = await fetch(TRADE_JOURNAL_PROXY_ENDPOINT, {
@@ -224,7 +325,7 @@ export async function createTradeJournalEntry(input: TradeJournalEntryInput): Pr
       cache: "no-store",
       headers: { "Content-Type": "application/json" },
       method: "POST",
-      signal: controller.signal
+      signal: controller.signal,
     });
     const payload = (await response.json()) as {
       data?: TradeJournalEntry;
@@ -232,7 +333,10 @@ export async function createTradeJournalEntry(input: TradeJournalEntryInput): Pr
     };
 
     if (!response.ok || !payload.data) {
-      throw new Error(payload.error?.message ?? `Trade journal write failed: HTTP ${response.status}`);
+      throw new Error(
+        payload.error?.message ??
+          `Trade journal write failed: HTTP ${response.status}`,
+      );
     }
 
     return payload.data;
@@ -241,22 +345,29 @@ export async function createTradeJournalEntry(input: TradeJournalEntryInput): Pr
   }
 }
 
-async function fetchAdvisoryChain(endpoint: string): Promise<AdvisoryChainPayload> {
+async function fetchAdvisoryChain(
+  endpoint: string,
+): Promise<AdvisoryChainPayload> {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+  const timeout = window.setTimeout(
+    () => controller.abort(),
+    DEFAULT_TIMEOUT_MS,
+  );
 
   try {
     const response = await fetch(`${apiBaseUrl()}${endpoint}`, {
       cache: "no-store",
       method: "GET",
-      signal: controller.signal
+      signal: controller.signal,
     });
     const payload = (await response.json()) as {
       data?: AdvisoryChainPayload;
     };
 
     if (!response.ok) {
-      return unavailableAdvisoryChain(`Backend unavailable: HTTP ${response.status}`);
+      return unavailableAdvisoryChain(
+        `Backend unavailable: HTTP ${response.status}`,
+      );
     }
 
     return payload.data ?? emptyAdvisoryChain();
@@ -271,12 +382,15 @@ async function fetchAdvisoryChain(endpoint: string): Promise<AdvisoryChainPayloa
 async function fetchProbe(endpoint: ProbeEndpoint): Promise<RuntimeProbe> {
   const checkedAt = new Date().toISOString();
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+  const timeout = window.setTimeout(
+    () => controller.abort(),
+    DEFAULT_TIMEOUT_MS,
+  );
 
   try {
     const response = await fetch(`${apiBaseUrl()}/${endpoint}`, {
       cache: "no-store",
-      signal: controller.signal
+      signal: controller.signal,
     });
     const payload = (await response.json()) as {
       data?: {
@@ -297,7 +411,7 @@ async function fetchProbe(endpoint: ProbeEndpoint): Promise<RuntimeProbe> {
       status,
       detail,
       checkedAt,
-      sourceLabel: `API /${endpoint}`
+      sourceLabel: `API /${endpoint}`,
     };
   } catch (error) {
     const reason = error instanceof Error ? error.message : "request failed";
@@ -306,38 +420,52 @@ async function fetchProbe(endpoint: ProbeEndpoint): Promise<RuntimeProbe> {
       status: "unavailable",
       detail: `Backend unavailable: ${reason}`,
       checkedAt,
-      sourceLabel: `API /${endpoint}`
+      sourceLabel: `API /${endpoint}`,
     };
   } finally {
     window.clearTimeout(timeout);
   }
 }
 
-async function fetchReadOnlyDashboardSummary<TSummary extends DashboardSummaryFeed>(
-  endpoint: DashboardSummaryEndpoint,
-  title: string
-): Promise<TSummary> {
+async function fetchReadOnlyDashboardSummary<
+  TSummary extends DashboardSummaryFeed,
+>(endpoint: DashboardSummaryEndpoint, title: string): Promise<TSummary> {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+  const timeout = window.setTimeout(
+    () => controller.abort(),
+    DEFAULT_TIMEOUT_MS,
+  );
 
   try {
     const response = await fetch(`${apiBaseUrl()}${endpoint}`, {
       cache: "no-store",
       method: "GET",
-      signal: controller.signal
+      signal: controller.signal,
     });
     const payload = (await response.json()) as {
       data?: Partial<TSummary>;
     };
 
     if (!response.ok) {
-      return createUnavailableDashboardSummary(endpoint, title, `HTTP ${response.status}`) as TSummary;
+      return createUnavailableDashboardSummary(
+        endpoint,
+        title,
+        `HTTP ${response.status}`,
+      ) as TSummary;
     }
 
-    return normalizeDashboardSummary(endpoint, title, payload.data ?? {}) as TSummary;
+    return normalizeDashboardSummary(
+      endpoint,
+      title,
+      payload.data ?? {},
+    ) as TSummary;
   } catch (error) {
     const reason = error instanceof Error ? error.message : "request failed";
-    return createUnavailableDashboardSummary(endpoint, title, reason) as TSummary;
+    return createUnavailableDashboardSummary(
+      endpoint,
+      title,
+      reason,
+    ) as TSummary;
   } finally {
     window.clearTimeout(timeout);
   }
@@ -346,24 +474,25 @@ async function fetchReadOnlyDashboardSummary<TSummary extends DashboardSummaryFe
 function normalizeDashboardSummary<TSummary extends DashboardSummaryFeed>(
   endpoint: DashboardSummaryEndpoint,
   title: string,
-  summary: Partial<TSummary>
+  summary: Partial<TSummary>,
 ): DashboardSummaryFeed {
   return {
     state: summary.state ?? "available",
     status: summary.status ?? "passing",
     title: summary.title ?? title,
     visibleValue: summary.visibleValue ?? "Available",
-    detail: summary.detail ?? "Live read-only dashboard summary loaded from API.",
+    detail:
+      summary.detail ?? "Live read-only dashboard summary loaded from API.",
     checkedAt: summary.checkedAt ?? new Date().toISOString(),
     sourceLabel: summary.sourceLabel ?? `API ${endpoint}`,
-    payload: summary.payload
+    payload: summary.payload,
   };
 }
 
 function createUnavailableDashboardSummary(
   endpoint: DashboardSummaryEndpoint,
   title: string,
-  reason: string
+  reason: string,
 ): DashboardSummaryFeed {
   return {
     state: "degraded",
@@ -372,7 +501,7 @@ function createUnavailableDashboardSummary(
     visibleValue: "Backend unavailable",
     detail: `Backend unavailable: ${reason}`,
     checkedAt: new Date().toISOString(),
-    sourceLabel: `API ${endpoint}`
+    sourceLabel: `API ${endpoint}`,
   };
 }
 
@@ -380,7 +509,7 @@ function emptyAdvisoryChain(): AdvisoryChainPayload {
   return {
     status: "empty",
     chain_id: "latest-local-advisory",
-    detail: "No local advisory chain has been produced."
+    detail: "No local advisory chain has been produced.",
   };
 }
 
@@ -388,6 +517,6 @@ function unavailableAdvisoryChain(detail: string): AdvisoryChainPayload {
   return {
     ...emptyAdvisoryChain(),
     status: "degraded",
-    detail
+    detail,
   };
 }

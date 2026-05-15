@@ -6,7 +6,11 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-ai_infra_fund}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ai_infra_fund}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-ai_infra_fund} -d $${POSTGRES_DB:-ai_infra_fund}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER:-ai_infra_fund} -d $${POSTGRES_DB:-ai_infra_fund}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -19,6 +23,7 @@ services:
     build:
       context: .
       dockerfile: services/api/Dockerfile
+      target: runtime
     env_file:
       - .env.example
     depends_on:
@@ -32,6 +37,7 @@ services:
     build:
       context: .
       dockerfile: services/api/Dockerfile
+      target: runtime
     env_file:
       - .env.example
     depends_on:

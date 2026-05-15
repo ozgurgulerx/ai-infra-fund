@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Callable
 
 from fastapi import FastAPI
@@ -11,9 +12,24 @@ from ai_infra_fund_api.routes.advisory_chain import (
     AdvisoryChainReadRepository,
     register_advisory_chain_routes,
 )
+from ai_infra_fund_api.routes.agent_bootstrap import (
+    register_agent_bootstrap_routes,
+)
+from ai_infra_fund_api.routes.backtests import (
+    BacktestRequestService,
+    register_backtest_routes,
+)
+from ai_infra_fund_api.routes.crawl import (
+    CrawlActivityRepository,
+    register_crawl_routes,
+)
 from ai_infra_fund_api.routes.dashboard import (
     DashboardReadRepository,
     register_dashboard_routes,
+)
+from ai_infra_fund_api.routes.events import (
+    ExperimentEventsReadRepository,
+    register_events_routes,
 )
 from ai_infra_fund_api.routes.evidence import (
     ManualEvidenceRepository,
@@ -31,6 +47,10 @@ from ai_infra_fund_api.routes.runs import (
     RunReadRepository,
     register_run_routes,
 )
+from ai_infra_fund_api.routes.shadow_portfolio import (
+    ShadowPortfolioService,
+    register_shadow_portfolio_routes,
+)
 from ai_infra_fund_api.routes.trade_journal import (
     TradeJournalPersistenceRepository,
     register_trade_journal_routes,
@@ -44,6 +64,10 @@ SERVICE_NAME = "api"
 VERSION = "0.1.0"
 LOCAL_WEB_ORIGINS = ("http://localhost:3000", "http://127.0.0.1:3000")
 CORS_ORIGINS_ENV = "AI_INFRA_FUND_CORS_ORIGINS"
+
+REPO_ROOT = Path(__file__).resolve().parents[4]
+DEFAULT_AGENT_SKILL_PATH = REPO_ROOT / "docs" / "agent" / "SKILL.md"
+DEFAULT_AGENT_OPENAPI_YAML_PATH = REPO_ROOT / "docs" / "api" / "openapi.yaml"
 
 ConnectionCheck = Callable[[RuntimeSettings], bool]
 SettingsProvider = Callable[[], RuntimeSettings]
@@ -64,7 +88,9 @@ def default_settings_provider() -> RuntimeSettings:
     return RuntimeSettings.from_env(os.environ, allow_defaults=True)
 
 
-def configured_web_origins(env: dict[str, str] | os._Environ[str] = os.environ) -> tuple[str, ...]:
+def configured_web_origins(
+    env: dict[str, str] | os._Environ[str] = os.environ,
+) -> tuple[str, ...]:
     configured_origins = tuple(
         origin.strip().rstrip("/")
         for origin in env.get(CORS_ORIGINS_ENV, "").split(",")
@@ -82,9 +108,15 @@ def create_app(
     evaluation_repository: EvaluationPersistenceRepository | None = None,
     recommendation_service: RecommendationService | None = None,
     dashboard_repository: DashboardReadRepository | None = None,
+    crawl_activity_repository: CrawlActivityRepository | None = None,
     advisory_chain_repository: AdvisoryChainReadRepository | None = None,
     run_repository: RunReadRepository | None = None,
     trade_journal_repository: TradeJournalPersistenceRepository | None = None,
+    events_repository: ExperimentEventsReadRepository | None = None,
+    backtest_request_service: BacktestRequestService | None = None,
+    shadow_portfolio_service: ShadowPortfolioService | None = None,
+    agent_skill_path: Path | None = None,
+    agent_openapi_yaml_path: Path | None = None,
 ) -> FastAPI:
     app = FastAPI(title="AI Infrastructure Fund API", version=VERSION)
     app.add_middleware(
@@ -141,6 +173,11 @@ def create_app(
         app,
         recommendation_service=recommendation_service,
     )
+    register_crawl_routes(
+        app,
+        crawl_activity_repository=crawl_activity_repository,
+        settings_provider=settings_provider,
+    )
     register_dashboard_routes(
         app,
         dashboard_repository=dashboard_repository,
@@ -160,6 +197,30 @@ def create_app(
         app,
         trade_journal_repository=trade_journal_repository,
         settings_provider=settings_provider,
+    )
+    register_events_routes(
+        app,
+        events_repository=events_repository,
+        settings_provider=settings_provider,
+    )
+    register_backtest_routes(
+        app,
+        backtest_request_service=backtest_request_service,
+        settings_provider=settings_provider,
+    )
+    register_shadow_portfolio_routes(
+        app,
+        shadow_portfolio_service=shadow_portfolio_service,
+        settings_provider=settings_provider,
+    )
+    resolved_skill_path = agent_skill_path or DEFAULT_AGENT_SKILL_PATH
+    resolved_openapi_yaml_path = (
+        agent_openapi_yaml_path or DEFAULT_AGENT_OPENAPI_YAML_PATH
+    )
+    register_agent_bootstrap_routes(
+        app,
+        skill_path_provider=lambda: resolved_skill_path,
+        openapi_yaml_path_provider=lambda: resolved_openapi_yaml_path,
     )
 
     return app
