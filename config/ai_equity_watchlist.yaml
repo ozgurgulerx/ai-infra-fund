@@ -15,7 +15,7 @@ providers:
       - https://data.sec.gov/submissions/CIK{cik}.json
       - https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json
 
-  - source_id: source-api-yfinance
+  - source_id: source_api_yfinance
     source_name: Yahoo Finance (yfinance)
     source_type: market_data_api
     base_url: https://query2.finance.yahoo.com
@@ -27,7 +27,7 @@ providers:
     url_templates:
       - https://query2.finance.yahoo.com/v7/finance/quote?symbols={ticker}
 
-  - source_id: source-api-stooq
+  - source_id: source_api_stooq
     source_name: Stooq
     source_type: market_data_api
     base_url: https://stooq.com
@@ -60,7 +60,7 @@ providers:
     url_templates:
       - https://api.stlouisfed.org/fred/series/observations?series_id={series_id}&file_type=json&api_key={api_key}
 
-  - source_id: source-api-gdelt
+  - source_id: source_api_gdelt
     source_name: GDELT 2.0 DOC API
     source_type: news_event_api
     base_url: https://api.gdeltproject.org/api/v2/doc/doc

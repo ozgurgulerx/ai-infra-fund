@@ -471,6 +471,25 @@ class LocalInputValidatorTests(unittest.TestCase):
                     f"{provider.source_id} url_template lacks {{api_key}} or {{api_token}}: {template}",
                 )
 
+    def test_production_provider_source_ids_are_snake_case(self) -> None:
+        import re
+        from ai_infra_fund_core.local_inputs.watchlist import load_ai_equity_watchlist
+
+        watchlist = load_ai_equity_watchlist(
+            ROOT / "config" / "ai_equity_watchlist.yaml"
+        )
+        snake_case = re.compile(r"^[a-z][a-z0-9_]*$")
+
+        offenders = [
+            p.source_id
+            for p in watchlist.providers
+            if not snake_case.match(p.source_id)
+        ]
+        self.assertFalse(
+            offenders,
+            f"provider source_ids must be snake_case; got: {offenders}",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
