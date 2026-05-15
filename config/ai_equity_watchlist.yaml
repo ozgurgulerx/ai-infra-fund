@@ -1,7 +1,7 @@
 version: 1
 
 providers:
-  - source_id: source-api-sec-edgar
+  - source_id: source_api_sec_edgar
     source_name: SEC EDGAR
     source_type: filings_api
     base_url: https://data.sec.gov
@@ -9,10 +9,11 @@ providers:
     data_class: public_evidence
     reliability_score: 0.98
     requires_secret: false
-    ticker_fanout: true
+    cik_fanout: true
+    cik_lookup_url: https://www.sec.gov/files/company_tickers.json
     url_templates:
-      - https://data.sec.gov/submissions/?frontier_ticker={ticker}
-      - https://data.sec.gov/api/xbrl/companyfacts/?frontier_ticker={ticker}
+      - https://data.sec.gov/submissions/CIK{cik}.json
+      - https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json
 
   - source_id: source-api-yfinance
     source_name: Yahoo Finance (yfinance)

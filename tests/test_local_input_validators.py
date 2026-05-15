@@ -265,7 +265,9 @@ class LocalInputValidatorTests(unittest.TestCase):
         self.assertTrue(provider.cik_fanout)
         self.assertFalse(provider.ticker_fanout)
 
-    def test_provider_requires_secret_env_var_when_requires_secret_is_true(self) -> None:
+    def test_provider_requires_secret_env_var_when_requires_secret_is_true(
+        self,
+    ) -> None:
         from ai_infra_fund_core.local_inputs.watchlist import (
             validate_ai_equity_watchlist,
         )
@@ -375,6 +377,70 @@ class LocalInputValidatorTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, r"\{cik\} placeholder"):
             validate_ai_equity_watchlist(raw)
+
+    def test_production_watchlist_yaml_loads_and_sec_provider_uses_cik_fanout(
+        self,
+    ) -> None:
+        from ai_infra_fund_core.local_inputs.watchlist import (
+            load_ai_equity_watchlist,
+        )
+
+        root = Path(__file__).resolve().parents[1]
+        watchlist = load_ai_equity_watchlist(
+            root / "config" / "ai_equity_watchlist.yaml"
+        )
+
+        sec = next(
+            (p for p in watchlist.providers if "sec" in p.source_id.lower()),
+            None,
+        )
+        self.assertIsNotNone(sec, "expected an SEC EDGAR provider in the YAML")
+        assert sec is not None
+        self.assertTrue(sec.cik_fanout, "SEC provider must declare cik_fanout")
+        self.assertFalse(sec.ticker_fanout)
+        for template in sec.url_templates:
+            self.assertIn("{cik}", template)
+            self.assertNotIn("{ticker}", template)
+
+    def test_provider_cik_lookup_url_round_trips_and_strips_whitespace(self) -> None:
+        from ai_infra_fund_core.local_inputs.watchlist import (
+            validate_ai_equity_watchlist,
+        )
+
+        raw = {
+            "version": 1,
+            "entries": [
+                {
+                    "ticker": "NVDA",
+                    "company_name": "NVIDIA",
+                    "themes": ["ai_accelerators"],
+                    "sector_tags": ["semiconductors"],
+                    "priority": "critical",
+                }
+            ],
+            "providers": [
+                {
+                    "source_id": "source_api_sec_edgar",
+                    "source_name": "SEC EDGAR",
+                    "source_type": "filings_api",
+                    "base_url": "https://data.sec.gov",
+                    "license_label": "public",
+                    "data_class": "public_evidence",
+                    "reliability_score": 0.98,
+                    "cik_fanout": True,
+                    "cik_lookup_url": "  https://www.sec.gov/files/company_tickers.json  ",
+                    "url_templates": [
+                        "https://data.sec.gov/submissions/CIK{cik}.json",
+                    ],
+                }
+            ],
+        }
+
+        watchlist = validate_ai_equity_watchlist(raw)
+        self.assertEqual(
+            "https://www.sec.gov/files/company_tickers.json",
+            watchlist.providers[0].cik_lookup_url,
+        )
 
 
 if __name__ == "__main__":

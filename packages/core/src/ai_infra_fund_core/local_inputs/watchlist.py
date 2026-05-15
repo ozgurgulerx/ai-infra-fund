@@ -47,6 +47,7 @@ class AIEquityProvider:
     series_fanout: tuple[str, ...]
     theme_fanout: bool
     cik_fanout: bool
+    cik_lookup_url: str | None  # only meaningful when cik_fanout=True
     url_templates: tuple[str, ...]
 
 
@@ -143,6 +144,17 @@ def _provider(raw: object, index: int) -> AIEquityProvider:
     ticker_fanout = bool(raw.get("ticker_fanout", False))
     theme_fanout = bool(raw.get("theme_fanout", False))
     cik_fanout = bool(raw.get("cik_fanout", False))
+    raw_lookup = raw.get("cik_lookup_url")
+    lookup_str: str | None = (
+        raw_lookup.strip()
+        if isinstance(raw_lookup, str) and raw_lookup.strip()
+        else None
+    )
+    if raw_lookup is not None and lookup_str is None:
+        raise ValueError(
+            f"provider {index} cik_lookup_url must be a non-empty string when present"
+        )
+    cik_lookup_url: str | None = lookup_str
     series_fanout = _text_tuple(
         raw.get("series_fanout"), "series_fanout", index, required=False
     )
@@ -198,6 +210,7 @@ def _provider(raw: object, index: int) -> AIEquityProvider:
         series_fanout=series_fanout,
         theme_fanout=theme_fanout,
         cik_fanout=cik_fanout,
+        cik_lookup_url=cik_lookup_url,
         url_templates=url_templates,
     )
 
