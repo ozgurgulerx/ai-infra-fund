@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+
+import { AppShell } from "../../components/app-shell";
+import { SectionPanel } from "../../components/section-panel";
 import {
   adjacentStations,
   valueChain,
@@ -12,7 +14,6 @@ import {
   watchlist,
   type WatchlistEntry,
 } from "../../lib/watchlist-mirror";
-import styles from "./themes.module.css";
 
 type PriorityKey = WatchlistEntry["priority"];
 
@@ -52,219 +53,179 @@ export default function ThemesPage() {
     return counts;
   }, [activeStation]);
 
-  return (
-    <main className={styles.shell}>
-      <div className={styles.grain} aria-hidden="true" />
-      <div className={styles.frame}>
-        <header className={styles.header}>
-          <div className={styles.eyebrowRow}>
-            <span className={styles.eyebrowMono}>FILE / 04.A</span>
-            <span className={styles.eyebrowMono}>
-              AI INFRA FUND · VALUE-CHAIN ATLAS
-            </span>
-            <span className={styles.eyebrowMono}>REV 2026.05</span>
-          </div>
-          <h1 className={styles.title}>
-            The <em>trillion-dollar</em> value chain,
-            <br />
-            laid out station by station.
-          </h1>
-          <p className={styles.lede}>
-            Compute does not exist without memory, foundries, lithography,
-            gigawatts of power, transmission, switchgear, and cooling. Each
-            station below routes the current that ends in a training run. Pick a
-            station to inspect its subthemes and the equities that ride them.
-          </p>
-          <div className={styles.headerMeta}>
-            <Link href="/" className={styles.backLink}>
-              ← Control Room
-            </Link>
-            <span className={styles.metaDot} />
-            <span className={styles.metaMono}>
-              {watchlist.length} equities · {valueChain.length} primary stations
-              · {adjacentStations.length} adjacent
-            </span>
-          </div>
-        </header>
+  const criticalCount = stationTickers.filter(
+    (t) => t.priority === "critical",
+  ).length;
 
-        <section className={styles.spineSection} aria-label="Value chain spine">
-          <div className={styles.spineLabel}>
-            <span className={styles.spineLabelMono}>FIG. 1</span>
-            <span>Primary value-chain spine — read left to right</span>
-          </div>
-          <ol className={styles.spine}>
-            {valueChain.map((station, index) => {
-              const tags = new Set(station.subthemes.map((s) => s.tag));
-              const equityCount = tickersByStation(tags).length;
-              const isActive = nameKey(station) === stationKey;
-              return (
-                <li
-                  key={station.label}
-                  className={`${styles.station} ${isActive ? styles.stationActive : ""}`}
-                  style={{ animationDelay: `${index * 70}ms` }}
-                >
+  return (
+    <div className="control-room-shell">
+      <AppShell
+        eyebrow="Value-chain Atlas"
+        title="AI Infrastructure Value Chain"
+      >
+        <div className="workbench-grid">
+          <SectionPanel
+            eyebrow="Read-only"
+            title="Compute supply chain spine"
+            aside={<span className="advisory-inline">Advisory-only</span>}
+          >
+            <p className="panel-note">
+              Compute does not exist without memory, foundries, lithography,
+              gigawatts of power, transmission, switchgear, and cooling. Each
+              station below routes the current that ends in a training run. Pick
+              a station to inspect its subthemes and the equities that ride
+              them.
+            </p>
+
+            <div
+              className="value-chain-spine"
+              role="tablist"
+              aria-label="Primary value-chain stations"
+            >
+              {valueChain.map((station) => {
+                const tags = new Set(station.subthemes.map((s) => s.tag));
+                const equityCount = tickersByStation(tags).length;
+                const isActive = nameKey(station) === stationKey;
+                return (
                   <button
+                    key={station.label}
                     type="button"
+                    role="tab"
+                    aria-selected={isActive}
                     onClick={() => setActiveId(nameKey(station))}
-                    className={styles.stationButton}
-                    aria-pressed={isActive}
+                    className={`value-chain-station${
+                      isActive ? " value-chain-station--active" : ""
+                    }`}
                   >
-                    <span className={styles.stationIndex}>{station.index}</span>
-                    <span className={styles.stationLabel}>{station.label}</span>
-                    <span className={styles.stationCount}>
-                      <span className={styles.countNum}>{equityCount}</span>
-                      <span className={styles.countLabel}>equities</span>
+                    <strong>
+                      {station.index}. {station.label}
+                    </strong>
+                    <span style={{ color: "var(--muted)", fontSize: 12 }}>
+                      {equityCount} equities · {station.caption}
                     </span>
-                    <span className={styles.stationCaption}>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div
+              className="value-chain-spine"
+              style={{ marginTop: 12 }}
+              role="tablist"
+              aria-label="Adjacent value-chain stations"
+            >
+              {adjacentStations.map((station) => {
+                const isActive = nameKey(station) === stationKey;
+                return (
+                  <button
+                    key={station.label}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => setActiveId(nameKey(station))}
+                    className={`value-chain-station${
+                      isActive ? " value-chain-station--active" : ""
+                    }`}
+                  >
+                    <strong>Adjacent · {station.label}</strong>
+                    <span style={{ color: "var(--muted)", fontSize: 12 }}>
                       {station.caption}
                     </span>
                   </button>
-                  {index < valueChain.length - 1 ? (
-                    <span className={styles.wire} aria-hidden="true" />
-                  ) : null}
-                </li>
-              );
-            })}
-          </ol>
-
-          <div className={styles.adjacentRail}>
-            <span className={styles.adjacentTitle}>Adjacent</span>
-            {adjacentStations.map((station) => {
-              const isActive = nameKey(station) === stationKey;
-              return (
-                <button
-                  key={station.label}
-                  type="button"
-                  onClick={() => setActiveId(nameKey(station))}
-                  className={`${styles.adjacentChip} ${
-                    isActive ? styles.adjacentChipActive : ""
-                  }`}
-                  aria-pressed={isActive}
-                >
-                  <span className={styles.adjacentIndex}>{station.index}</span>
-                  {station.label}
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        <section
-          className={styles.detail}
-          aria-label="Station detail"
-          aria-live="polite"
-        >
-          <header className={styles.detailHeader}>
-            <div>
-              <span className={styles.detailEyebrow}>
-                Station {activeStation.index}
-              </span>
-              <h2 className={styles.detailTitle}>
-                <em>{activeStation.label}</em>
-              </h2>
-              <p className={styles.detailCaption}>{activeStation.caption}</p>
+                );
+              })}
             </div>
-            <dl className={styles.detailStats}>
-              <div>
+          </SectionPanel>
+
+          <SectionPanel
+            eyebrow={`Station ${activeStation.index}`}
+            title={activeStation.label}
+            aside={<span className="advisory-inline">Advisory-only</span>}
+          >
+            <p className="panel-note">{activeStation.caption}</p>
+
+            <dl className="metric-grid">
+              <div className="metric-card">
                 <dt>Subthemes</dt>
                 <dd>{activeStation.subthemes.length}</dd>
               </div>
-              <div>
+              <div className="metric-card">
                 <dt>Equities</dt>
                 <dd>{stationTickers.length}</dd>
               </div>
-              <div>
+              <div className="metric-card">
                 <dt>Critical</dt>
-                <dd>
-                  {
-                    stationTickers.filter((t) => t.priority === "critical")
-                      .length
-                  }
-                </dd>
+                <dd>{criticalCount}</dd>
               </div>
             </dl>
-          </header>
 
-          <div className={styles.detailGrid}>
-            <section className={styles.subthemeColumn}>
-              <h3 className={styles.columnHead}>Subthemes</h3>
-              <ul className={styles.subthemeList}>
-                {activeStation.subthemes.map((sub) => {
-                  const entries = subthemeCounts.get(sub.tag) ?? [];
-                  return (
-                    <li className={styles.subthemeRow} key={sub.tag}>
-                      <div className={styles.subthemeText}>
-                        <span className={styles.subthemeLabel}>
-                          {sub.label}
-                        </span>
-                        <span className={styles.subthemeShort}>
-                          {sub.short}
-                        </span>
-                      </div>
-                      <span className={styles.subthemeTag}>{sub.tag}</span>
-                      <span className={styles.subthemeCount}>
-                        {entries.length === 0 ? (
-                          <span className={styles.subthemeCountEmpty}>—</span>
-                        ) : (
-                          entries.map((e) => e.ticker).join(" · ")
-                        )}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
+            <h3 style={{ marginTop: 16, marginBottom: 8 }}>Subthemes</h3>
+            <div className="value-chain-subthemes">
+              {activeStation.subthemes.map((sub) => {
+                const entries = subthemeCounts.get(sub.tag) ?? [];
+                return (
+                  <div className="value-chain-subtheme" key={sub.tag}>
+                    <strong>{sub.label}</strong>
+                    <span>{sub.short}</span>
+                    <span style={{ color: "var(--muted)", fontSize: 11 }}>
+                      tag: {sub.tag}
+                    </span>
+                    <span style={{ marginTop: 6 }}>
+                      {entries.length === 0
+                        ? "— no equities mapped"
+                        : entries.map((e) => e.ticker).join(" · ")}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </SectionPanel>
 
-            <section className={styles.tickerColumn}>
-              <h3 className={styles.columnHead}>Equities at this station</h3>
-              <ol className={styles.tickerList}>
-                {stationTickers.map((entry, index) => (
-                  <li
-                    key={entry.ticker}
-                    className={styles.tickerRow}
-                    style={{ animationDelay: `${index * 50}ms` }}
-                  >
-                    <span className={styles.tickerSymbol}>{entry.ticker}</span>
-                    <span className={styles.tickerCompany}>
-                      {entry.companyName}
-                    </span>
-                    <span
-                      className={`${styles.tickerPriority} ${
-                        styles[`priority_${entry.priority}`]
-                      }`}
-                    >
-                      {entry.priority}
-                    </span>
-                    <span className={styles.tickerThemes}>
-                      {entry.themes
-                        .filter((t) =>
-                          activeStation.subthemes.some((s) => s.tag === t),
-                        )
-                        .join(" / ")}
-                    </span>
-                  </li>
-                ))}
-                {stationTickers.length === 0 ? (
-                  <li className={styles.tickerEmpty}>
-                    No equities mapped to this station yet.
-                  </li>
-                ) : null}
-              </ol>
-            </section>
-          </div>
-        </section>
-
-        <footer className={styles.footer}>
-          <span className={styles.footerMono}>
-            Source: config/ai_equity_watchlist.yaml · taxonomy:
-            lib/value-chain.ts
-          </span>
-          <span className={styles.footerMono}>
-            Read-only · no broker connection · no order surface
-          </span>
-        </footer>
-      </div>
-    </main>
+          <SectionPanel
+            eyebrow="Tickers"
+            title="Equities at this station"
+            aside={<span className="advisory-inline">Advisory-only</span>}
+          >
+            <div
+              className="data-table data-table-four"
+              role="table"
+              aria-label="Equities at the active station"
+            >
+              <div role="row" className="data-row data-header">
+                <span>Symbol</span>
+                <span>Company</span>
+                <span>Priority</span>
+                <span>Themes</span>
+              </div>
+              {stationTickers.map((entry) => (
+                <div role="row" className="data-row" key={entry.ticker}>
+                  <span>{entry.ticker}</span>
+                  <span>{entry.companyName}</span>
+                  <span>{entry.priority}</span>
+                  <span>
+                    {entry.themes
+                      .filter((t) =>
+                        activeStation.subthemes.some((s) => s.tag === t),
+                      )
+                      .join(" / ")}
+                  </span>
+                </div>
+              ))}
+              {stationTickers.length === 0 ? (
+                <div role="row" className="data-empty-state">
+                  No equities mapped to this station yet.
+                </div>
+              ) : null}
+            </div>
+            <p className="panel-note">
+              Source: config/ai_equity_watchlist.yaml · taxonomy:
+              lib/value-chain.ts. Read-only — no order, broker, or execution
+              control.
+            </p>
+          </SectionPanel>
+        </div>
+      </AppShell>
+    </div>
   );
 }
 

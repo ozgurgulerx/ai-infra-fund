@@ -1,4 +1,5 @@
 import { apiBaseUrl } from "./api";
+import { STATUS_TONE_MAP } from "./status-model";
 
 const DEFAULT_TIMEOUT_MS = 2500;
 
@@ -29,6 +30,16 @@ const EVENT_LABELS: Record<string, string> = {
 
 export function eventLabel(kind: string): string {
   return EVENT_LABELS[kind] ?? kind;
+}
+
+export function eventStatusTone(severity: ExperimentEvent["severity"]) {
+  const status =
+    severity === "info"
+      ? "passing"
+      : severity === "warn"
+        ? "degraded"
+        : "failing";
+  return STATUS_TONE_MAP[status];
 }
 
 export async function fetchRecentEvents(

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { EmptyStateRow } from "../../../components/empty-state";
 import {
   fetchShadowDrift,
   type ShadowDriftPayload,
@@ -40,10 +41,10 @@ export function ShadowDriftTable() {
 
   if (payload.rows.length === 0) {
     return (
-      <div className="data-empty-state" role="status">
+      <EmptyStateRow>
         Shadow simulation — advisory only. No target weights available for the
         current as-of timestamp.
-      </div>
+      </EmptyStateRow>
     );
   }
 

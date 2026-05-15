@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { EmptyStateRow } from "../../../components/empty-state";
 import {
   fetchShadowSimulation,
   type ShadowSimulationPayload,
@@ -48,10 +49,10 @@ export function ShadowCurveChart() {
 
   if (payload.curve.length === 0) {
     return (
-      <div className="data-empty-state" role="status">
+      <EmptyStateRow>
         Counterfactual simulation curve will appear once price history with an
         as-of-or-earlier availability stamp is recorded. Advisory only.
-      </div>
+      </EmptyStateRow>
     );
   }
 
@@ -67,12 +68,8 @@ export function ShadowCurveChart() {
         role="img"
         aria-label="Counterfactual shadow value over time, advisory only."
       >
-        <polyline
-          points={polylinePoints}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.5}
-        />
+        {/* stroke + fill driven by .shadow-curve-chart rules in globals.css */}
+        <polyline points={polylinePoints} />
       </svg>
       <dl className="shadow-curve-metrics">
         {Object.entries(payload.metrics).map(([label, value]) => (

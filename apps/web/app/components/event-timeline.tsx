@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 
+import { EmptyStateRow } from "../../components/empty-state";
 import {
   eventLabel,
+  eventStatusTone,
   fetchRecentEvents,
   type ExperimentEvent,
 } from "../../lib/events";
@@ -35,30 +37,34 @@ export function EventTimeline() {
 
   if (events.length === 0) {
     return (
-      <div className="data-empty-state" role="status">
+      <EmptyStateRow>
         No advisory events recorded yet. The timeline streams advisory-pipeline
         milestones (signal computed, weights generated, recommendation issued,
         backtest started/completed, shadow comparison recorded).
-      </div>
+      </EmptyStateRow>
     );
   }
 
   return (
     <ol className="event-timeline" aria-label="Advisory event timeline">
-      {events.map((event) => (
-        <li
-          key={event.event_id}
-          className={`event-row event-${event.severity}`}
-        >
-          <span className="event-kind">{eventLabel(event.kind)}</span>
-          <span className="event-time" title={event.occurred_at}>
-            {event.occurred_at}
-          </span>
-          {event.run_id ? (
-            <span className="event-run">{event.run_id}</span>
-          ) : null}
-        </li>
-      ))}
+      {events.map((event) => {
+        const tone = eventStatusTone(event.severity);
+        return (
+          <li
+            key={event.event_id}
+            className={`event-row ${tone.cssClass}`}
+            title={`${tone.label} severity`}
+          >
+            <span className="event-kind">{eventLabel(event.kind)}</span>
+            <span className="event-time" title={event.occurred_at}>
+              {event.occurred_at}
+            </span>
+            {event.run_id ? (
+              <span className="event-run">{event.run_id}</span>
+            ) : null}
+          </li>
+        );
+      })}
     </ol>
   );
 }
