@@ -42,6 +42,7 @@ class AIEquityProvider:
     data_class: str
     reliability_score: float
     requires_secret: bool
+    secret_env_var: str | None
     ticker_fanout: bool
     series_fanout: tuple[str, ...]
     theme_fanout: bool
@@ -122,6 +123,23 @@ def _provider(raw: object, index: int) -> AIEquityProvider:
             f"got {reliability_score}"
         )
     requires_secret = bool(raw.get("requires_secret", False))
+    raw_env = raw.get("secret_env_var")
+    env_str: str | None = (
+        raw_env.strip() if isinstance(raw_env, str) and raw_env.strip() else None
+    )
+    if requires_secret:
+        if env_str is None:
+            raise ValueError(
+                f"provider {index} secret_env_var must be a non-empty string "
+                f"when requires_secret is true"
+            )
+        secret_env_var: str | None = env_str
+    elif raw_env is not None and not isinstance(raw_env, str):
+        raise ValueError(
+            f"provider {index} secret_env_var must be a string when present"
+        )
+    else:
+        secret_env_var = env_str
     ticker_fanout = bool(raw.get("ticker_fanout", False))
     theme_fanout = bool(raw.get("theme_fanout", False))
     cik_fanout = bool(raw.get("cik_fanout", False))
@@ -175,6 +193,7 @@ def _provider(raw: object, index: int) -> AIEquityProvider:
         data_class=data_class,
         reliability_score=reliability_score,
         requires_secret=requires_secret,
+        secret_env_var=secret_env_var,
         ticker_fanout=ticker_fanout,
         series_fanout=series_fanout,
         theme_fanout=theme_fanout,

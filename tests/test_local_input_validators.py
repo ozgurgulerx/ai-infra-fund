@@ -265,6 +265,81 @@ class LocalInputValidatorTests(unittest.TestCase):
         self.assertTrue(provider.cik_fanout)
         self.assertFalse(provider.ticker_fanout)
 
+    def test_provider_requires_secret_env_var_when_requires_secret_is_true(self) -> None:
+        from ai_infra_fund_core.local_inputs.watchlist import (
+            validate_ai_equity_watchlist,
+        )
+
+        raw = {
+            "version": 1,
+            "entries": [
+                {
+                    "ticker": "NVDA",
+                    "company_name": "NVIDIA",
+                    "themes": ["ai_accelerators"],
+                    "sector_tags": ["semiconductors"],
+                    "priority": "critical",
+                }
+            ],
+            "providers": [
+                {
+                    "source_id": "source_api_fred",
+                    "source_name": "FRED",
+                    "source_type": "macro_api",
+                    "base_url": "https://api.stlouisfed.org/fred",
+                    "license_label": "public",
+                    "data_class": "public_market_data",
+                    "reliability_score": 0.99,
+                    "requires_secret": True,
+                    "series_fanout": ["DFF"],
+                    "url_templates": [
+                        "https://api.stlouisfed.org/fred/series/observations?series_id={series_id}&api_key={api_key}",
+                    ],
+                }
+            ],
+        }
+
+        with self.assertRaisesRegex(ValueError, r"secret_env_var"):
+            validate_ai_equity_watchlist(raw)
+
+    def test_provider_accepts_secret_env_var_when_requires_secret_is_true(self) -> None:
+        from ai_infra_fund_core.local_inputs.watchlist import (
+            validate_ai_equity_watchlist,
+        )
+
+        raw = {
+            "version": 1,
+            "entries": [
+                {
+                    "ticker": "NVDA",
+                    "company_name": "NVIDIA",
+                    "themes": ["ai_accelerators"],
+                    "sector_tags": ["semiconductors"],
+                    "priority": "critical",
+                }
+            ],
+            "providers": [
+                {
+                    "source_id": "source_api_fred",
+                    "source_name": "FRED",
+                    "source_type": "macro_api",
+                    "base_url": "https://api.stlouisfed.org/fred",
+                    "license_label": "public",
+                    "data_class": "public_market_data",
+                    "reliability_score": 0.99,
+                    "requires_secret": True,
+                    "secret_env_var": "FRED_API_KEY",
+                    "series_fanout": ["DFF"],
+                    "url_templates": [
+                        "https://api.stlouisfed.org/fred/series/observations?series_id={series_id}&api_key={api_key}",
+                    ],
+                }
+            ],
+        }
+
+        watchlist = validate_ai_equity_watchlist(raw)
+        self.assertEqual("FRED_API_KEY", watchlist.providers[0].secret_env_var)
+
     def test_provider_rejects_cik_fanout_without_cik_placeholder(self) -> None:
         from ai_infra_fund_core.local_inputs.watchlist import (
             validate_ai_equity_watchlist,

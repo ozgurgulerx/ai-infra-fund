@@ -46,6 +46,7 @@ providers:
     data_class: public_market_data
     reliability_score: 0.99
     requires_secret: true
+    secret_env_var: FRED_API_KEY
     series_fanout:
       - DFF
       - DGS10
@@ -78,6 +79,7 @@ providers:
     data_class: public_evidence
     reliability_score: 0.85
     requires_secret: true
+    secret_env_var: FINNHUB_API_KEY
     ticker_fanout: true
     url_templates:
       - https://finnhub.io/api/v1/company-news?symbol={ticker}
