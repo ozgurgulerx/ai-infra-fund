@@ -442,6 +442,35 @@ class LocalInputValidatorTests(unittest.TestCase):
             watchlist.providers[0].cik_lookup_url,
         )
 
+    def test_production_secret_providers_have_api_key_placeholder_and_env_var(
+        self,
+    ) -> None:
+        from ai_infra_fund_core.local_inputs.watchlist import load_ai_equity_watchlist
+
+        watchlist = load_ai_equity_watchlist(
+            ROOT / "config" / "ai_equity_watchlist.yaml"
+        )
+
+        secret_providers = [p for p in watchlist.providers if p.requires_secret]
+        self.assertTrue(
+            secret_providers, "expected at least one requires_secret provider"
+        )
+        for provider in secret_providers:
+            self.assertIsNotNone(
+                provider.secret_env_var,
+                f"{provider.source_id} declares requires_secret but has no secret_env_var",
+            )
+            self.assertTrue(
+                provider.url_templates,
+                f"{provider.source_id} declares requires_secret but has no url_templates",
+            )
+            # all current secret providers inject credentials as a URL query parameter
+            for template in provider.url_templates:
+                self.assertTrue(
+                    "{api_key}" in template or "{api_token}" in template,
+                    f"{provider.source_id} url_template lacks {{api_key}} or {{api_token}}: {template}",
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

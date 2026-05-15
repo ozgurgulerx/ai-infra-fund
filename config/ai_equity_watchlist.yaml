@@ -39,7 +39,7 @@ providers:
     url_templates:
       - https://stooq.com/q/d/l/?s={ticker}.us&i=d
 
-  - source_id: source-api-fred
+  - source_id: source_api_fred
     source_name: FRED (St. Louis Fed)
     source_type: macro_api
     base_url: https://api.stlouisfed.org/fred
@@ -58,7 +58,7 @@ providers:
       - PPIACO
       - ELEINDM01USM189S
     url_templates:
-      - https://api.stlouisfed.org/fred/series/observations?series_id={series_id}&file_type=json
+      - https://api.stlouisfed.org/fred/series/observations?series_id={series_id}&file_type=json&api_key={api_key}
 
   - source_id: source-api-gdelt
     source_name: GDELT 2.0 DOC API
@@ -72,7 +72,7 @@ providers:
     url_templates:
       - https://api.gdeltproject.org/api/v2/doc/doc?query={ticker}&mode=ArtList&format=json&maxrecords=250
 
-  - source_id: source-api-finnhub
+  - source_id: source_api_finnhub
     source_name: Finnhub
     source_type: news_event_api
     base_url: https://finnhub.io/api/v1
@@ -83,7 +83,7 @@ providers:
     secret_env_var: FINNHUB_API_KEY
     ticker_fanout: true
     url_templates:
-      - https://finnhub.io/api/v1/company-news?symbol={ticker}
+      - https://finnhub.io/api/v1/company-news?symbol={ticker}&token={api_token}
 
 entries:
   - ticker: NVDA
