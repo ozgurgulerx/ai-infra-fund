@@ -13,6 +13,8 @@ Use `docs/SPEC_ROUTER.md` only to choose deeper canonical specs for the active t
 
 ## Non-Negotiable Rules
 
+- Product boundary: this repo builds an advisory and reporting-only AI Infrastructure Trading Advisory Workstation. It may generate trading advisory, thesis updates, valuation context, risk flags, trade plans, and journal reports. It must never automate trading or connect to brokers.
+- Every implementation must improve at least one of: source monitoring, evidence quality, catalyst detection, segment impact mapping, equity thesis quality, valuation context, risk regime awareness, advisory brief usefulness, trade plan quality, or journal/outcome review quality.
 - Advisory-only system: no live order placement, broker integration, execution endpoints, or execution-like UI controls.
 - Manual buy/sell entry is local journal only and must not transmit orders.
 - LLMs may classify, extract, summarize, review, and explain.
@@ -24,6 +26,15 @@ Use `docs/SPEC_ROUTER.md` only to choose deeper canonical specs for the active t
 - Private research is local-only by default. Cloud model calls must respect data-class policy.
 - UI must not contain business logic or expose order placement.
 - Never commit private reports, secrets, `.env`, or `.env.*`; use `.env.example` for placeholders only.
+
+Hard forbidden:
+
+- broker credentials
+- live order placement
+- order routing
+- execution endpoints
+- execution UI
+- automated trading loops
 
 ## Working Loop
 

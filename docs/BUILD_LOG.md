@@ -1,5 +1,34 @@
 # Build Log
 
+## 2026-05-16 Agent Product Boundary
+
+Updated `AGENTS.md` with the product boundary for the AI Infrastructure Trading Advisory Workstation.
+
+- Defined the repo as advisory and reporting-only.
+- Allowed trading advisory, thesis updates, valuation context, risk flags, trade plans, and journal reports.
+- Reaffirmed that the system must never automate trading or connect to brokers.
+- Added the requirement that every implementation improve at least one product-quality area: source monitoring, evidence quality, catalyst detection, segment impact mapping, equity thesis quality, valuation context, risk regime awareness, advisory brief usefulness, trade plan quality, or journal/outcome review quality.
+- Added hard-forbidden surfaces: broker credentials, live order placement, order routing, execution endpoints, execution UI, and automated trading loops.
+
+Verification:
+
+- `git diff --check` passed.
+- No product code was modified.
+
+## 2026-05-16 Product Reframe
+
+Updated `docs/PRODUCT.md` to frame the product as an advisory and reporting-only AI Infrastructure Trading Advisory Workstation.
+
+- Added the primary product loop from source monitoring through evidence, market events, segment impacts, equity assessment, valuation context, risk updates, trading advisory, briefs, local manual journal, and outcome review.
+- Added the core monitored domains across model progress, hyperscaler capex, accelerators, HBM/memory, foundry/CoWoS/semicap, networking, datacenters, power, cooling, sovereign AI/export controls, software monetization, macro liquidity, financials, and valuation.
+- Reframed backtesting as outcome review, scenario replay, signal calibration, and thesis-quality evaluation rather than the core product experience.
+- Preserved hard boundaries: advisory/reporting only, no broker integration, no live order placement, no automated trading, no execution endpoint, no execution UI, and manual trade journal only.
+
+Verification:
+
+- `git diff --check` passed.
+- No application code, backend code, dependency, broker, order-placement, execution, or database changes were made.
+
 ## 2026-05-16 Cloud Deployment Gate Clarification
 
 Updated the harness so deployment readiness is validated only against the canonical Azure cloud deployment target.
