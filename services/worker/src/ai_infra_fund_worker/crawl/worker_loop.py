@@ -32,6 +32,7 @@ from ai_infra_fund_core.equity_intelligence.research_extractor import (
 
 # Effectively "never retry" (matches BLOCKED_AVAILABLE_AT in core frontier).
 _BLOCKED_BACKOFF = timedelta(days=365 * 10)
+_RATE_LIMIT_BACKOFF_BASE = timedelta(hours=1)
 
 
 @dataclass(frozen=True, slots=True)
@@ -527,6 +528,7 @@ def _record_failed_attempt(
         max_attempts=max_attempts,
         policy=policy,
         now=now,
+        http_status=http_status,
     )
     repo.record_frontier_failure(
         frontier_url_id=frontier_url_id,
@@ -559,11 +561,15 @@ def _next_attempt_at(
     max_attempts: int,
     policy: FrontierPolicy,
     now: datetime,
+    http_status: int | None,
 ) -> datetime:
     next_attempt_count = attempt_count_before + 1
     if next_attempt_count >= max_attempts:
         return now + _BLOCKED_BACKOFF
-    return now + policy.backoff_base * (2 ** (next_attempt_count - 1))
+    backoff_base = (
+        _RATE_LIMIT_BACKOFF_BASE if http_status == 429 else policy.backoff_base
+    )
+    return now + backoff_base * (2 ** (next_attempt_count - 1))
 
 
 def _safe_exception_summary(error: Exception) -> str:

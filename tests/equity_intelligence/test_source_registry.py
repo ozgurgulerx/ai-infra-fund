@@ -4,6 +4,7 @@ import sys
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 import yaml
 
@@ -190,6 +191,41 @@ class SourceRegistryValidationTests(unittest.TestCase):
         self.assertTrue(eia.requires_secret)
         self.assertEqual("EIA_API_KEY", eia.secret_env_var)
 
+    def test_project_registry_uses_crawlable_dcd_rss_feed(self) -> None:
+        from ai_infra_fund_core.equity_intelligence.source_registry import (
+            load_source_registry,
+        )
+
+        registry = load_source_registry(ROOT / "config" / "source_registry.yaml")
+        sources = {source.source_id: source for source in registry.sources}
+        dcd = sources["source_datacenter_dynamics"]
+
+        self.assertEqual("static", dcd.fanout)
+        self.assertEqual(("NVDA",), dcd.ticker_allowlist)
+        self.assertEqual(("https://www.datacenterdynamics.com/en/rss/",), dcd.url_templates)
+        self.assertNotIn("/search/", dcd.url_templates[0])
+        self.assertNotIn("{ticker}", dcd.url_templates[0])
+
+    def test_project_registry_lowers_gdelt_pressure(self) -> None:
+        from ai_infra_fund_core.equity_intelligence.source_registry import (
+            load_source_registry,
+        )
+
+        registry = load_source_registry(ROOT / "config" / "source_registry.yaml")
+        sources = {source.source_id: source for source in registry.sources}
+        gdelt = sources["source_gdelt_doc"]
+
+        self.assertEqual("static", gdelt.fanout)
+        self.assertEqual(("NVDA",), gdelt.ticker_allowlist)
+        self.assertGreaterEqual(gdelt.refresh_interval_minutes, 720)
+        self.assertEqual(1, len(gdelt.url_templates))
+        self.assertNotIn("{ticker}", gdelt.url_templates[0])
+
+        query = parse_qs(urlparse(gdelt.url_templates[0]).query)
+        self.assertEqual(["json"], query["format"])
+        self.assertLessEqual(int(query["maxrecords"][0]), 25)
+        self.assertIn("AI", query["query"][0])
+
     def test_rejects_invalid_tier_and_private_source(self) -> None:
         from ai_infra_fund_core.equity_intelligence.source_registry import (
             validate_source_registry,
@@ -236,6 +272,43 @@ class SourceRegistrySeedPlanTests(unittest.TestCase):
         self.assertIn("semianalysis.com", urls)
         self.assertNotIn("api_key", urls)
         self.assertNotIn("token=", urls)
+
+    def test_project_seed_plan_skips_all_missing_optional_secret_sources(self) -> None:
+        from ai_infra_fund_core.equity_intelligence.seeder import (
+            build_source_registry_seed_plan,
+        )
+        from ai_infra_fund_core.equity_intelligence.source_registry import (
+            load_source_registry,
+        )
+
+        registry = load_source_registry(ROOT / "config" / "source_registry.yaml")
+        plan = build_source_registry_seed_plan(
+            _watchlist(),
+            registry,
+            now=NOW,
+            environ={},
+        )
+
+        self.assertEqual(
+            {
+                "source_eia_electricity": "missing_secret:EIA_API_KEY",
+                "source_fred_macro": "missing_secret:FRED_API_KEY",
+                "source_finnhub_company_news": "missing_secret:FINNHUB_API_KEY",
+            },
+            plan.skipped_sources_by_id,
+        )
+        urls = "\n".join(record.url for record in plan.frontier_url_records)
+        self.assertNotIn("{api_key}", urls)
+        self.assertNotIn("{api_token}", urls)
+        self.assertNotIn("api_key=", urls)
+        self.assertNotIn("token=", urls)
+
+    def test_env_example_names_optional_source_secrets(self) -> None:
+        env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
+
+        self.assertIn("EIA_API_KEY=", env_example)
+        self.assertIn("FRED_API_KEY=", env_example)
+        self.assertIn("FINNHUB_API_KEY=", env_example)
 
     def test_preserves_source_quality_metadata_on_sources_and_frontier_urls(self) -> None:
         from ai_infra_fund_core.equity_intelligence.seeder import (

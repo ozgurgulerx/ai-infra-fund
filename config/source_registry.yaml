@@ -122,10 +122,11 @@ sources:
     license_label: public
     data_class: public_evidence
     trust_weight: 0.86
-    refresh_interval_minutes: 360
-    fanout: ticker
+    refresh_interval_minutes: 720
+    fanout: static
+    ticker_allowlist: [NVDA]
     url_templates:
-      - https://www.datacenterdynamics.com/en/search/?q={ticker}
+      - https://www.datacenterdynamics.com/en/rss/
 
   - source_id: source_datacenter_knowledge
     source_name: Data Center Knowledge
@@ -204,10 +205,11 @@ sources:
     license_label: public
     data_class: public_evidence
     trust_weight: 0.74
-    refresh_interval_minutes: 120
-    fanout: ticker
+    refresh_interval_minutes: 720
+    fanout: static
+    ticker_allowlist: [NVDA]
     url_templates:
-      - https://api.gdeltproject.org/api/v2/doc/doc?query={ticker}&mode=ArtList&format=json&maxrecords=250
+      - https://api.gdeltproject.org/api/v2/doc/doc?query=AI%20infrastructure%20OR%20AI%20data%20center%20OR%20NVIDIA%20OR%20AMD%20OR%20Broadcom%20OR%20TSMC%20OR%20ASML%20OR%20Micron%20OR%20Arista%20OR%20Marvell%20OR%20Vertiv%20OR%20Eaton%20OR%20Oracle%20OR%20Microsoft%20OR%20Google%20OR%20Amazon%20OR%20Meta&mode=ArtList&format=json&maxrecords=25&sort=datedesc
 
   - source_id: source_finnhub_company_news
     source_name: Finnhub Company News

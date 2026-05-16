@@ -375,6 +375,59 @@ class CrawlProcessOneUnitTests(unittest.TestCase):
         self.assertEqual("unexpected_exception:TimeoutError", record.error_summary)
         self.assertNotIn("credentials", record.error_summary)
 
+    def test_rate_limit_response_uses_longer_backoff_than_generic_failure(self) -> None:
+        from ai_infra_fund_worker.crawl.worker_loop import _process_one
+
+        repo = FakeFrontierRepository()
+        crawl_log_repo = FakeCrawlLogRepository()
+        now = datetime(2026, 5, 14, 12, 0, tzinfo=timezone.utc)
+        target_url = "https://api.gdeltproject.org/api/v2/doc/doc?query=AI&maxrecords=25"
+        fetcher = FakeFetcher(
+            {
+                target_url: FetchResult(
+                    final_url=target_url,
+                    http_status=429,
+                    content_type="text/plain",
+                    body_bytes=b"rate limit",
+                    etag=None,
+                    last_modified=None,
+                    latency_ms=7,
+                    fetch_method="http_get",
+                    error_summary=None,
+                )
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _process_one(
+                repo=repo,
+                row={
+                    "frontier_url_id": "frontier-nvda-gdelt",
+                    "ticker": "NVDA",
+                    "source_id": "source_gdelt_doc",
+                    "url": target_url,
+                    "attempt_count": 0,
+                    "max_attempts": 3,
+                },
+                crawl_log_repo=crawl_log_repo,
+                policy=FrontierPolicy(
+                    batch_size=1,
+                    domain_cap=1,
+                    backoff_base=timedelta(minutes=5),
+                ),
+                fetcher=fetcher,
+                capture_store=LocalCaptureStore(Path(tmp)),
+                research_extractor=StubLLMClaimExtractor(),
+                now=now,
+            )
+
+        self.assertEqual("failed", result)
+        self.assertEqual(1, len(repo.failures))
+        self.assertEqual("http_429", repo.failures[0]["error_summary"])
+        self.assertEqual(now + timedelta(hours=1), repo.failures[0]["next_attempt_at"])
+        self.assertEqual(1, len(crawl_log_repo.records))
+        self.assertEqual(429, crawl_log_repo.records[0].http_status)
+
 
 if __name__ == "__main__":
     unittest.main()
