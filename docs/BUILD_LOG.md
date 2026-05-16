@@ -812,3 +812,39 @@ Guardrails:
 
 - Advisory-only boundary preserved.
 - No broker integration, order placement, execution endpoint, execution UI, model call, paid/private scraping, or arbitrary crawler source was added.
+
+Cloud deployment validation:
+
+- Pushed implementation commit `50b7d3b` to `origin/main`.
+- Built and pushed ACR images:
+  - `aistartuptr.azurecr.io/ai-infra-fund-api:50b7d3b` with digest `sha256:e02e5945c1c06c2b5ab4ef3af756bf2f28b6e6f19fd304cca24af5a51c5e6533`.
+  - `aistartuptr.azurecr.io/ai-infra-fund-worker:50b7d3b` with digest `sha256:1664f6b26fc131a6eab5d9ad7de4c03066cdc14b4910b4c7928ee037dce32b98`.
+- Rolled AKS deployments `ai-infra-fund-api` and `ai-infra-fund-worker` to image tag `50b7d3b`; both reported `1/1` ready.
+- Did not run migrations; this pass added no migration files.
+- Ran cloud source seed job `ai-infra-fund-source-seed-50b7d3b`.
+  - Seeded 34 equities, 18 sources, 312 frontier URLs, and 312 queue items.
+  - Skipped `source_eia_electricity` because `EIA_API_KEY` is not configured.
+  - Skipped `source_fred_macro` because `FRED_API_KEY` is not configured.
+  - Skipped `source_finnhub_company_news` because `FINNHUB_API_KEY` is not configured.
+- Ran cloud crawler job `ai-infra-fund-crawl-once-50b7d3b`.
+  - Leased 20 seeded frontier items.
+  - Completed with 5 succeeded, 0 not modified, and 15 failed remote-source responses.
+  - Confirmed the tuned SemiAnalysis URL returned `200`.
+  - Remaining remote-source failures were primarily Data Center Dynamics `403` responses plus one GDELT `429`.
+- Confirmed the cloud database contains 39 crawler `evidence-capture-*` EvidenceItems; latest `created_at` was `2026-05-16T20:15:05Z`.
+- Ran cloud daily brief job `ai-infra-fund-daily-brief-50b7d3b`.
+  - Run ID: `run-daily-ai-infra-brief-d098433af034f5f4`.
+  - Brief ID: `brief-daily-ai-infra-20260516T201354Z-d098433a`.
+  - Published 21 advisory-only trading advisories.
+  - Suppressed 1 candidate through deterministic gates.
+- Verified cloud endpoints through `https://ai-infra-fund-frontend.azurewebsites.net/api/backend`:
+  - `/health` returned `200`.
+  - `/ready` returned `200`.
+  - `/internal/source-signals/latest` returned `200`.
+  - `/internal/market-events/latest` returned `200`.
+  - `/internal/analyst-brief/latest` returned `200` and brief `brief-daily-ai-infra-20260516T201354Z-d098433a`.
+  - `/internal/trading-advisory/latest` returned `200`.
+  - `/internal/segment-map/latest` returned `200`.
+  - `/internal/ticker/NVDA/workbench` returned `200`.
+  - `/internal/portfolio/exposure/latest` returned `200`.
+- Verified the hosted cockpit at `https://ai-infra-fund-frontend.azurewebsites.net` rendered brief `brief-daily-ai-infra-20260516T201354Z-d098433a`, 25 MarketEvents, 21 suggested advisory actions, evidence-linked labels, and advisory-only/no transaction surface labels.
