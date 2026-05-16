@@ -41,14 +41,25 @@ Cloud deployment validation:
 
 ## 2026-05-16 App Diagrams
 
-Added a Mermaid-only visual source map for the AI Infrastructure Trading Advisory Workstation.
+Added an OpenAI-image-first visual source map for the AI Infrastructure Trading Advisory Workstation.
 
-- Created `docs/APP_DIAGRAMS.md` with product operating loop, runtime architecture, data lineage, LLM/deterministic boundary, AI infrastructure segment map, advisory readiness gate, daily brief generation sequence, UI navigation map, read-only API surface, and build roadmap diagrams.
-- Generated README PNG overview assets with OpenAI's image model and deterministic label compositing:
-  - `docs/assets/ai-infra-workstation-product-flow-openai.png`
-  - `docs/assets/ai-infra-workstation-runtime-architecture-openai.png`
-- Updated `README.md` with the OpenAI-generated visual overview assets, embedded Mermaid product-loop/runtime-boundary diagrams, and a link to the full diagram set.
-- Updated `docs/PROJECT_MAP.md` to point future developers and Codex agents at the diagrams.
+- Created `docs/APP_DIAGRAMS.md` with layered product, architecture, data lineage, LLM/deterministic boundary, AI infrastructure segment, readiness gate, sequence, UI navigation, API surface, and roadmap views.
+- Created `docs/DIAGRAM_STYLE_TEMPLATE.md` with the shared OpenAI diagram style system, palette, prompt scaffold, naming convention, content rules, and review checklist.
+- Generated a ten-image OpenAI diagram set under `docs/assets/openai-diagrams/`, using OpenAI image-model bases plus deterministic label compositing for exact repository terminology:
+  - `aiw-01-product-operating-loop-openai.png`
+  - `aiw-02-runtime-architecture-openai.png`
+  - `aiw-03-data-lineage-openai.png`
+  - `aiw-04-llm-deterministic-boundary-openai.png`
+  - `aiw-05-ai-infrastructure-segment-map-openai.png`
+  - `aiw-06-advisory-readiness-gate-openai.png`
+  - `aiw-07-daily-brief-sequence-openai.png`
+  - `aiw-08-ui-navigation-map-openai.png`
+  - `aiw-09-api-surface-openai.png`
+  - `aiw-10-build-roadmap-openai.png`
+- Updated `README.md` to explain the system gradually from product loop through runtime, lineage, governance, ecosystem, readiness, sequence, UI, API, and roadmap perspectives.
+- Kept Mermaid source in `docs/APP_DIAGRAMS.md` for implementation review while removing Mermaid blocks from the README orientation path.
+- Updated `docs/PROJECT_MAP.md` to point future developers and Codex agents at the diagram set and style template.
+- Removed obsolete diagram assets that were no longer part of the OpenAI diagram pack, including the prior Nano Banana deployment image.
 - Preserved hard boundaries: advisory/reporting only, no broker integration, no live order placement, no execution endpoint, no execution UI, manual journal only, and deterministic ownership of accounting, PnL, risk checks, readiness checks, schemas, validation, and audit lineage.
 - No application code, backend code, frontend code, dependency, database, broker, order-placement, or execution changes were made.
 

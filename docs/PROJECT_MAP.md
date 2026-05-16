@@ -1,6 +1,6 @@
 # Project Map
 
-For the current operator-grade visual map of product flow, runtime architecture, data lineage, UI navigation, API surface, and roadmap, see [`docs/APP_DIAGRAMS.md`](APP_DIAGRAMS.md).
+For the current operator-grade visual map of product flow, runtime architecture, data lineage, UI navigation, API surface, and roadmap, see [`docs/APP_DIAGRAMS.md`](APP_DIAGRAMS.md). For the OpenAI image style system used by README diagrams, see [`docs/DIAGRAM_STYLE_TEMPLATE.md`](DIAGRAM_STYLE_TEMPLATE.md).
 
 ## 1. Product North Star
 

@@ -1,6 +1,8 @@
 # App Diagrams
 
-This document is the visual source map for the AI Infrastructure Trading Advisory Workstation. It uses Mermaid only so GitHub can render the diagrams directly.
+This document is the visual source map for the AI Infrastructure Trading Advisory Workstation. It is organized as a layered explanation: product loop first, then runtime architecture, data lineage, governance boundaries, UI flow, API surface, and roadmap.
+
+Each section includes an OpenAI-generated PNG for human orientation and Mermaid source for implementation review. The PNGs use an OpenAI image-model base with a deterministic label layer so names, routes, and policy language match the repository exactly. The shared style rules live in [`docs/DIAGRAM_STYLE_TEMPLATE.md`](DIAGRAM_STYLE_TEMPLATE.md).
 
 The system is advisory and reporting-only:
 
@@ -12,9 +14,18 @@ The system is advisory and reporting-only:
 - LLMs extract, summarize, classify, review, critique, and explain
 - deterministic code owns schemas, validation, accounting, PnL, risk checks, readiness checks, target weights, and audit lineage
 
+Reading path:
+
+1. Product and operating model: Product Operating Loop, Segment Map, UI Navigation Map.
+2. System architecture: Runtime Architecture, Data Lineage Diagram, API Surface Diagram.
+3. Governance and publication control: LLM vs Deterministic Boundary, Advisory Readiness Gate, Daily Brief Generation Sequence.
+4. Implementation planning: Build Roadmap Diagram.
+
 ## 1. Product Operating Loop
 
 The product loop starts from configured public information and ends with manual journal/outcome review. Nothing in the loop sends orders or touches a broker.
+
+![OpenAI-generated product operating loop](assets/openai-diagrams/aiw-01-product-operating-loop-openai.png)
 
 ```mermaid
 flowchart LR
@@ -45,6 +56,8 @@ flowchart LR
 ## 2. Runtime Architecture
 
 The worker owns source monitoring, crawling, advisory jobs, and optional governed model work. The API owns read-only advisory endpoints. The web UI never connects directly to PostgreSQL and never calls model APIs.
+
+![OpenAI-generated runtime architecture](assets/openai-diagrams/aiw-02-runtime-architecture-openai.png)
 
 ```mermaid
 flowchart TB
@@ -83,6 +96,8 @@ flowchart TB
 
 Lineage is preserved from source signal through evidence, model runs, advisory publication gates, analyst brief, and manual outcome review.
 
+![OpenAI-generated data lineage diagram](assets/openai-diagrams/aiw-03-data-lineage-openai.png)
+
 ```mermaid
 flowchart LR
   sourceSignal["SourceSignal"]
@@ -114,6 +129,8 @@ flowchart LR
 ## 4. LLM vs Deterministic Boundary
 
 LLMs can help create and critique language-rich analyst objects. Deterministic code owns all numeric, policy, risk, accounting, and readiness decisions.
+
+![OpenAI-generated LLM vs deterministic boundary](assets/openai-diagrams/aiw-04-llm-deterministic-boundary-openai.png)
 
 ```mermaid
 flowchart LR
@@ -151,6 +168,8 @@ flowchart LR
 
 AI progress propagates through the infrastructure stack. The segment map keeps first-order and second-order ticker exposure explicit.
 
+![OpenAI-generated AI infrastructure segment map](assets/openai-diagrams/aiw-05-ai-infrastructure-segment-map-openai.png)
+
 ```mermaid
 flowchart TB
   progress["AI model progress<br/>training scale, inference demand, agentic workloads"]
@@ -184,6 +203,8 @@ flowchart TB
 ## 6. Advisory Readiness Gate
 
 Candidate advisories fail closed. Suppressed advisories can still be reviewed, but they must not be presented as ready for manual planning.
+
+![OpenAI-generated advisory readiness gate](assets/openai-diagrams/aiw-06-advisory-readiness-gate-openai.png)
 
 ```mermaid
 flowchart TD
@@ -226,6 +247,8 @@ flowchart TD
 
 The daily brief is generated from persisted evidence and validated advisory objects. User trade activity remains a manual journal/outcome-review loop.
 
+![OpenAI-generated daily brief sequence](assets/openai-diagrams/aiw-07-daily-brief-sequence-openai.png)
+
 ```mermaid
 sequenceDiagram
   participant Worker as Crawler Worker
@@ -259,6 +282,8 @@ sequenceDiagram
 
 The operator flow starts in the cockpit, moves through evidence and segment context, then into ticker work, trade planning, local journaling, and outcome review.
 
+![OpenAI-generated UI navigation map](assets/openai-diagrams/aiw-08-ui-navigation-map-openai.png)
+
 ```mermaid
 flowchart LR
   cockpit["Daily Trading Cockpit"]
@@ -286,6 +311,8 @@ flowchart LR
 
 The advisory API is a read-only reporting surface for the workstation. The only mutation-like workflow in the product boundary is local manual journal capture, which is outside this read-only advisory endpoint set.
 
+![OpenAI-generated read-only API surface diagram](assets/openai-diagrams/aiw-09-api-surface-openai.png)
+
 ```mermaid
 flowchart TB
   ui["Next.js advisory workstation UI"]
@@ -308,6 +335,8 @@ flowchart TB
 ## 10. Build Roadmap Diagram
 
 The roadmap is oriented around the advisory loop, not backtesting-first quant tooling.
+
+![OpenAI-generated build roadmap diagram](assets/openai-diagrams/aiw-10-build-roadmap-openai.png)
 
 ```mermaid
 flowchart TD

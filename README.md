@@ -57,76 +57,69 @@ Important ownership rules:
 
 ## Architecture And Product-Flow Diagrams
 
-The full diagram set lives in [`docs/APP_DIAGRAMS.md`](docs/APP_DIAGRAMS.md). The core product loop and runtime boundary are embedded here for quick repo orientation.
+The diagrams below are the primary visual walkthrough for the AI Infrastructure Trading Advisory Workstation. They are ordered from product intent to implementation detail so a reader can stop at the level they need.
 
-The PNG overviews below were generated through OpenAI's image model and then composited with deterministic text labels so repo terminology stays exact.
+The PNGs were created with OpenAI's image model as the base visual layer and then composited with deterministic labels so repository terminology, endpoint names, and policy boundaries stay exact. The machine-readable Mermaid source remains in [`docs/APP_DIAGRAMS.md`](docs/APP_DIAGRAMS.md). The shared visual template lives in [`docs/DIAGRAM_STYLE_TEMPLATE.md`](docs/DIAGRAM_STYLE_TEMPLATE.md).
 
-![AI Infrastructure Trading Advisory Workstation product operating loop generated with OpenAI image model](docs/assets/ai-infra-workstation-product-flow-openai.png)
+### Level 1: Product Operating Loop
 
-![AI Infrastructure Trading Advisory Workstation runtime architecture generated with OpenAI image model](docs/assets/ai-infra-workstation-runtime-architecture-openai.png)
+This is the plain-English product loop: configured public sources become evidence-backed analyst objects, then advisory briefs, manual trade plans, manual journal records, and outcome reviews. The loop is advisory/reporting-only.
 
-### Advisory Product Loop
+![AI Infrastructure Trading Advisory Workstation product operating loop generated with OpenAI image model](docs/assets/openai-diagrams/aiw-01-product-operating-loop-openai.png)
 
-```mermaid
-flowchart LR
-  sources["Configured Public Sources"]
-  signal["SourceSignal"]
-  evidence["EvidenceItem"]
-  event["MarketEvent"]
-  segment["SegmentImpact"]
-  equity["EquityImpactAssessment"]
-  valuation["ValuationContext"]
-  risk["RiskRegimeUpdate"]
-  advisory["TradingAdvisory"]
-  brief["AnalystBrief"]
-  plan["Manual Trade Plan"]
-  journal["Manual Trade Journal"]
-  outcome["Outcome Review"]
-  boundary["Hard boundary:<br/>advisory/reporting only<br/>no broker, no order, no execution"]
+### Level 2: Runtime Architecture
 
-  sources --> signal --> evidence --> event --> segment --> equity
-  equity --> valuation --> advisory
-  equity --> risk --> advisory
-  advisory --> brief --> plan --> journal --> outcome
-  outcome -. "calibrates future reviews" .-> sources
-  plan -. "manual analyst action outside system" .-> boundary
-  journal -. "local record only" .-> boundary
-```
+This shows ownership boundaries. The worker owns crawling and advisory jobs, PostgreSQL is the durable data spine, the API exposes advisory/reporting reads, and the web UI does not connect directly to the database or model APIs.
 
-### Runtime Boundary
+![AI Infrastructure Trading Advisory Workstation runtime architecture generated with OpenAI image model](docs/assets/openai-diagrams/aiw-02-runtime-architecture-openai.png)
 
-```mermaid
-flowchart TB
-  ext["External public sources<br/>IR, SEC, earnings, news, macro, policy"]
-  watchlist["config/ai_equity_watchlist.yaml<br/>configured universe and source URLs"]
-  profiles["config/model_profiles.yaml<br/>LLM roles, data-class policy, fallbacks"]
-  env["Environment variables<br/>database URL, internal token, CORS, data dir"]
-  migrate["migrate container<br/>schema migrations"]
-  worker["worker container<br/>crawler, advisory jobs, background runs"]
-  api["FastAPI API<br/>read-only advisory/reporting endpoints<br/>local manual journal endpoints"]
-  web["Next.js advisory workstation UI<br/>cockpit and workbenches"]
-  db[("PostgreSQL + pgvector<br/>canonical v1 data spine")]
-  model["Governed model providers<br/>only through model profiles"]
-  absent["Intentionally absent:<br/>broker integration<br/>order routing<br/>execution endpoint<br/>execution UI"]
+### Level 3: Data Lineage
 
-  ext --> worker
-  watchlist --> worker
-  profiles --> worker
-  profiles --> model
-  env --> worker
-  env --> api
-  env --> web
-  migrate --> db
-  worker --> db
-  worker -. "allowed extraction/review when policy permits" .-> model
-  api --> db
-  web -->|"GET /api/backend/* proxy or configured API base URL"| api
+This is the audit path. It shows how `SourceSignal`, evidence objects, model-run records, readiness checks, advisory records, briefs, and outcome journal entries stay linked.
 
-  web -. "prohibited: direct DB access" .-> db
-  web -. "prohibited: model API calls" .-> model
-  api -. "read-only advisory surface" .-> absent
-  worker -. "no market actions" .-> absent
-```
+![AI Infrastructure Trading Advisory Workstation data lineage generated with OpenAI image model](docs/assets/openai-diagrams/aiw-03-data-lineage-openai.png)
+
+### Level 4: LLM vs Deterministic Boundary
+
+This is the implementation contract. LLMs may classify, extract, summarize, review, critique, and explain. Deterministic code owns schema validation, evidence linkage, freshness, PnL, exposure, weights, readiness checks, accounting, and audit lineage.
+
+![AI Infrastructure Trading Advisory Workstation LLM deterministic boundary generated with OpenAI image model](docs/assets/openai-diagrams/aiw-04-llm-deterministic-boundary-openai.png)
+
+### Level 5: AI Infrastructure Segment Map
+
+This maps the investable AI infrastructure ecosystem: hyperscaler capex, accelerators, HBM, foundry/CoWoS, networking, datacenters, power, cooling, policy, and software monetization.
+
+![AI Infrastructure Trading Advisory Workstation segment map generated with OpenAI image model](docs/assets/openai-diagrams/aiw-05-ai-infrastructure-segment-map-openai.png)
+
+### Level 6: Advisory Readiness Gate
+
+This is the publication gate. Candidate advisories fail closed when evidence, freshness, policy, contradiction handling, deterministic checks, advisory labeling, or execution-language checks fail.
+
+![AI Infrastructure Trading Advisory Workstation advisory readiness gate generated with OpenAI image model](docs/assets/openai-diagrams/aiw-06-advisory-readiness-gate-openai.png)
+
+### Level 7: Daily Brief Generation Sequence
+
+This shows the runtime sequence from crawler storage through optional governed LLM review, brief building, read-only API access, UI review, and later manual journal/outcome review.
+
+![AI Infrastructure Trading Advisory Workstation daily brief sequence generated with OpenAI image model](docs/assets/openai-diagrams/aiw-07-daily-brief-sequence-openai.png)
+
+### Level 8: UI Navigation Map
+
+This shows the analyst workflow: cockpit to radar, segment map, ticker workbench, trade plan, manual journal, and outcome review, with supporting evidence, valuation, exposure, and ops views.
+
+![AI Infrastructure Trading Advisory Workstation UI navigation map generated with OpenAI image model](docs/assets/openai-diagrams/aiw-08-ui-navigation-map-openai.png)
+
+### Level 9: Read-Only API Surface
+
+This shows the advisory/reporting endpoint surface. It deliberately excludes broker sync, order submission, route/fill state, execution algorithms, and automated trading actions.
+
+![AI Infrastructure Trading Advisory Workstation read-only API surface generated with OpenAI image model](docs/assets/openai-diagrams/aiw-09-api-surface-openai.png)
+
+### Level 10: Build Roadmap
+
+This shows the implementation path from fixture-backed read models through real configured source ingestion, evidence extraction, advisory generation, LLM-routed analyst roles, manual journal/PnL, and ops hardening.
+
+![AI Infrastructure Trading Advisory Workstation build roadmap generated with OpenAI image model](docs/assets/openai-diagrams/aiw-10-build-roadmap-openai.png)
 
 ## Repository Layout
 
@@ -155,64 +148,7 @@ The v1 runtime boundary is Docker Compose:
 
 The current deployed shape mirrors that boundary: web runs as an Azure App Service, backend services run in AKS, and images are built and pushed through Azure Container Registry.
 
-The Mermaid diagram below is the exact source-of-truth representation for architecture reviews.
-
-```mermaid
-flowchart TB
-  reviewer["Human reviewer"]
-  publicSources["Public/news/filing/IR sources"]
-  localFiles["Local files and manual CSV inputs"]
-  watchlist["config/ai_equity_watchlist.yaml"]
-  modelProfiles["config/model_profiles.yaml"]
-  acr["Azure Container Registry<br/>api / worker / web images"]
-  appService["Azure App Service<br/>Next.js read-only control room"]
-  browserProxy["Same-origin frontend proxy<br/>/api/backend/*"]
-  apiLb["AKS LoadBalancer<br/>ai-infra-fund-api-lb"]
-
-  subgraph aks["AKS namespace: ai-infra-fund"]
-    api["api Deployment<br/>FastAPI routes + repositories"]
-    worker["worker Deployment<br/>crawl, backtest, advisory jobs"]
-    migrate["migrate Job<br/>schema migrations"]
-    postgres["PostgreSQL + pgvector StatefulSet<br/>core / evidence / signals / recommendations / audit / governance"]
-  end
-
-  subgraph core["packages/core deterministic domain modules"]
-    evidence["evidence<br/>sources, adapters, chunks, claims, embeddings"]
-    equity["equity_intelligence<br/>watchlist seeding, URLs, frontier, captures, extraction, typed events"]
-    signals["signals<br/>sentiment, technical, fundamental, valuation, integrated SignalBundle"]
-    portfolio["portfolio<br/>constraints, target weights, shadow simulation"]
-    recommendations["recommendations<br/>advisory artifacts + publication policy"]
-    evaluation["evaluation + runs<br/>bias checks, costs, stress, backtests, run artifacts"]
-    routing["model_routing<br/>task routing, data-class allowlists, fallback chains"]
-  end
-
-  reviewer --> appService
-  appService --> browserProxy
-  browserProxy --> apiLb
-  apiLb --> api
-  acr --> appService
-  acr --> api
-  acr --> worker
-  migrate --> postgres
-  api --> postgres
-  worker --> postgres
-  watchlist --> worker
-  localFiles --> worker
-  publicSources --> worker
-  modelProfiles --> routing
-  routing --> postgres
-  worker --> evidence --> equity --> signals --> portfolio --> recommendations --> evaluation
-  api --> evidence
-  api --> equity
-  api --> signals
-  api --> recommendations
-  api --> evaluation
-  recommendations --> postgres
-  evaluation --> postgres
-
-  noExecution["Intentionally absent:<br/>broker credentials, order routing, live execution endpoints"]
-  recommendations -->|"advisory-only labels"| noExecution
-```
+For visual architecture reviews, start with Level 2 in the diagram set above, then use [`docs/APP_DIAGRAMS.md`](docs/APP_DIAGRAMS.md) for the Mermaid source and cross-check [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for deeper runtime notes.
 
 Module responsibilities are split deliberately:
 
@@ -339,6 +275,7 @@ The product and architecture rules live in:
 
 - `AGENTS.md`
 - `docs/APP_DIAGRAMS.md`
+- `docs/DIAGRAM_STYLE_TEMPLATE.md`
 - `docs/specs/0001-product-vision.md`
 - `docs/specs/0002-trading-policy.md`
 - `docs/specs/0003-data-contracts.md`
