@@ -12,14 +12,17 @@ Implemented the latest Agent A through Agent E plan from the shared planning thr
 - Agent C confirmed crawler output flow as `SourceFrontier -> SourceSignal -> EvidenceItem -> MarketEvent -> SegmentImpact -> TradingAdvisory candidate update`.
 - Agent D updated `docs/UI_SCREEN_SPECS.md` with an advisory/reporting-only workstation UX contract, daily manual decision loop, global UI copy rules, and tighter cockpit/trade-plan/exposure/journal review specs.
 - Agent E enriched `docs/mock_data/situational_awareness_brief.example.json` with CEG nuclear restart / power scarcity advisory coverage, including evidence-backed readiness, advisory update, suggested action, price target scenario, planning levels, and open trade plan objects.
-- Preserved hard boundaries: no broker integration, no live order placement, no execution endpoint, no execution UI, no automated trading behavior, no dependency changes, and no backend/API/database migration changes.
+- Fixed worker production preflight so the worker marks `production_internal_token` as configured when `AI_INFRA_FUND_INTERNAL_TOKEN` is provided by the cloud secret, and only requires the crawl user-agent check in crawl mode.
+- Preserved hard boundaries: no broker integration, no live order placement, no execution endpoint, no execution UI, no automated trading behavior, no dependency changes, no API route changes, no database migration changes, and no frontend runtime changes.
 
 Verification:
 
 - `./.venv/bin/python -m unittest discover -s tests/contracts` passed, 16 tests.
 - `./.venv/bin/python -m unittest tests.test_situational_awareness_mock_data tests.test_advisory_workstation_contract_docs tests.test_architecture_policy` passed, 50 tests.
+- `./.venv/bin/python -m unittest tests.test_deployment_readiness` passed, 24 tests.
+- `./.venv/bin/python -m unittest tests.test_architecture_policy` passed, 41 tests.
 - `jq empty docs/mock_data/situational_awareness_brief.example.json` passed.
-- `./.venv/bin/python -m unittest discover -s tests` passed, 656 tests, 3 skipped.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 657 tests, 3 skipped.
 - `python3 -m compileall packages services tests` passed.
 - `npm run build --prefix apps/web` passed.
 - `npm audit --omit=dev --prefix apps/web` passed, 0 vulnerabilities.
@@ -29,11 +32,14 @@ Verification:
 
 Cloud validation:
 
-- Verified the canonical cloud API health and readiness through the frontend proxy.
 - Refreshed the AKS fixture-brief ConfigMap from `docs/mock_data/situational_awareness_brief.example.json`.
+- Built and pushed ACR images `aistartuptr.azurecr.io/ai-infra-fund-api:b573f27` and `aistartuptr.azurecr.io/ai-infra-fund-worker:b573f27`.
+- Applied AKS manifest with migration job `ai-infra-fund-migrate-b573f27`.
+- Fixed the worker cloud rollout after the first new worker pod exposed the missing production-token preflight wiring; the final worker pod passed runtime preflight and entered crawl mode.
+- Confirmed AKS deployments `ai-infra-fund-api` and `ai-infra-fund-worker` are available on image tag `b573f27`.
 - Recreated and completed `job/ai-infra-fund-fixture-advisory`; the job wrote `run-fixture-advisory-249080a9469ca0ab` with 9 source signals, 9 market events, and 8 advisory records.
-- Verified the cloud analyst brief and trading-advisory feeds include the new CEG advisory record.
-- No cloud image rollout was required because this wave did not change service routes, migrations, Dockerfiles, deployment manifests, or frontend runtime code.
+- Verified the canonical cloud API health, readiness, and trading-advisory feeds through the frontend proxy; the trading-advisory feed includes the new CEG advisory record.
+- Kept secret values out of docs and final artifacts.
 
 ## 2026-05-16 Phase 7 Cloud Runtime Ops Hardening
 
