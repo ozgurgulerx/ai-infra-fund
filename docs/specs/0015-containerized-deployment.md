@@ -2,11 +2,13 @@
 
 ## Purpose
 
-Define the v1 portable runtime boundary.
+Define the v1 portable runtime boundary and cloud deployment gate.
 
 ## Core Rule
 
-V1 runs through Docker Compose with separate `web`, `api`, `worker`, `postgres`, and `migrate` services.
+V1 runtime is containerized with separate `web`, `api`, `worker`, `postgres`, and `migrate` services.
+
+Cloud is the canonical deployment validation target. Local Docker Compose is a development preflight and does not establish deployment readiness.
 
 PostgreSQL + pgvector remains the only v1 database. DuckDB + Parquet is future optional analytical scale-out only, not a v1 dependency.
 
@@ -22,7 +24,20 @@ PostgreSQL + pgvector remains the only v1 database. DuckDB + Parquet is future o
 
 All configuration comes from environment variables. Secrets must not be committed.
 
-Use Compose service names for internal networking. Do not hard-code `localhost` inside service code.
+Use service DNS names for internal networking. Do not hard-code `localhost` inside service code.
+
+## Cloud Deployment Gate
+
+Deployment validation must run against Azure cloud resources:
+
+- build and push `web`, `api`, and `worker` images to the configured Azure Container Registry
+- apply the AKS manifest to the canonical cluster and namespace
+- run the migration job in AKS
+- verify API and worker rollouts in AKS
+- roll the frontend App Service to the new web image
+- verify public cloud `/health` and `/ready` endpoints and the frontend URL
+
+Local `docker compose config` and `scripts/compose_smoke.sh` may be used as preflight checks only.
 
 ## Volumes
 

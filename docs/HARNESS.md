@@ -79,7 +79,7 @@ Remaining gaps:
 - Recommendation-producing work must prove advisory label, evidence IDs, model run IDs, signal bundle ID, target weights ID, and deterministic checks.
 - Model-assisted work must prove `ModelRun` persistence and data-class routing.
 - UI work must prove no execution controls and no business logic in frontend code.
-- Deployment work must prove local/runtime service boundaries and secret handling.
+- Deployment work must prove cloud runtime service boundaries, cloud secret handling, and successful rollout against the canonical Azure deployment target. Local Compose checks are preflight only and must not be reported as deployment readiness.
 
 ## Failure Handling
 

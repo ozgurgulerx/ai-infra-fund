@@ -1,5 +1,34 @@
 # Build Log
 
+## 2026-05-16 Cloud Deployment Gate Clarification
+
+Updated the harness so deployment readiness is validated only against the canonical Azure cloud deployment target.
+
+- `AGENTS.md` now states that local Compose is development preflight only and does not count as deployment validation.
+- `docs/HARNESS.md` now requires cloud rollout, cloud service-boundary checks, and cloud secret handling for deployment work.
+- `docs/specs/0015-containerized-deployment.md` now separates portable container runtime from the Azure cloud deployment gate.
+- `deploy/aks-ai-infra-fund.yaml` now points API and worker workloads to cloud image tag `20260516cloudgate`.
+
+The earlier local Compose smoke result remains useful as preflight, but it is not sufficient for deployment readiness.
+
+Cloud deployment validation:
+
+- Built and pushed ACR images:
+  - `aistartuptr.azurecr.io/ai-infra-fund-api:20260516cloudgate`
+  - `aistartuptr.azurecr.io/ai-infra-fund-worker:20260516cloudgate`
+  - `aistartuptr.azurecr.io/ai-infra-fund-web:20260516cloudgate`
+- Applied the AKS manifest to namespace `ai-infra-fund`.
+- Recreated and completed the AKS migration job.
+- Verified AKS API and worker deployments rolled out.
+- Updated Azure App Service `ai-infra-fund-frontend` to the new web image.
+- Verified cloud endpoints:
+  - `http://74.178.223.132/health`
+  - `http://74.178.223.132/ready`
+  - `https://ai-infra-fund-frontend.azurewebsites.net`
+  - `https://ai-infra-fund-frontend.azurewebsites.net/api/backend/health`
+  - `https://ai-infra-fund-frontend.azurewebsites.net/api/backend/ready`
+  - `https://ai-infra-fund-frontend.azurewebsites.net/api/backend/internal/status/overview`
+
 ## 2026-05-16 Harness Consolidation
 
 Created a smaller agent-followable documentation harness:

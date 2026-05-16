@@ -29,4 +29,4 @@ Use `docs/SPEC_ROUTER.md` only to choose deeper canonical specs for the active t
 
 Use the phase-scoped harness in `docs/HARNESS.md`: fill `docs/CURRENT_TASK.md`, write or update tests first, confirm RED when product code changes, implement the smallest scoped change, run targeted tests plus architecture policy tests, then report verification and remaining gaps.
 
-Treat this repo as the cloud-deployed codebase. After implementation and verification, deploy the updated cloud stack unless the user explicitly asks for local-only work or a dry run.
+Treat this repo as the cloud-deployed codebase. After implementation and verification, deploy and validate the updated cloud stack unless the user explicitly asks for local-only work or a dry run. Local Compose checks are development preflight only; they do not count as deployment validation.
