@@ -100,7 +100,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   # Keep this release-scoped with the migration image tag; Job pod templates are immutable.
-  name: ai-infra-fund-migrate-b573f27
+  name: ai-infra-fund-migrate-7765fa5
   namespace: ai-infra-fund
 spec:
   backoffLimit: 3
@@ -112,7 +112,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: migrate
-          image: aistartuptr.azurecr.io/ai-infra-fund-api:b573f27
+          image: aistartuptr.azurecr.io/ai-infra-fund-api:7765fa5
           imagePullPolicy: Always
           command:
             - python
@@ -143,7 +143,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: aistartuptr.azurecr.io/ai-infra-fund-api:b573f27
+          image: aistartuptr.azurecr.io/ai-infra-fund-api:7765fa5
           imagePullPolicy: Always
           ports:
             - name: http
@@ -214,7 +214,7 @@ spec:
     spec:
       containers:
         - name: worker
-          image: aistartuptr.azurecr.io/ai-infra-fund-worker:b573f27
+          image: aistartuptr.azurecr.io/ai-infra-fund-worker:7765fa5
           imagePullPolicy: Always
           envFrom:
             - configMapRef:

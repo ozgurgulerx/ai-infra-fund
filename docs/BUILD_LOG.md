@@ -643,3 +643,46 @@ Verification:
 - `jq . docs/mock_data/situational_awareness_brief.example.json` passed.
 - `./.venv/bin/python -m unittest tests.test_situational_awareness_mock_data tests.test_advisory_workstation_contract_docs` passed, 9 tests.
 - Manual reference check confirmed all `trading_advisories[].readiness_check_ids` resolve and all open trade plan tickers have matching `entry_exit_levels` and `price_target_scenarios`.
+
+## 2026-05-16 Wave 2 Advisory Workstation Read Models
+
+Implemented the next fixture-backed advisory workstation slice from the shared planning thread.
+
+- Added migration `0012_wave2_workstation_read_models.sql` for `analyst.risk_regime_updates`, `analyst.trade_plans`, `analyst.portfolio_exposure_snapshots`, and `analyst.llm_analyst_notes`.
+- Extended the fixture advisory worker run so the same deterministic fixture now writes risk regime updates, open trade plans, portfolio exposure snapshots, and audited LLM analyst notes.
+- Added read-only repository/API support for:
+  - `GET /internal/segment-map/latest`
+  - `GET /internal/ticker/{ticker}/workbench`
+  - `GET /internal/portfolio/exposure/latest`
+- Regenerated `docs/api/openapi.yaml`.
+- Preserved advisory-only boundaries: no broker integration, no live order placement, no execution endpoints, no execution UI, no scoring implementation, and no unmanaged model call was added.
+
+Verification:
+
+- RED checkpoint: targeted workstation tests failed before implementation on missing Wave 2 tables, repository methods, and routes.
+- `./.venv/bin/python -m unittest tests.test_advisory_workstation_read_model_migration tests.test_advisory_workstation_fixture_seed tests.test_advisory_workstation_read_model_repository tests.test_advisory_workstation_read_model_api` passed, 15 tests.
+- `./.venv/bin/python -m unittest tests.test_advisory_workstation_read_model_migration tests.test_advisory_workstation_fixture_seed tests.test_advisory_workstation_read_model_repository tests.test_advisory_workstation_read_model_api tests.test_openapi_export_sync` passed, 17 tests.
+- `./.venv/bin/python -m unittest tests.test_migration_prefix_uniqueness tests.test_architecture_policy` passed, 42 tests.
+- `python3 -m compileall packages services tests` passed.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 664 tests, 3 skipped.
+- `docker compose config` passed.
+- `scripts/compose_smoke.sh` passed and applied migration `0012_wave2_workstation_read_models.sql`.
+- `scripts/run_fixture_advisory_once.sh` passed with run `run-fixture-advisory-249080a9469ca0ab`, writing 9 source signals, 9 market events, 8 trade plans, and 8 advisory records.
+- `git diff --check` passed.
+
+Cloud deployment validation:
+
+- Built and pushed ACR images with tag `7765fa5`:
+  - `aistartuptr.azurecr.io/ai-infra-fund-api:7765fa5`
+  - `aistartuptr.azurecr.io/ai-infra-fund-worker:7765fa5`
+- Applied AKS release manifest for API, worker, PostgreSQL, and migration job `ai-infra-fund-migrate-7765fa5`.
+- Confirmed AKS migration job `ai-infra-fund-migrate-7765fa5` completed.
+- Confirmed AKS deployments `ai-infra-fund-api` and `ai-infra-fund-worker` rolled out.
+- Refreshed the cloud fixture ConfigMap from `docs/mock_data/situational_awareness_brief.example.json`.
+- Confirmed AKS fixture job `ai-infra-fund-fixture-advisory` completed with run `run-fixture-advisory-249080a9469ca0ab`, writing 9 source signals, 9 market events, 8 trade plans, and 8 advisory records.
+- Verified cloud endpoints through `https://ai-infra-fund-frontend.azurewebsites.net`:
+  - `/api/backend/health` returned `status: ok`.
+  - `/api/backend/ready` returned `status: ready` with `database: ok`.
+  - `/api/backend/internal/segment-map/latest` returned an available advisory-only segment map with risk regime updates.
+  - `/api/backend/internal/ticker/NVDA/workbench` returned an available advisory-only ticker workbench with source signals, events, trade plans, risk updates, and LLM analyst notes.
+  - `/api/backend/internal/portfolio/exposure/latest` returned an available advisory-only portfolio exposure snapshot.
