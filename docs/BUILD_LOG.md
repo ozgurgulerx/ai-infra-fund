@@ -1,5 +1,25 @@
 # Build Log
 
+## 2026-05-16 Governed Shadow Analyst Pipeline
+
+Implemented the governed LLM shadow analyst foundation for review-required analyst drafts.
+
+- Added `AnalystContextBundle` builders for daily brief and ticker scopes that collect live analyst context from source signals, evidence items, market events, segment impacts, equity impact assessments, valuation context, risk regime updates, portfolio exposure, prior advisories, and outcome journal entries.
+- Added non-publishable draft contracts for `SegmentImpactDraft`, `EquityImpactAssessmentDraft`, `ValuationContextDraft`, `RiskRegimeUpdateDraft`, `TradingAdvisoryDraft`, and `AnalystBriefDraft`.
+- Added `GovernedShadowAnalystPipeline` that routes through `config/model_profiles.yaml`, records a `ModelRun` for successful, failed, and denied attempts, validates structured output, rejects invalid draft output, denies private-research shadow routing by default, and falls back deterministically when the model client is unavailable.
+- Preserved hard boundaries: no broker integration, no live order placement, no execution behavior, no UI changes, no database migrations, no LLM-owned PnL/accounting/target weights, no unmanaged model calls, and no raw LLM publication path.
+
+Verification:
+
+- RED checkpoint: `./.venv/bin/python -m unittest tests.advisory.test_shadow_analyst_pipeline` failed on missing `ai_infra_fund_core.shadow_analyst`.
+- GREEN checkpoint: `./.venv/bin/python -m unittest tests.advisory.test_shadow_analyst_pipeline` passed, 6 tests.
+- `./.venv/bin/python -m unittest tests.test_architecture_policy` passed, 41 tests.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 679 tests, 3 skipped.
+- `python3 -m compileall packages/core/src/ai_infra_fund_core/shadow_analyst tests/advisory` passed.
+- `python3 -m compileall packages services tests` passed.
+- `docker compose config` passed.
+- `git diff --check` passed.
+
 ## 2026-05-16 Daily Brief Worker And Source Registry
 
 Implemented the next advisory-workstation phase from the shared planning thread.
