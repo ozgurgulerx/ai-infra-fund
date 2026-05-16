@@ -280,12 +280,24 @@ class ControlRoomUiTests(unittest.TestCase):
         ]
         self.assertEqual([], forbidden_methods)
 
-    def test_daily_brief_reads_api_backed_analyst_brief_not_static_json(
+    def test_daily_trading_cockpit_uses_wave2_static_workstation_data(
         self,
     ) -> None:
         page = read_web("app/page.tsx")
-        self.assertIn("/internal/analyst-brief/latest", page)
-        self.assertIn("API-backed analyst brief", page)
+        required = [
+            "Daily Trading Cockpit",
+            "AI Infrastructure Trading Analyst Workstation",
+            "mockWorkstationData",
+            "Top MarketEvents",
+            "Segment impact snapshot",
+            "Equity impact assessments",
+            "Risk regime updates",
+            "Suggested actions",
+            "Open trade plans",
+        ]
+        self.assertEqual([], [text for text in required if text not in page])
+        self.assertNotIn("/internal/analyst-brief/latest", page)
+        self.assertNotIn("fetchAnalystBrief", page)
         self.assertNotIn("readFileSync", page)
         self.assertNotIn("existsSync", page)
         self.assertNotIn("situational_awareness_brief.example.json", page)
@@ -316,23 +328,28 @@ class ControlRoomUiTests(unittest.TestCase):
         ]
         self.assertEqual([], [text for text in required if text not in proxy])
 
-    def test_daily_brief_handles_backend_unavailable_without_throwing(self) -> None:
+    def test_daily_trading_cockpit_is_static_and_not_backend_dependent(self) -> None:
         page = read_web("app/page.tsx")
         required = [
-            "readAnalystBriefPayload",
-            "degradedAnalystBrief",
-            "catch",
-            "API-backed analyst brief unavailable",
+            'export const dynamic = "force-static"',
+            "Static mock data",
+            "mockWorkstationData",
         ]
         self.assertEqual([], [text for text in required if text not in page])
+        forbidden = [
+            "readAnalystBriefPayload",
+            "degradedAnalystBrief",
+            "API-backed analyst brief unavailable",
+        ]
+        self.assertEqual([], [text for text in forbidden if text in page])
 
-    def test_daily_brief_does_not_derive_server_fetch_origin_from_request_headers(
+    def test_daily_trading_cockpit_does_not_derive_server_fetch_origin_from_headers(
         self,
     ) -> None:
         page = read_web("app/page.tsx")
-        self.assertIn("AI_INFRA_FUND_INTERNAL_API_BASE_URL", page)
-        self.assertIn("AI_INFRA_FUND_INTERNAL_TOKEN", page)
-        self.assertIn("internalApiBaseUrl", page)
+        self.assertNotIn("AI_INFRA_FUND_INTERNAL_API_BASE_URL", page)
+        self.assertNotIn("AI_INFRA_FUND_INTERNAL_TOKEN", page)
+        self.assertNotIn("internalApiBaseUrl", page)
         self.assertNotIn('get("host")', page)
         self.assertNotIn('get("x-forwarded-proto")', page)
         self.assertNotIn("next/headers", page)
@@ -483,14 +500,12 @@ class ControlRoomUiTests(unittest.TestCase):
         )
         required = [
             "Manual Trade Intents",
-            "Read-Only Planning Placeholder",
-            "Intent capture remains disabled",
-            "No local save action",
-            "does not write browser storage",
-            "recommendation_id",
-            "evidence_ids",
-            "model_run_ids",
-            "audit_id",
+            "Planning queue from suggested actions",
+            "Intent capture remains an advisory review surface",
+            "does not write",
+            "order APIs",
+            "Trade plan linkage",
+            "Evidence before manual action",
             "Local journal only",
             "No broker connection",
         ]

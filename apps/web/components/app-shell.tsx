@@ -15,8 +15,10 @@ const navigationSections = [
   {
     title: "Workspace",
     items: [
-      { href: "/", label: "Control Room" },
+      { href: "/", label: "Daily Trading Cockpit" },
+      { href: "/radar", label: "Market / Sentiment Radar" },
       { href: "/portfolio", label: "Portfolio Workbench" },
+      { href: "/trade-plans", label: "Trade Plan Workbench" },
       { href: "/trade-intents", label: "Manual Trade Intents" },
       { href: "/trade-journal", label: "Trade Journal" },
     ],
@@ -24,6 +26,7 @@ const navigationSections = [
   {
     title: "Research",
     items: [
+      { href: "/segments", label: "AI Infrastructure Segment Map" },
       { href: "/themes", label: "Value-Chain Atlas" },
       { href: "/watchlist", label: "Watchlist" },
       { href: "/ticker/NVDA", label: "Ticker Workbench" },

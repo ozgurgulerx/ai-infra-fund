@@ -356,3 +356,26 @@ Verification:
 - `python3 -m compileall packages services tests` passed.
 - `git diff --check` passed.
 - Frontend and cloud rollout checks were not required for this scoped wave because no frontend, runtime service, deployment, or dependency files were changed by the staged readiness work.
+
+## 2026-05-16 Wave 2 Advisory Workstation Screens
+
+Implemented the Wave 2 static workstation screens extracted from the shared planning session.
+
+- Replaced the landing page with a Daily Trading Cockpit sourced from `apps/web/lib/situational-awareness/mock-workstation-data.ts`.
+- Added the AI Infrastructure Ecosystem Map, Live Market / Sentiment Radar, Ticker Analyst Workbench, Trade Plan Workbench, Manual Trade Intents, and Trade Journal + PnL Review screens.
+- Added reusable evidence, risk flag, and advisory-label UI helpers for the workstation screens.
+- Kept Wave 2 frontend-only: no backend route, database, crawler, model-router, dependency, broker, order-placement, execution, or live-trading behavior was added.
+- Preserved the local journal boundary: manual buy/sell text appears only as local journal record fields, not as order placement or execution controls.
+
+Verification:
+
+- `./.venv/bin/python -m unittest tests.test_wave2_workstation_ui` passed.
+- `./.venv/bin/python -m unittest tests.test_control_room_ui` passed.
+- `./.venv/bin/python -m unittest tests.test_architecture_policy` passed, 40 tests.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 648 tests, 3 skipped.
+- `python3 -m compileall packages services tests` passed.
+- `npm run build --prefix apps/web` passed.
+- `npm audit --omit=dev --prefix apps/web` passed, 0 vulnerabilities.
+- `docker compose config` passed.
+- `scripts/compose_smoke.sh` passed.
+- `git diff --check` passed.

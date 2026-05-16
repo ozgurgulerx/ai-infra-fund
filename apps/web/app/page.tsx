@@ -1,182 +1,14 @@
 import { AppShell } from "../components/app-shell";
+import {
+  AdvisoryPill,
+  EvidencePills,
+  RiskFlags,
+} from "../components/daily-cockpit/evidence-pills";
+import { mockWorkstationData } from "../lib/situational-awareness/mock-workstation-data";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const dynamic = "force-static";
 
-type MarketEvent = {
-  event_id: string;
-  event_type: string;
-  source_evidence_ids?: string[];
-  evidence_ids?: string[];
-  tickers: string[];
-  companies: string[];
-  themes: string[];
-  catalyst: string;
-  ai_relevance: string;
-  direction: string;
-  time_horizon: string;
-  confidence: string;
-  occurred_at: string;
-  available_at: string;
-  content_hash: string;
-  extracted_by_model_run_id: string | null;
-  review_status: string;
-};
-
-type SegmentImpact = {
-  segment_id: string;
-  segment_name: string;
-  primary_tickers: string[];
-  second_order_tickers?: string[];
-  linked_event_ids: string[];
-  impact_direction: string;
-  impact_summary: string;
-  evidence_ids?: string[];
-};
-
-type EquityImpactAssessment = {
-  assessment_id?: string;
-  ticker: string;
-  company: string;
-  linked_event_ids: string[];
-  assessment: string;
-  watch_items: string[];
-  advisory_implication: string;
-  risk_flags: string[];
-  invalidation: string;
-  evidence_ids: string[];
-};
-
-type RiskRegimeUpdate = {
-  regime_id: string;
-  risk_type: string;
-  status: string;
-  linked_event_ids: string[];
-  evidence_ids: string[];
-  summary: string;
-  portfolio_monitoring_note: string;
-};
-
-type TradingAdvisory = {
-  advisory_id: string;
-  ticker: string;
-  advisory_label: string;
-  analyst_action: string;
-  advisory_summary: string;
-  evidence_ids: string[];
-  model_run_ids: string[];
-  signal_bundle_id: string | null;
-  target_weights_id: string | null;
-  deterministic_checks: string[];
-};
-
-type AnalystBriefPayload = {
-  highest_conviction_theme_updates?: {
-    theme: string;
-    supporting_event_ids: string[];
-    brief_note: string;
-  }[];
-  ticker_focus_list?: {
-    ticker: string;
-    reason: string;
-  }[];
-  open_questions?: string[];
-  next_review_triggers?: string[];
-};
-
-type AnalystBrief = {
-  brief_id: string;
-  as_of: string;
-  title: string;
-  advisory_label: string;
-  executive_summary: string;
-  market_event_ids: string[];
-  segment_impact_ids: string[];
-  trading_advisory_ids: string[];
-  model_run_ids: string[];
-  payload?: AnalystBriefPayload;
-};
-
-type AnalystBriefReadModel = {
-  status: "available" | "empty" | "degraded" | string;
-  advisory_label: string;
-  detail?: string;
-  brief?: AnalystBrief;
-  market_events?: MarketEvent[];
-  segment_impacts?: SegmentImpact[];
-  equity_impact_assessments?: EquityImpactAssessment[];
-  risk_regime_updates?: RiskRegimeUpdate[];
-  trading_advisories?: TradingAdvisory[];
-};
-
-const ANALYST_ACTIONS = ["watch", "accumulate", "hold", "trim", "avoid"];
-const ANALYST_BRIEF_ENDPOINT = "/internal/analyst-brief/latest";
-
-async function fetchAnalystBrief(): Promise<AnalystBriefReadModel> {
-  try {
-    const response = await fetch(
-      new URL(
-        ANALYST_BRIEF_ENDPOINT,
-        internalApiBaseUrl(),
-      ),
-      {
-        cache: "no-store",
-        headers: internalApiHeaders(),
-        method: "GET",
-      },
-    );
-    const payload = await readAnalystBriefPayload(response);
-
-    if (!response.ok || !payload.data) {
-      return degradedAnalystBrief(
-        `API-backed analyst brief unavailable: HTTP ${response.status}`,
-      );
-    }
-
-    return payload.data;
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : "request failed";
-    return degradedAnalystBrief(
-      `API-backed analyst brief unavailable: ${reason}`,
-    );
-  }
-}
-
-function internalApiBaseUrl(): string {
-  return (process.env.AI_INFRA_FUND_INTERNAL_API_BASE_URL ?? "http://localhost:8000").replace(
-    /\/$/,
-    "",
-  );
-}
-
-function internalApiHeaders(): HeadersInit | undefined {
-  const token = process.env.AI_INFRA_FUND_INTERNAL_TOKEN?.trim();
-  if (!token) {
-    return undefined;
-  }
-  return { "x-internal-token": token };
-}
-
-async function readAnalystBriefPayload(
-  response: Response,
-): Promise<{ data?: AnalystBriefReadModel }> {
-  try {
-    return (await response.json()) as { data?: AnalystBriefReadModel };
-  } catch {
-    return {};
-  }
-}
-
-function degradedAnalystBrief(detail: string): AnalystBriefReadModel {
-  return {
-    status: "degraded",
-    advisory_label: "advisory_only",
-    detail,
-  };
-}
-
-function formatTimestamp(value: string | null | undefined): string {
-  if (!value) return "Not available";
+function formatTimestamp(value: string): string {
   return new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -184,138 +16,59 @@ function formatTimestamp(value: string | null | undefined): string {
   }).format(new Date(value));
 }
 
-function labelize(value: string | null | undefined): string {
-  return (value ?? "review").replaceAll("_", " ").replaceAll("-", " ");
-}
-
-function shortId(value: string): string {
-  if (value.length <= 28) return value;
-  return `${value.slice(0, 18)}...${value.slice(-7)}`;
-}
-
-function eventEvidence(event: MarketEvent): string[] {
-  return event.source_evidence_ids ?? event.evidence_ids ?? [];
-}
-
-function evidenceForEvents(events: MarketEvent[], eventIds: string[]): string[] {
-  const ids = eventIds.flatMap(
-    (eventId) =>
-      eventEvidence(events.find((event) => event.event_id === eventId) ?? ({} as MarketEvent)),
-  );
-  return Array.from(new Set(ids));
-}
-
-function EmptyBriefState({ detail }: { detail?: string }) {
-  return (
-    <section className="section-panel">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">API-backed analyst brief</p>
-          <h2>No validated brief</h2>
-        </div>
-      </div>
-      <p className="panel-note">
-        {detail ??
-          "The fixture-backed advisory read model has not produced an audited brief yet."}
-      </p>
-    </section>
-  );
-}
-
-function EventEvidence({ ids }: { ids: string[] }) {
-  return (
-    <div className="brief-evidence-list">
-      {ids.map((id) => (
-        <code key={id}>{shortId(id)}</code>
-      ))}
-    </div>
-  );
-}
-
-export default async function DailyBriefPage() {
-  const readModel = await fetchAnalystBrief();
-  const analystBrief = readModel.brief;
-  const marketEvents = readModel.market_events ?? [];
-  const segmentImpacts = readModel.segment_impacts ?? [];
-  const equityAssessments = readModel.equity_impact_assessments ?? [];
-  const riskRegimes = readModel.risk_regime_updates ?? [];
-  const tradingAdvisories = readModel.trading_advisories ?? [];
-  const briefPayload = analystBrief?.payload ?? {};
-  const themeUpdates = briefPayload.highest_conviction_theme_updates ?? [];
-  const focusTickers = briefPayload.ticker_focus_list ?? [];
-  const openQuestions = briefPayload.open_questions ?? [];
-  const reviewTriggers = briefPayload.next_review_triggers ?? [];
-
-  if (!analystBrief || readModel.status !== "available") {
-    return (
-      <div className="control-room-shell">
-        <AppShell
-          eyebrow="Daily Brief"
-          title="AI Infrastructure Trading Analyst Workstation"
-        >
-          <EmptyBriefState detail={readModel.detail} />
-        </AppShell>
-      </div>
-    );
-  }
+export default function DailyTradingCockpitPage() {
+  const data = mockWorkstationData;
+  const topEvents = data.marketEvents.slice(0, 4);
+  const focusAssessments = data.equityAssessments.slice(0, 5);
 
   return (
     <div className="control-room-shell">
       <AppShell
-        eyebrow="Daily Brief"
+        eyebrow="Daily Trading Cockpit"
         title="AI Infrastructure Trading Analyst Workstation"
         aside={<div className="advisory-badge">Advisory-only</div>}
       >
-        <section className="brief-command-strip" aria-label="Brief overview">
-          <div className="brief-command-card brief-command-card-wide">
-            <span>As of</span>
-            <strong>{formatTimestamp(analystBrief.as_of)}</strong>
-            <small>{analystBrief.brief_id}</small>
+        <section className="wave2-command-strip" aria-label="Daily cockpit status">
+          <div className="wave2-command-card wave2-command-card-wide">
+            <span>AI infrastructure regime</span>
+            <strong>{data.run.regime}</strong>
+            <small>{formatTimestamp(data.run.asOf)} · {data.run.runId}</small>
           </div>
-          <div className="brief-command-card">
+          <div className="wave2-command-card">
             <span>MarketEvents</span>
-            <strong>{marketEvents.length}</strong>
-            <small>all linked to evidence</small>
+            <strong>{data.marketEvents.length}</strong>
+            <small>evidence-linked</small>
           </div>
-          <div className="brief-command-card">
-            <span>Segments</span>
-            <strong>{segmentImpacts.length}</strong>
-            <small>impact mapped</small>
+          <div className="wave2-command-card">
+            <span>Suggested actions</span>
+            <strong>{data.suggestedActions.length}</strong>
+            <small>watch / accumulate / hold / trim / avoid</small>
           </div>
-          <div className="brief-command-card">
-            <span>TradingAdvisory</span>
-            <strong>{tradingAdvisories.length}</strong>
-            <small>planning only</small>
-          </div>
-        </section>
-
-        <section className="brief-analyst-actions" aria-label="Analyst actions">
-          <span>Advisory action vocabulary</span>
-          <div>
-            {ANALYST_ACTIONS.map((action) => (
-              <strong key={action}>{action}</strong>
-            ))}
+          <div className="wave2-command-card">
+            <span>Suppressed</span>
+            <strong>{data.run.suppressedAdvisories.length}</strong>
+            <small>publication gates visible</small>
           </div>
         </section>
 
-        <div className="brief-layout">
-          <section className="section-panel brief-summary-panel">
+        <div className="wave2-grid wave2-grid-2">
+          <section className="section-panel">
             <div className="section-heading">
               <div>
-                <p className="eyebrow">Executive Summary</p>
-                <h2>{analystBrief.title}</h2>
+                <p className="eyebrow">Executive summary</p>
+                <h2>Daily high-alpha brief with LLM analyst notes</h2>
               </div>
-              <span className="readonly-label">API-backed analyst brief</span>
+              <span className="readonly-label">Static mock data</span>
             </div>
-            <p className="brief-summary-copy">
-              {analystBrief.executive_summary}
-            </p>
-            <div className="brief-theme-stack">
-              {themeUpdates.map((theme) => (
-                <article className="brief-theme-card" key={theme.theme}>
-                  <strong>{theme.theme}</strong>
-                  <p>{theme.brief_note}</p>
-                  <EventEvidence ids={theme.supporting_event_ids} />
+            <p className="wave2-lede">{data.run.executiveSummary}</p>
+            <div className="wave2-note-stack">
+              {data.llmAnalystNotes.map((note) => (
+                <article className="wave2-note" key={note.noteId}>
+                  <span>{note.role}</span>
+                  <strong>{note.tickerOrSegment}</strong>
+                  <p>{note.summary}</p>
+                  <small>confidence {note.confidence} · {note.modelRunId}</small>
+                  <EvidencePills ids={note.evidenceIds} />
                 </article>
               ))}
             </div>
@@ -324,16 +77,22 @@ export default async function DailyBriefPage() {
           <section className="section-panel">
             <div className="section-heading">
               <div>
-                <p className="eyebrow">Focus List</p>
-                <h2>Ticker thesis queue</h2>
+                <p className="eyebrow">Portfolio exposure snapshot</p>
+                <h2>Theme exposure under review</h2>
               </div>
-              <span className="readonly-label">{focusTickers.length} names</span>
+              <span className="readonly-label">No transaction surface</span>
             </div>
-            <div className="brief-focus-list">
-              {focusTickers.map((item) => (
-                <div className="brief-focus-row" key={item.ticker}>
-                  <strong>{item.ticker}</strong>
-                  <span>{item.reason}</span>
+            <div className="wave2-table wave2-table-4">
+              <span>Ticker</span>
+              <span>Segment</span>
+              <span>Weight</span>
+              <span>Action</span>
+              {data.portfolioSnapshot.map((position) => (
+                <div className="wave2-table-row" key={position.ticker}>
+                  <strong>{position.ticker}</strong>
+                  <span>{position.segment}</span>
+                  <span>{position.weight}</span>
+                  <AdvisoryPill label={position.advisoryAction} />
                 </div>
               ))}
             </div>
@@ -344,69 +103,62 @@ export default async function DailyBriefPage() {
           <div className="section-heading">
             <div>
               <p className="eyebrow">Top MarketEvents</p>
-              <h2>Catalysts with evidence references</h2>
+              <h2>Catalyst tape with evidence references</h2>
             </div>
-            <span className="readonly-label">Occurred / available tracked</span>
+            <span className="readonly-label">classified intelligence</span>
           </div>
-          <div className="brief-event-grid">
-            {marketEvents.slice(0, 5).map((event) => (
-              <article className="brief-event-card" key={event.event_id}>
-                <div className="brief-card-header">
-                  <span>{labelize(event.event_type)}</span>
-                  <strong>{event.confidence}</strong>
+          <div className="wave2-card-grid">
+            {topEvents.map((event) => (
+              <article className="wave2-card" key={event.eventId}>
+                <div className="wave2-card-kicker">
+                  <span>{event.eventType.replaceAll("_", " ")}</span>
+                  <strong>{event.reviewPriority}</strong>
                 </div>
                 <h3>{event.catalyst}</h3>
-                <p>{event.ai_relevance}</p>
-                <div className="brief-meta-grid">
-                  <span>Direction</span>
-                  <strong>{labelize(event.direction)}</strong>
-                  <span>Horizon</span>
-                  <strong>{labelize(event.time_horizon)}</strong>
-                  <span>Available</span>
-                  <strong>{formatTimestamp(event.available_at)}</strong>
+                <p>{event.aiRelevance}</p>
+                <div className="wave2-meta">
+                  <span>Segment</span>
+                  <strong>{event.segment}</strong>
+                  <span>Sentiment</span>
+                  <strong>{event.sentimentDirection}</strong>
+                  <span>Materiality</span>
+                  <strong>{event.materiality}</strong>
                 </div>
-                <div className="brief-chip-row">
-                  {event.tickers.slice(0, 8).map((ticker) => (
-                    <span className="brief-chip" key={ticker}>
+                <div className="wave2-chip-row">
+                  {event.tickers.map((ticker) => (
+                    <span className="wave2-chip" key={`${event.eventId}-${ticker}`}>
                       {ticker}
                     </span>
                   ))}
                 </div>
-                <div className="brief-evidence-block">
-                  <span>Evidence</span>
-                  <EventEvidence ids={eventEvidence(event)} />
-                </div>
+                <EvidencePills ids={event.evidenceIds} />
               </article>
             ))}
           </div>
         </section>
 
-        <div className="brief-layout">
+        <div className="wave2-grid wave2-grid-2">
           <section className="section-panel">
             <div className="section-heading">
               <div>
-                <p className="eyebrow">SegmentImpact</p>
-                <h2>AI infrastructure propagation map</h2>
+                <p className="eyebrow">Segment impact snapshot</p>
+                <h2>Bottlenecks and beneficiaries</h2>
               </div>
             </div>
-            <div className="brief-segment-list">
-              {segmentImpacts.map((segment) => (
-                <article className="brief-segment-row" key={segment.segment_id}>
+            <div className="wave2-stack">
+              {data.segmentImpacts.slice(0, 5).map((segment) => (
+                <article className="wave2-list-card" key={segment.segmentId}>
                   <div>
-                    <strong>{segment.segment_name}</strong>
-                    <span>{labelize(segment.impact_direction)}</span>
+                    <strong>{segment.segmentName}</strong>
+                    <AdvisoryPill label={`${segment.status} / ${segment.momentum}`} />
                   </div>
-                  <p>{segment.impact_summary}</p>
-                  <div className="brief-chip-row">
-                    {[...segment.primary_tickers, ...(segment.second_order_tickers ?? [])]
-                      .slice(0, 10)
-                      .map((ticker) => (
-                        <span className="brief-chip" key={`${segment.segment_id}-${ticker}`}>
-                          {ticker}
-                        </span>
-                      ))}
+                  <p>{segment.latestCatalyst}</p>
+                  <div className="wave2-mini-columns">
+                    <span>First-order: {segment.firstOrderBeneficiaries.join(", ")}</span>
+                    <span>Second-order: {segment.secondOrderBeneficiaries.join(", ")}</span>
                   </div>
-                  <EventEvidence ids={segment.evidence_ids ?? segment.linked_event_ids} />
+                  <RiskFlags flags={segment.riskFlags} />
+                  <EvidencePills ids={segment.evidenceIds} />
                 </article>
               ))}
             </div>
@@ -415,23 +167,23 @@ export default async function DailyBriefPage() {
           <section className="section-panel">
             <div className="section-heading">
               <div>
-                <p className="eyebrow">RiskRegimeUpdate</p>
-                <h2>Systemic risk monitor</h2>
+                <p className="eyebrow">Risk regime updates</p>
+                <h2>Invalidation watchlist</h2>
               </div>
             </div>
-            <div className="brief-risk-stack">
-              {riskRegimes.map((risk) => (
-                <article className="brief-risk-card" key={risk.regime_id}>
-                  <div className="brief-card-header">
-                    <span>{labelize(risk.risk_type)}</span>
-                    <strong>{risk.status}</strong>
+            <div className="wave2-stack">
+              {data.riskRegimes.map((risk) => (
+                <article className="wave2-list-card" key={risk.regimeId}>
+                  <div>
+                    <strong>{risk.riskType}</strong>
+                    <AdvisoryPill label={risk.status} />
                   </div>
                   <p>{risk.summary}</p>
-                  <div className="brief-invalidation">
-                    <strong>Invalidation / relief watch</strong>
-                    <span>{risk.portfolio_monitoring_note}</span>
+                  <div className="wave2-invalidation">
+                    <strong>Relief / invalidation condition</strong>
+                    <span>{risk.reliefCondition}</span>
                   </div>
-                  <EventEvidence ids={risk.evidence_ids} />
+                  <EvidencePills ids={risk.evidenceIds} />
                 </article>
               ))}
             </div>
@@ -441,117 +193,92 @@ export default async function DailyBriefPage() {
         <section className="section-panel">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">EquityImpactAssessment</p>
-              <h2>Ticker thesis clarity, risk, and invalidation</h2>
+              <p className="eyebrow">Equity impact assessments</p>
+              <h2>Ticker thesis, risk, and invalidation</h2>
             </div>
-            <span className="readonly-label">
-              No execution controls · research only
-            </span>
+            <span className="readonly-label">planning guidance only</span>
           </div>
-          <div className="brief-equity-grid">
-            {equityAssessments.map((assessment) => {
-              const advisory = tradingAdvisories.find(
-                (item) => item.ticker === assessment.ticker,
-              );
-              const evidenceIds =
-                assessment.evidence_ids.length > 0
-                  ? assessment.evidence_ids
-                  : evidenceForEvents(marketEvents, assessment.linked_event_ids);
-              return (
-                <article
-                  className="brief-equity-card"
-                  key={assessment.assessment_id ?? assessment.ticker}
-                >
-                  <div className="brief-equity-title">
-                    <div>
-                      <strong>{assessment.ticker}</strong>
-                      <span>{assessment.company}</span>
-                    </div>
-                    <span className="brief-action-pill">
-                      {advisory?.analyst_action ?? "watch"}
-                    </span>
+          <div className="wave2-card-grid">
+            {focusAssessments.map((assessment) => (
+              <article className="wave2-card" key={assessment.ticker}>
+                <div className="wave2-equity-title">
+                  <div>
+                    <strong>{assessment.ticker}</strong>
+                    <span>{assessment.company}</span>
                   </div>
-                  <p>{assessment.assessment}</p>
-                  <div className="brief-field-stack">
-                    <div>
-                      <strong>Risk flags</strong>
-                      <div className="brief-chip-row">
-                        {assessment.risk_flags.map((flag) => (
-                          <span className="brief-chip brief-chip-risk" key={flag}>
-                            {labelize(flag)}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="brief-invalidation">
-                      <strong>Invalidation condition</strong>
-                      <span>{assessment.invalidation}</span>
-                    </div>
-                    <div>
-                      <strong>Evidence references</strong>
-                      <EventEvidence ids={evidenceIds} />
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="section-panel">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">TradingAdvisory</p>
-              <h2>Advisory labels and deterministic trace</h2>
-            </div>
-            <span className="readonly-label">No broker · no order path</span>
-          </div>
-          <div className="brief-event-grid">
-            {tradingAdvisories.slice(0, 6).map((advisory) => (
-              <article className="brief-event-card" key={advisory.advisory_id}>
-                <div className="brief-card-header">
-                  <span>{advisory.ticker}</span>
-                  <strong>{advisory.analyst_action}</strong>
+                  <AdvisoryPill label={assessment.advisoryImplication} />
                 </div>
-                <p>{advisory.advisory_summary}</p>
-                <div className="brief-meta-grid">
-                  <span>SignalBundle</span>
-                  <strong>{shortId(advisory.signal_bundle_id ?? "not linked")}</strong>
-                  <span>TargetWeights</span>
-                  <strong>{shortId(advisory.target_weights_id ?? "not linked")}</strong>
+                <p>{assessment.currentThesis}</p>
+                <div className="wave2-case-grid">
+                  <span>Bull case</span>
+                  <p>{assessment.bullCase}</p>
+                  <span>Bear case</span>
+                  <p>{assessment.bearCase}</p>
                 </div>
-                <EventEvidence ids={advisory.evidence_ids} />
+                <RiskFlags flags={assessment.riskFlags} />
+                <div className="wave2-invalidation">
+                  <strong>Invalidation</strong>
+                  <span>{assessment.invalidationCondition}</span>
+                </div>
+                <EvidencePills ids={assessment.evidenceIds} />
               </article>
             ))}
           </div>
         </section>
 
-        <section className="section-panel">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">OutcomeJournal Prep</p>
-              <h2>Open questions and next review triggers</h2>
+        <div className="wave2-grid wave2-grid-2">
+          <section className="section-panel">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Suggested actions</p>
+                <h2>Advisory labels and review prompts</h2>
+              </div>
             </div>
-          </div>
-          <div className="brief-review-grid">
-            <div>
-              <h3>Open questions</h3>
-              <ul>
-                {openQuestions.map((question) => (
-                  <li key={question}>{question}</li>
-                ))}
-              </ul>
+            <div className="wave2-stack">
+              {data.suggestedActions.map((action) => (
+                <article className="wave2-list-card" key={action.actionId}>
+                  <div>
+                    <strong>{action.ticker}</strong>
+                    <AdvisoryPill label={action.advisoryLabel} />
+                  </div>
+                  <p>{action.analystAction}</p>
+                  <RiskFlags flags={action.riskFlags} />
+                  <div className="wave2-invalidation">
+                    <strong>Invalidation</strong>
+                    <span>{action.invalidationCondition}</span>
+                  </div>
+                  <EvidencePills ids={action.evidenceIds} />
+                </article>
+              ))}
             </div>
-            <div>
-              <h3>Next review triggers</h3>
-              <ul>
-                {reviewTriggers.map((trigger) => (
-                  <li key={trigger}>{trigger}</li>
-                ))}
-              </ul>
+          </section>
+
+          <section className="section-panel">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Open trade plans</p>
+                <h2>Manual planning queue</h2>
+              </div>
+              <span className="readonly-label">local journal only</span>
             </div>
-          </div>
-        </section>
+            <div className="wave2-stack">
+              {data.openTradePlans.map((plan) => (
+                <article className="wave2-list-card" key={plan.tradePlanId}>
+                  <div>
+                    <strong>{plan.ticker}</strong>
+                    <AdvisoryPill label={plan.advisoryAction} />
+                  </div>
+                  <p>{plan.thesis}</p>
+                  <div className="wave2-mini-columns">
+                    <span>Entry: {plan.entryLevel}</span>
+                    <span>Invalidation: {plan.stopInvalidation}</span>
+                  </div>
+                  <EvidencePills ids={plan.evidenceIds} />
+                </article>
+              ))}
+            </div>
+          </section>
+        </div>
       </AppShell>
     </div>
   );
