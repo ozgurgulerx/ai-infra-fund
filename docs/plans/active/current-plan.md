@@ -2,17 +2,13 @@
 
 ## Current Status
 
-No product implementation task is active by default.
+The fixture-backed advisory read model, read-only APIs, API-backed Daily Trading Cockpit, and first cloud validation are complete.
 
-Use `docs/CURRENT_TASK.md` as the executable task template. Fill it before changing product code, and name the exact canonical specs selected through `docs/SPEC_ROUTER.md`.
+The active implementation task is now `docs/CURRENT_TASK.md`: complete the next advisory-product sessions by wiring configured public crawler captures into canonical advisory read-model objects, adding the governed LLM extraction/review boundary, promoting outcome review to a first-class object, and extending cloud-visible readiness checks.
 
-## Recommended Next Task
+## Execution Notes
 
-Define the next phase-scoped product task by updating `docs/CURRENT_TASK.md` with:
-
-- one concrete goal
-- exact in-scope and out-of-scope paths
-- relevant specs
-- tests to add or run
-- verification commands
-- expected final report format
+- Specs remain canonical; this plan is only the current working pointer.
+- Keep parallel work disjoint: crawler materialization, LLM boundary tests, outcome journal/read model, and cloud checks may proceed in parallel only when file ownership does not overlap.
+- Preserve advisory-only boundaries: no broker integration, no live order placement, no execution endpoints, and no execution UI.
+- Cloud deployment validation is required after runtime or deploy-file changes.
