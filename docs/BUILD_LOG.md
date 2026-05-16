@@ -1,5 +1,38 @@
 # Build Log
 
+## 2026-05-16 Phase 7 Final Cloud Rollout Follow-Up
+
+Completed the final integration step from the shared planning thread for Phase 7 cloud runtime hardening.
+
+- Confirmed the shared ChatGPT planning thread is still reachable as `ChatGPT - AI Growth Trading System`.
+- Built and pushed corrected ACR images with tag `20260516workerpreflight`:
+  - `aistartuptr.azurecr.io/ai-infra-fund-api:20260516workerpreflight`
+  - `aistartuptr.azurecr.io/ai-infra-fund-worker:20260516workerpreflight`
+  - `aistartuptr.azurecr.io/ai-infra-fund-web:20260516workerpreflight`
+- Updated `deploy/aks-ai-infra-fund.yaml` and `deploy/fixture-advisory-job.yaml` to the corrected release tag.
+- Applied the AKS release manifest to the documented `aks-fund-rag` cluster in namespace `ai-infra-fund`.
+- Completed migration job `ai-infra-fund-migrate-20260516workerpreflight`.
+- Fixed a production worker readiness regression found during rollout: the worker required `AI_INFRA_FUND_INTERNAL_TOKEN` in production but did not pass the configured-token status into the shared runtime preflight.
+- Added regression coverage for production worker startup with and without the internal token.
+- Confirmed API and worker deployments run the corrected tag and have zero restarts after rollout.
+- Updated Azure App Service `ai-infra-fund-frontend` to `DOCKER|aistartuptr.azurecr.io/ai-infra-fund-web:20260516workerpreflight`.
+- Updated the frontend App Service `AI_INFRA_FUND_INTERNAL_API_BASE_URL` to the current AKS load balancer endpoint after detecting it still pointed at an older API IP.
+- Preserved hard boundaries: advisory/reporting only, no broker integration, no live order placement, no execution endpoint, no execution UI, no automated trading behavior, no unmanaged model calls, and no dependency changes.
+
+Verification:
+
+- `./.venv/bin/python -m unittest tests.test_deployment_readiness` passed, 24 tests.
+- `python3 -m compileall services/worker/src/ai_infra_fund_worker/main.py tests/test_deployment_readiness.py` passed.
+- `git diff --check` passed.
+- Direct AKS API `/health` returned `status: ok`.
+- Direct AKS API `/ready` returned `status: ready`, `database: ok`, `production_internal_token: ok`, and `advisory_only: true`.
+- Frontend proxy `/api/backend/health` returned `status: ok`.
+- Frontend proxy `/api/backend/ready` returned `status: ready`, `database: ok`, `production_internal_token: ok`, and `advisory_only: true`.
+- Frontend proxy `/api/backend/internal/analyst-brief/latest` returned an advisory-only brief with 9 market events.
+- Frontend proxy `/api/backend/internal/trading-advisory/latest` returned 8 advisory-only items.
+- Frontend proxy `/api/backend/internal/market-events/NVDA` returned 7 advisory-only NVDA event items.
+- Public cockpit HTML contains `API read model`, `Advisory-only`, and `No transaction surface`.
+
 ## 2026-05-16 Advisory Workstation Agent A-E Alignment
 
 Implemented the latest Agent A through Agent E plan from the shared planning thread.
