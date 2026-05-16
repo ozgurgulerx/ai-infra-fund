@@ -2,15 +2,15 @@
 
 ## Mission
 
-Build a private, local-first, cloud-model-assisted AI Infrastructure Trading Advisory Workstation.
+Build a private, local-first, cloud-model-assisted AI Infrastructure Trading Advisory Workstation for advisory and reporting-only workflows.
 
-The product continuously monitors public macro, micro, thematic, company, financial, and sector-level information related to the AI infrastructure ecosystem. It turns that source stream into evidence-backed trading advisory, trend analysis, valuation context, risk updates, portfolio exposure awareness, and manual trade-planning support.
+The product continuously monitors public macro, micro, thematic, company, financial, and sector-level information related to the AI infrastructure ecosystem. It turns that source stream into evidence-backed trading advisory, trend analysis, valuation context, risk updates, portfolio exposure awareness, manual trade-planning support, and analyst reports.
 
-The product is advisory and reporting only. It helps a human analyst understand what changed, what matters, what risks moved, how current exposure is affected, and what manual journal entries or trade-plan reviews may be needed.
+The product is advisory and reporting only. It helps a human analyst understand what changed, what matters, what risks moved, how current exposure is affected, and what manual journal entries or trade-plan reviews may be needed. It never places, routes, automates, or transmits trades.
 
 ## Product Boundary
 
-This is an advisory and reporting workstation, not an autonomous trading system.
+This is an advisory and reporting-only AI Infrastructure Trading Advisory Workstation, not an autonomous trading system, broker console, execution tool, or order-management system.
 
 Hard boundaries:
 
@@ -19,11 +19,14 @@ Hard boundaries:
 - no automated trading
 - no execution endpoint
 - no execution UI
+- no order-entry UI
 - no broker credentials
 - no order routing
 - no hidden execution path
 - manual trade journal only
 - advisory and reporting only
+
+Manual buy/sell records are local journal entries only. They may capture analyst intent, rationale, prices, timestamps, sizing notes, and later outcomes, but they must not submit, transmit, stage, route, or simulate live orders.
 
 Allowed outputs:
 

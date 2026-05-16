@@ -47,7 +47,7 @@ class OutcomeLabel(str, Enum):
 
 
 REQUIRED_SCENARIOS = frozenset({"bear", "base", "bull"})
-FORBIDDEN_ADVISORY_PAYLOAD_TERMS = frozenset({"broker", "order", "execution"})
+FORBIDDEN_OBJECT_FIELD_TERMS = frozenset({"broker", "route", "exchange", "order", "execution", "auto_trade"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -466,8 +466,10 @@ def _reject_forbidden_payload_keys(values: Any, field_name: str) -> None:
     if isinstance(values, dict):
         for key, value in values.items():
             normalized_key = str(key).strip().lower()
-            if any(term in normalized_key for term in FORBIDDEN_ADVISORY_PAYLOAD_TERMS):
-                raise ValueError(f"{field_name} cannot include broker, order, or execution fields")
+            if any(term in normalized_key for term in FORBIDDEN_OBJECT_FIELD_TERMS):
+                raise ValueError(
+                    f"{field_name} cannot include broker, route, exchange, order, execution, or auto_trade fields"
+                )
             _reject_forbidden_payload_keys(value, field_name)
     elif isinstance(values, (list, tuple)):
         for value in values:

@@ -296,6 +296,27 @@
       "confidence": 0.87
     },
     {
+      "check_id": "ready_20260516_ceg_hold_accumulate",
+      "scope_type": "trading_advisory",
+      "scope_id": "adv_20260516_ceg_hold_accumulate",
+      "checked_at": "2026-05-16T08:01:45Z",
+      "passed": true,
+      "publish_decision": "publish",
+      "evidence_ids": ["evid_20260514_cloud_ppa_release", "evid_20260513_nuclear_restart_filing", "evid_20260513_power_capacity_tracker"],
+      "model_run_ids": ["mrun_20260516_advisory_review_002"],
+      "deterministic_checks": {
+        "evidence_present": "pass",
+        "source_freshness": "pass",
+        "data_class_allowed": "pass",
+        "risk_contradictions_resolved": "pass",
+        "schema_validation": "pass",
+        "advisory_label_present": "pass",
+        "forbidden_action_terms_absent": "pass"
+      },
+      "blocking_failures": [],
+      "confidence": 0.86
+    },
+    {
       "check_id": "ready_20260516_msft_hold",
       "scope_type": "trading_advisory",
       "scope_id": "adv_20260516_msft_hold",
@@ -1260,6 +1281,7 @@
         {"ticker": "TSM", "target_weight_pct": 7.5},
         {"ticker": "VRT", "target_weight_pct": 5.5},
         {"ticker": "PWR", "target_weight_pct": 4.0},
+        {"ticker": "CEG", "target_weight_pct": 4.0},
         {"ticker": "MSFT", "target_weight_pct": 7.0},
         {"ticker": "META", "target_weight_pct": 4.5}
       ],
@@ -1338,6 +1360,20 @@
       "linked_trade_plan_id": "tpln_20260516_pwr_add_grid_queue"
     },
     {
+      "advisory_id": "adv_20260516_ceg_hold_accumulate",
+      "recommendation_artifact_id": "rec_20260516_ceg_hold_accumulate",
+      "ticker": "CEG",
+      "advisory_label": "hold",
+      "advisory_summary": "Nuclear restart optionality and cloud PPA evidence support the scarcity-power thesis, but regulatory and PPA economics checks keep the label conditional.",
+      "evidence_ids": ["evid_20260514_cloud_ppa_release", "evid_20260513_nuclear_restart_filing", "evid_20260513_power_capacity_tracker"],
+      "model_run_ids": ["mrun_20260516_advisory_review_002"],
+      "signal_bundle_id": "sig_20260516_ceg",
+      "target_weights_id": "tgt_20260516_ai_infra_balanced_mock",
+      "deterministic_checks": ["nuclear_capacity_signal_fresh", "ppa_visibility_positive", "regulatory_approval_risk_active"],
+      "readiness_check_ids": ["ready_20260516_ceg_hold_accumulate"],
+      "linked_trade_plan_id": "tpln_20260516_ceg_power_scarcity_pullback"
+    },
+    {
       "advisory_id": "adv_20260516_msft_hold",
       "recommendation_artifact_id": "rec_20260516_msft_hold",
       "ticker": "MSFT",
@@ -1406,6 +1442,16 @@
       "evidence_ids": ["evid_20260514_grid_interconnect_queue", "evid_20260513_power_capacity_tracker"],
       "model_run_ids": ["mrun_20260516_advisory_review_002"],
       "updated_at": "2026-05-16T07:32:00Z"
+    },
+    {
+      "update_id": "adup_20260516_ceg_power_scarcity",
+      "ticker": "CEG",
+      "previous_label": "hold",
+      "current_label": "hold",
+      "reason": "Cloud PPA and nuclear restart evidence improved baseload scarcity visibility, while approval risk keeps the advisory conditional.",
+      "evidence_ids": ["evid_20260514_cloud_ppa_release", "evid_20260513_nuclear_restart_filing", "evid_20260513_power_capacity_tracker"],
+      "model_run_ids": ["mrun_20260516_advisory_review_002"],
+      "updated_at": "2026-05-16T07:34:00Z"
     }
   ],
   "portfolio_exposure_snapshot": {
@@ -1563,6 +1609,20 @@
       "manual_journal_only": true
     },
     {
+      "action_id": "sact_20260516_ceg_hold_accumulate",
+      "ticker": "CEG",
+      "advisory_label": "hold",
+      "analyst_action": "review_power_scarcity_pullback_plan_after_ppa_and_restart_approval_checks",
+      "linked_advisory_id": "adv_20260516_ceg_hold_accumulate",
+      "linked_trade_plan_id": "tpln_20260516_ceg_power_scarcity_pullback",
+      "linked_event_ids": ["mevt_20260516_datacenter_power_purchase_agreement", "mevt_20260516_nuclear_restart_power_capacity"],
+      "evidence_ids": ["evid_20260514_cloud_ppa_release", "evid_20260513_nuclear_restart_filing", "evid_20260513_power_capacity_tracker"],
+      "model_run_ids": ["mrun_20260516_advisory_review_002"],
+      "risk_flags": ["regulatory_approval", "ppa_economics", "power_price_volatility"],
+      "invalidation_condition": "Nuclear restart approvals stall or PPA economics fail to improve contracted visibility.",
+      "manual_journal_only": true
+    },
+    {
       "action_id": "sact_20260516_meta_trim",
       "ticker": "META",
       "advisory_label": "trim",
@@ -1583,6 +1643,7 @@
     {"scenario_id": "pts_20260516_mu", "ticker": "MU", "valuation_context_id": "val_20260516_mu", "scenario_type": "range", "bear": 92.0, "base": 126.0, "bull": 155.0, "currency": "USD", "horizon": "0_to_12_months", "evidence_ids": ["evid_20260515_hbm_supplier_checks", "evid_20260515_memory_pricing_tracker"], "risk_flags": ["qualification", "memory_cycle"], "invalidation_condition": "HBM qualification evidence fails to confirm share gain."},
     {"scenario_id": "pts_20260516_vrt", "ticker": "VRT", "valuation_context_id": "val_20260516_vrt", "scenario_type": "range", "bear": 82.0, "base": 108.0, "bull": 132.0, "currency": "USD", "horizon": "6_to_18_months", "evidence_ids": ["evid_20260514_cloud_ppa_release", "evid_20260512_vrt_valuation_rerating"], "risk_flags": ["valuation_extension", "cooling_margin"], "invalidation_condition": "Backlog or margin evidence weakens after valuation rerating."},
     {"scenario_id": "pts_20260516_pwr", "ticker": "PWR", "valuation_context_id": "val_20260516_pwr", "scenario_type": "range", "bear": 245.0, "base": 320.0, "bull": 385.0, "currency": "USD", "horizon": "12_to_36_months", "evidence_ids": ["evid_20260514_grid_interconnect_queue", "evid_20260513_power_capacity_tracker"], "risk_flags": ["project_timing", "labor_cost"], "invalidation_condition": "Grid work backlog slows or margin risk rises."},
+    {"scenario_id": "pts_20260516_ceg", "ticker": "CEG", "valuation_context_id": "val_20260516_ceg", "scenario_type": "range", "bear": 190.0, "base": 245.0, "bull": 295.0, "currency": "USD", "horizon": "12_to_36_months", "evidence_ids": ["evid_20260514_cloud_ppa_release", "evid_20260513_nuclear_restart_filing", "evid_20260513_power_capacity_tracker"], "risk_flags": ["regulatory_approval", "ppa_economics"], "invalidation_condition": "Restart approval progress stalls or contracted power economics deteriorate."},
     {"scenario_id": "pts_20260516_msft", "ticker": "MSFT", "valuation_context_id": "val_20260516_msft", "scenario_type": "range", "bear": 390.0, "base": 475.0, "bull": 560.0, "currency": "USD", "horizon": "6_to_18_months", "evidence_ids": ["evid_20260516_msft_capex_call", "evid_20260516_cloud_capex_comp_sheet"], "risk_flags": ["capex_duration", "depreciation_pressure"], "invalidation_condition": "Azure AI utilization or monetization fails to offset elevated capex."},
     {"scenario_id": "pts_20260516_meta", "ticker": "META", "valuation_context_id": "val_20260516_meta", "scenario_type": "range", "bear": 430.0, "base": 560.0, "bull": 680.0, "currency": "USD", "horizon": "6_to_18_months", "evidence_ids": ["evid_20260516_cloud_capex_comp_sheet", "evid_20260516_meta_capex_monetization_note"], "risk_flags": ["capex_monetization_gap", "multiple_sensitivity"], "invalidation_condition": "AI capex rises without matching engagement, ad, or model-distribution evidence."}
   ],
@@ -1592,6 +1653,7 @@
     {"levels_id": "lvl_20260516_mu", "trade_plan_id": "tpln_20260516_mu_hbm_confirmation", "ticker": "MU", "entry_zone": {"low": 108.0, "high": 114.0}, "add_zone": {"low": 98.0, "high": 103.0}, "trim_zone": {"low": 138.0, "high": 146.0}, "basis": "mock_deterministic_levels", "evidence_ids": ["evid_20260516_mock_price_marks"], "risk_flags": ["qualification"], "planning_guidance_only": true},
     {"levels_id": "lvl_20260516_vrt", "trade_plan_id": "tpln_20260516_vrt_trim_strength", "ticker": "VRT", "entry_zone": {"low": 91.0, "high": 96.0}, "add_zone": {"low": 84.0, "high": 88.0}, "trim_zone": {"low": 118.0, "high": 125.0}, "basis": "mock_deterministic_levels", "evidence_ids": ["evid_20260516_mock_price_marks"], "risk_flags": ["valuation_extension"], "planning_guidance_only": true},
     {"levels_id": "lvl_20260516_pwr", "trade_plan_id": "tpln_20260516_pwr_add_grid_queue", "ticker": "PWR", "entry_zone": {"low": 288.0, "high": 300.0}, "add_zone": {"low": 263.0, "high": 274.0}, "trim_zone": {"low": 352.0, "high": 368.0}, "basis": "mock_deterministic_levels", "evidence_ids": ["evid_20260516_mock_price_marks"], "risk_flags": ["project_timing"], "planning_guidance_only": true},
+    {"levels_id": "lvl_20260516_ceg", "trade_plan_id": "tpln_20260516_ceg_power_scarcity_pullback", "ticker": "CEG", "entry_zone": {"low": 206.0, "high": 214.0}, "add_zone": {"low": 190.0, "high": 198.0}, "trim_zone": {"low": 258.0, "high": 270.0}, "basis": "mock_deterministic_levels", "evidence_ids": ["evid_20260516_mock_price_marks"], "risk_flags": ["regulatory_approval", "ppa_economics"], "planning_guidance_only": true},
     {"levels_id": "lvl_20260516_msft", "trade_plan_id": "tpln_20260516_msft_hold_capex_monitor", "ticker": "MSFT", "entry_zone": {"low": 430.0, "high": 445.0}, "add_zone": {"low": 398.0, "high": 412.0}, "trim_zone": {"low": 515.0, "high": 535.0}, "basis": "mock_deterministic_levels", "evidence_ids": ["evid_20260516_mock_price_marks"], "risk_flags": ["capex_duration", "depreciation_pressure"], "planning_guidance_only": true},
     {"levels_id": "lvl_20260516_meta", "trade_plan_id": "tpln_20260516_meta_trim_capex_debate", "ticker": "META", "entry_zone": {"low": 500.0, "high": 520.0}, "add_zone": {"low": 462.0, "high": 480.0}, "trim_zone": {"low": 620.0, "high": 650.0}, "basis": "mock_deterministic_levels", "evidence_ids": ["evid_20260516_mock_price_marks"], "risk_flags": ["capex_monetization_gap", "multiple_sensitivity"], "planning_guidance_only": true}
   ],
@@ -1675,6 +1737,21 @@
       "thesis": "AI campus power constraints improve visibility for grid and utility construction demand.",
       "evidence_ids": ["evid_20260514_grid_interconnect_queue", "evid_20260513_power_capacity_tracker"],
       "linked_advisory_id": "adv_20260516_pwr_accumulate",
+      "manual_journal_only": true
+    },
+    {
+      "trade_plan_id": "tpln_20260516_ceg_power_scarcity_pullback",
+      "ticker": "CEG",
+      "status": "review_ready",
+      "advisory_label": "hold",
+      "entry_zone": {"low": 206.0, "high": 214.0, "basis": "mock_deterministic_levels"},
+      "add_zone": {"low": 190.0, "high": 198.0, "basis": "mock_deterministic_levels"},
+      "trim_zone": {"low": 258.0, "high": 270.0, "basis": "mock_deterministic_levels"},
+      "targets": [{"case": "base", "price": 245.0}, {"case": "bull", "price": 295.0}],
+      "invalidation": "Nuclear restart approvals stall or PPA economics fail to improve contracted visibility.",
+      "thesis": "Scarce clean baseload capacity and AI campus power demand support CEG, but the setup depends on approval milestones and contracted economics.",
+      "evidence_ids": ["evid_20260514_cloud_ppa_release", "evid_20260513_nuclear_restart_filing", "evid_20260513_power_capacity_tracker"],
+      "linked_advisory_id": "adv_20260516_ceg_hold_accumulate",
       "manual_journal_only": true
     },
     {
@@ -1825,6 +1902,15 @@
       "evidence_ids": ["evid_20260512_vrt_valuation_rerating", "evid_20260512_ai_infra_multiples_table"],
       "note": "The power and cooling thesis remains strong, but valuation rerating makes VRT a trim-review candidate rather than a fresh accumulate candidate.",
       "deterministic_fields_not_modified": ["valuation_contexts", "target_weights", "trade_plan_levels"]
+    },
+    {
+      "note_id": "llmnote_20260516_power_scarcity",
+      "model_run_id": "mrun_20260516_brief_summarize_003",
+      "scope": "power_capacity_and_nuclear_review",
+      "allowed_role": "critique_thesis_quality",
+      "evidence_ids": ["evid_20260514_cloud_ppa_release", "evid_20260513_nuclear_restart_filing", "evid_20260513_power_capacity_tracker"],
+      "note": "CEG adds a cleaner baseload-power lens to the workstation: AI campus demand improves scarcity value, but approval timing and PPA economics remain explicit blockers.",
+      "deterministic_fields_not_modified": ["advisory_labels", "portfolio_weights", "pnl_summary", "entry_zone", "add_zone"]
     }
   ],
   "model_runs": [
@@ -1892,7 +1978,7 @@
     "market_event_ids": ["mevt_20260516_hyperscaler_capex_raise", "mevt_20260516_hbm_supply_bottleneck", "mevt_20260516_cowos_capacity_expansion", "mevt_20260516_accelerator_roadmap_update", "mevt_20260516_datacenter_power_purchase_agreement", "mevt_20260516_nuclear_restart_power_capacity", "mevt_20260516_export_control_update", "mevt_20260516_rates_liquidity_macro_shift", "mevt_20260516_company_valuation_rerating"],
     "segment_impact_ids": ["seg_cloud_platforms", "seg_accelerators_custom_silicon", "seg_hbm_memory", "seg_foundry_cowos_semicap", "seg_ai_networking", "seg_power_grid_cooling", "seg_datacenter_reits", "seg_macro_liquidity"],
     "risk_regime_update_ids": ["risk_20260516_power_capacity", "risk_20260516_hbm_packaging", "risk_20260516_export_controls", "risk_20260516_capex_duration", "risk_20260516_valuation_extension"],
-    "suggested_action_ids": ["sact_20260516_nvda_watch", "sact_20260516_tsm_accumulate", "sact_20260516_mu_watch", "sact_20260516_vrt_trim", "sact_20260516_meta_trim"],
+    "suggested_action_ids": ["sact_20260516_nvda_watch", "sact_20260516_tsm_accumulate", "sact_20260516_mu_watch", "sact_20260516_vrt_trim", "sact_20260516_ceg_hold_accumulate", "sact_20260516_meta_trim"],
     "model_run_ids": ["mrun_20260516_brief_summarize_001", "mrun_20260516_brief_summarize_002", "mrun_20260516_brief_summarize_003"],
     "readiness_check_ids": ["ready_20260516_brief_publication"],
     "title": "AI Infrastructure Situational Awareness Brief",
@@ -1909,6 +1995,7 @@
       {"ticker": "MU", "reason": "HBM scarcity upside depends on customer qualification evidence."},
       {"ticker": "VRT", "reason": "Power and cooling thesis is strong, but valuation rerating requires trim review."},
       {"ticker": "PWR", "reason": "Grid interconnection evidence supports an accumulate advisory plan."},
+      {"ticker": "CEG", "reason": "Nuclear scarcity and PPA evidence support a conditional pullback plan."},
       {"ticker": "MSFT", "reason": "Capex raise supports the ecosystem but requires monetization proof."}
     ],
     "open_questions": [

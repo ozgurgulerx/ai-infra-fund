@@ -282,6 +282,7 @@ Rules:
 - Entry, add, trim, exit, and invalidation levels are planning guidance, not orders.
 - Target scenarios are scenarios, not predictions.
 - Deterministic code owns PnL, exposure, risk-limit checks, accounting, stale-data gates, and publication policy checks.
+- Advisory payloads and deterministic check payloads must not include broker, route, exchange, order_id, execution_id, or auto_trade fields.
 
 ## AdvisoryUpdate
 
@@ -306,6 +307,7 @@ Rules:
 - Must include `evidence_ids` for every material change.
 - Change-direction fields must use controlled values.
 - AdvisoryUpdate explains a delta; it does not create an executable trading action.
+- AdvisoryUpdate is advisory-only and cannot imply execution, routing, broker transmission, or auto-trading.
 
 ## OutcomeJournalEntry
 

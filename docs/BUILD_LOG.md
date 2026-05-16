@@ -1,5 +1,32 @@
 # Build Log
 
+## 2026-05-16 Advisory Workstation Agent A-E Alignment
+
+Implemented the latest Agent A through Agent E plan from the shared planning thread.
+
+- Agent A updated `docs/PRODUCT.md` to reinforce the advisory and reporting-only AI Infrastructure Trading Advisory Workstation boundary, manual-journal-only buy/sell records, and monitored AI infrastructure domains.
+- Agent B tightened workstation object contracts so nested advisory payloads reject broker, route, exchange, order, execution, and auto_trade field-like keys.
+- Agent B added contract tests covering prohibited execution-style fields on `SourceSignal`, `FinancialSnapshot`, `ValuationContext`, `MacroRegimeSnapshot`, `TradingAdvisory`, and `AdvisoryUpdate`.
+- Agent B updated object-model and data-contract docs to restate advisory-only outputs, evidence-linked material claims, scenario-only price targets, planning-only entry/exit levels, and deterministic ownership of PnL, exposure, risk, and accounting.
+- Agent C aligned crawler specs 0016/0017 with configured public-source monitoring only, no paid-report scraping, no sensitive private financial document ingestion, no arbitrary unconfigured crawling, and no broker/order/execution/trading-action outputs.
+- Agent C confirmed crawler output flow as `SourceFrontier -> SourceSignal -> EvidenceItem -> MarketEvent -> SegmentImpact -> TradingAdvisory candidate update`.
+- Agent D updated `docs/UI_SCREEN_SPECS.md` with an advisory/reporting-only workstation UX contract, daily manual decision loop, global UI copy rules, and tighter cockpit/trade-plan/exposure/journal review specs.
+- Agent E enriched `docs/mock_data/situational_awareness_brief.example.json` with CEG nuclear restart / power scarcity advisory coverage, including evidence-backed readiness, advisory update, suggested action, price target scenario, planning levels, and open trade plan objects.
+- Preserved hard boundaries: no broker integration, no live order placement, no execution endpoint, no execution UI, no automated trading behavior, no dependency changes, and no backend/API/database migration changes.
+
+Verification:
+
+- `./.venv/bin/python -m unittest discover -s tests/contracts` passed, 16 tests.
+- `./.venv/bin/python -m unittest tests.test_situational_awareness_mock_data tests.test_advisory_workstation_contract_docs tests.test_architecture_policy` passed, 50 tests.
+- `jq empty docs/mock_data/situational_awareness_brief.example.json` passed.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 656 tests, 3 skipped.
+- `python3 -m compileall packages services tests` passed.
+- `npm run build --prefix apps/web` passed.
+- `npm audit --omit=dev --prefix apps/web` passed, 0 vulnerabilities.
+- `docker compose config` passed.
+- `scripts/compose_smoke.sh` passed.
+- `git diff --check` passed.
+
 ## 2026-05-16 Phase 7 Cloud Runtime Ops Hardening
 
 Implemented the next phase from the shared planning thread: cloud runtime and ops hardening.

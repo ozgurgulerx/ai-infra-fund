@@ -6,6 +6,8 @@ Define the advisory-only crawler for AI equity intelligence. The crawler monitor
 
 The crawler exists to support the AI Infrastructure Trading Advisory Workstation. It can support `TradingAdvisory` candidate updates through evidence-backed signals, but it must not create live market actions, broker outputs, order outputs, automated trading decisions, or execution surfaces.
 
+The crawler is a configured public-source evidence pipeline, not a general internet crawler, private-document crawler, paid-research scraper, broker integration, order-generation system, or execution/trading-action system.
+
 ## Output Flow
 
 ```text
@@ -39,7 +41,7 @@ The crawler universe is config-driven:
 Allowed:
 
 - monitor configured public sources
-- crawl public company, investor-relations, public filing, public technical, macro, policy, sector, and public news sources
+- crawl configured public company, investor-relations, public filing, public technical, macro, policy, sector, and public news sources
 - classify sources into data classes
 - detect macro, micro, thematic, company, financial, and segment-level changes
 - extract source signals, claims, typed events, timestamps, and evidence spans
@@ -68,14 +70,14 @@ Each frontier target is derived from a watchlist entry plus a source kind:
 
 | Source kind | Examples | Default data class |
 | --- | --- | --- |
-| company_home | company product and platform pages | public_evidence |
-| company_investor_relations | earnings releases, presentations, investor days, transcripts, filings links | public_evidence |
-| sec_filings | 10-K, 10-Q, 8-K, proxy, Form 4, 13F, and other public SEC pages | public_evidence |
+| company_home | configured company product and platform pages | public_evidence |
+| company_investor_relations | company IR sites, earnings releases, presentations, investor days, transcripts, filings links | public_evidence |
+| sec_filings | SEC filings, 10-K, 10-Q, 8-K, proxy, Form 4, 13F, and other public SEC pages | public_evidence |
 | technical_docs | product docs, benchmark pages, architecture notes | public_evidence |
 | earnings_releases_transcripts | earnings releases, call transcripts, prepared remarks, and public Q&A summaries | public_evidence |
 | hyperscaler_capex_commentary | public capex guidance, cloud capacity commentary, and datacenter investment remarks | public_evidence |
 | semiconductor_supply_chain_news | public supply-chain, substrate, equipment, fab, and packaging capacity news | public_evidence |
-| hbm_memory_news | public HBM, DRAM, memory pricing, qualification, and capacity updates | public_evidence |
+| hbm_memory_news | public HBM, memory, DRAM, memory pricing, qualification, and capacity updates | public_evidence |
 | cowos_advanced_packaging_news | public CoWoS, advanced packaging, interposer, and substrate capacity updates | public_evidence |
 | datacenter_leasing_power_contracts | public leases, campus announcements, PPAs, interconnection updates, and power contracts | public_evidence |
 | utility_load_growth_guidance | utility earnings, load-growth guidance, grid capex, and interconnection queue commentary | public_evidence |

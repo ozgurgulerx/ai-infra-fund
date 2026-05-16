@@ -18,8 +18,8 @@ The model supports an AI Infrastructure Trading Analyst Workstation. It is advis
 - LLMs must not own final scores, risk, constraints, target weights, portfolio exposure, entry/exit levels, or PnL calculations.
 - Deterministic code owns scores, risk, constraints, target weights, correlation exposure, concentration checks, entry/exit levels, scenario values, PnL, exposure, risk-limit checks, and accounting.
 - Every recommendation-like label must link to evidence and audit records where available.
-- all advisory outputs are advisory-only.
-- every material claim links to evidence_ids or source evidence references.
+- All advisory outputs are advisory-only.
+- Every material claim links to `evidence_ids` or source evidence references.
 - Price targets are scenarios, not predictions.
 - Entry, add, trim, exit, and invalidation levels are planning guidance, not orders.
 - No object may include broker, route, exchange, order_id, execution_id, or auto_trade fields.
@@ -404,6 +404,7 @@ Represents an advisory-only output for a ticker or portfolio review.
 - `entry_zone`, `add_zone`, and `invalidation_level` are planning guidance, not orders.
 - `target_scenarios` are scenarios, not predictions.
 - `deterministic_checks` must include risk, exposure, stale-data, and policy-gate results before publication.
+- Advisory payloads and deterministic check payloads must not include broker, route, exchange, order_id, execution_id, or auto_trade fields.
 
 ### Consumed By Screens
 
@@ -472,6 +473,7 @@ Represents changes since a prior advisory brief.
 - Change-direction fields must be controlled values.
 - `confidence_change` must distinguish increased, decreased, unchanged, and review-needed states.
 - AdvisoryUpdate cannot create a new trading action by itself; it only explains the delta between advisory records.
+- AdvisoryUpdate is an advisory-only delta object and must not imply execution, routing, or broker transmission.
 
 ### Consumed By Screens
 

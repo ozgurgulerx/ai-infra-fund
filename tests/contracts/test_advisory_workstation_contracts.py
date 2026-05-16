@@ -28,12 +28,33 @@ from ai_infra_fund_core.contracts.workstation import (  # noqa: E402
 )
 
 
+FIRST_CLASS_OBJECTS = (
+    SourceSignal,
+    FinancialSnapshot,
+    ValuationContext,
+    MacroRegimeSnapshot,
+    TradingAdvisory,
+    AdvisoryUpdate,
+)
+FORBIDDEN_FIELD_TERMS = ("broker", "route", "exchange", "order_id", "execution_id", "auto_trade")
+
 CAPTURED_AT = datetime(2026, 5, 16, 10, 0, tzinfo=timezone.utc)
 AVAILABLE_AT = datetime(2026, 5, 16, 10, 2, tzinfo=timezone.utc)
 AS_OF = datetime(2026, 5, 16, 10, 5, tzinfo=timezone.utc)
 
 
 class AdvisoryWorkstationContractTests(unittest.TestCase):
+    def test_first_class_objects_do_not_define_execution_fields(self) -> None:
+        for contract_type in FIRST_CLASS_OBJECTS:
+            with self.subTest(contract_type=contract_type.__name__):
+                field_names = tuple(contract_type.__dataclass_fields__)
+                for field_name in field_names:
+                    normalized = field_name.lower()
+                    self.assertFalse(
+                        any(term in normalized for term in FORBIDDEN_FIELD_TERMS),
+                        f"{contract_type.__name__}.{field_name} violates advisory-only contract boundary",
+                    )
+
     def test_source_signal_requires_provenance_and_public_data_class(self) -> None:
         signal = self.source_signal(tickers=("nvda", "tsm"))
 
@@ -80,6 +101,9 @@ class AdvisoryWorkstationContractTests(unittest.TestCase):
             {"generated_by_model_run_id": ""},
             {"deterministic_inputs_hash": ""},
             {"price_target_scenarios": {}},
+            {"valuation_multiples": {"route": "direct"}},
+            {"valuation_multiples": {"exchange": "nasdaq"}},
+            {"valuation_multiples": {"auto_trade": False}},
             {"valuation_multiples": {"execution_price": "875"}},
             {"price_target_scenarios": {"target_price": "910"}},
             {"price_target_scenarios": {"bear": "720", "base": "910", "bull": "1120", "broker": "example"}},
@@ -136,6 +160,9 @@ class AdvisoryWorkstationContractTests(unittest.TestCase):
             {"market_event_ids": ()},
             {"segment_impact_ids": ()},
             {"readiness_checks": ()},
+            {"deterministic_checks": {"route_gate": "pass"}},
+            {"target_scenarios": {"bear": "720", "base": "910", "bull": "1120", "exchange": "nasdaq"}},
+            {"target_scenarios": {"bear": "720", "base": "910", "bull": "1120", "auto_trade": False}},
             {"target_scenarios": {"bear": "720", "base": "910", "bull": "1120", "order": "buy"}},
         ]
         for overrides in invalid:

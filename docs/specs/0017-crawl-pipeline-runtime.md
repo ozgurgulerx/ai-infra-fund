@@ -23,13 +23,15 @@ SourceFrontier
 
 The runtime may support `TradingAdvisory` candidate updates only as evidence-backed advisory inputs after `SourceSignal`, `EvidenceItem`, `MarketEvent`, and `SegmentImpact` records exist. It must not produce broker outputs, order outputs, execution outputs, automated trading decisions, or execution UI state.
 
+The runtime is a configured public-source monitoring pipeline. It must not scrape paid reports, ingest sensitive private financial documents, crawl arbitrary internet sources without configuration, create execution/trading actions, or produce broker/order outputs.
+
 ## Source kinds and data classes
 
 V1 treats every watchlist source URL as `source_type=company_ir_press` / `data_class=public_evidence`. The `connectors.py` protocol enumerates `news_rss_public_web`, `sec_filing`, `company_ir_press`, `manual_local_file`, `market_price_snapshot`; those finer kinds are deferred to Phase 10b along with their specific extractors. Per [0013](0013-llm-routing-and-governance.md), no source flagged anything other than `public_evidence` or `public_market_data` is eligible for cloud LLM extraction.
 
 The advisory workstation source taxonomy should cover these configured public-source categories as runtime support expands:
 
-- company investor relations
+- company investor relations and company IR sites
 - SEC filings
 - earnings releases/transcripts
 - hyperscaler capex commentary
@@ -43,6 +45,8 @@ The advisory workstation source taxonomy should cover these configured public-so
 - public sentiment/news flow
 
 The runtime must not crawl arbitrary internet sources without watchlist or source-registry configuration. It must not crawl private documents, scrape paid reports, ingest sensitive private financial documents, or materialize broker/account documents as evidence.
+
+Search or news expansion may only create candidate public-source URLs for approval; it must not directly schedule unconfigured URLs into the frontier.
 
 ## Advisory runtime boundary
 
