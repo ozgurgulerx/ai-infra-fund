@@ -379,3 +379,14 @@ Verification:
 - `docker compose config` passed.
 - `scripts/compose_smoke.sh` passed.
 - `git diff --check` passed.
+
+Cloud deployment validation:
+
+- Built and pushed `aistartuptr.azurecr.io/ai-infra-fund-web:e87544c` through ACR.
+- Updated Azure App Service `ai-infra-fund-frontend` to `DOCKER|aistartuptr.azurecr.io/ai-infra-fund-web:e87544c`.
+- Verified cloud endpoints:
+  - `https://ai-infra-fund-frontend.azurewebsites.net`
+  - `https://ai-infra-fund-frontend.azurewebsites.net/radar`
+  - `https://ai-infra-fund-frontend.azurewebsites.net/api/backend/health`
+  - `https://ai-infra-fund-frontend.azurewebsites.net/api/backend/ready`
+- Confirmed App Service container config reports `DOCKER|aistartuptr.azurecr.io/ai-infra-fund-web:e87544c`.
