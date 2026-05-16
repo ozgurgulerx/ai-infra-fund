@@ -722,3 +722,52 @@ Cloud deployment validation:
   - `/api/backend/internal/segment-map/latest` returned an available advisory-only segment map with risk regime updates.
   - `/api/backend/internal/ticker/NVDA/workbench` returned an available advisory-only ticker workbench with source signals, events, trade plans, risk updates, and LLM analyst notes.
   - `/api/backend/internal/portfolio/exposure/latest` returned an available advisory-only portfolio exposure snapshot.
+
+## 2026-05-16 v1 DB-Backed Advisory Loop Completion
+
+Finalized the v1 DB-backed advisory loop without adding product features, contracts, source categories, model-router changes, real LLM calls, or broker/order/execution behavior.
+
+- Confirmed `origin/main` was up to date at deployed commit `3d1c154`.
+- Built and pushed the missing API image tag:
+  - `aistartuptr.azurecr.io/ai-infra-fund-api:3d1c154`
+  - `aistartuptr.azurecr.io/ai-infra-fund-worker:3d1c154` already existed in ACR.
+- Rolled AKS deployments `ai-infra-fund-api` and `ai-infra-fund-worker` to image tag `3d1c154`.
+- Did not run migrations; the v1 source registry and daily brief commits did not add migration files.
+- Ran cloud source registry seed job `ai-infra-fund-source-seed-3d1c154`.
+  - Skipped `source_fred_macro` because `FRED_API_KEY` is not configured.
+  - Skipped `source_finnhub_company_news` because `FINNHUB_API_KEY` is not configured.
+  - Seeded 34 equities, 18 sources, 380 frontier URLs, and 380 queue items.
+- Ran cloud crawler job `ai-infra-fund-crawl-once-3d1c154`.
+  - Leased 5 seeded frontier items.
+  - Completed with 1 succeeded, 0 not modified, and 4 failed remote-source responses.
+- Ran cloud daily brief job `ai-infra-fund-daily-brief-3d1c154`.
+  - Run ID: `run-daily-ai-infra-brief-664c3a997f706eb7`.
+  - Brief ID: `brief-daily-ai-infra-20260516T195555Z-664c3a99`.
+  - Published 18 advisory-only trading advisories.
+  - Suppressed 4 candidates through deterministic gates.
+- Verified direct cloud API endpoints through `http://74.178.223.132`:
+  - `/health` returned `200`.
+  - `/ready` returned `200`.
+  - `/internal/source-signals/latest` returned `200`, `status=available`, 10 latest items.
+  - `/internal/market-events/latest` returned `200`, `status=available`, 10 latest items.
+  - `/internal/analyst-brief/latest` returned `200`, `status=available`, brief `brief-daily-ai-infra-20260516T195555Z-664c3a99`, 25 market events, 8 segment impacts, and 18 trading advisories.
+  - `/internal/trading-advisory/latest` returned `200`, `status=available`, 10 latest items.
+  - `/internal/segment-map/latest` returned `200`, `status=available`, 8 segment impacts, 9 linked market events, and 5 risk regime updates.
+  - `/internal/ticker/NVDA/workbench` returned `200`, `status=available`, with source signals, market events, segment impacts, valuation context, trading advisory, trade plan, risk updates, and LLM analyst notes.
+  - `/internal/portfolio/exposure/latest` returned `200`, `status=available`, snapshot `pexp_20260516_ai_infra_core`.
+- Verified the hosted cockpit at `https://ai-infra-fund-frontend.azurewebsites.net` rendered the generated DB-backed brief `brief-daily-ai-infra-20260516T195555Z-664c3a99`, 25 MarketEvents, 18 suggested advisory actions, and advisory-only/no transaction surface labels.
+
+Verification:
+
+- `./.venv/bin/python -m unittest discover -s tests` passed, 668 tests, 3 skipped.
+- `python3 -m compileall packages services tests` passed.
+- `npm run build --prefix apps/web` passed.
+- `npm audit --omit=dev --prefix apps/web` passed with 0 vulnerabilities.
+- `docker compose config` passed.
+- `git diff --check` passed before cloud deployment and after this build log update.
+
+Remaining v1.1 items:
+
+- Improve source-specific extraction quality for public search/API pages that currently produce low-signal titles such as raw JSON snippets or provider messages.
+- Configure optional public-data secrets if FRED and Finnhub sources should participate in seeded cloud ingestion.
+- Tune source registry URLs that returned remote 403/404 responses during the bounded crawler pass.
