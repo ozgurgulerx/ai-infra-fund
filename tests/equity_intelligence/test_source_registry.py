@@ -270,6 +270,10 @@ class SourceRegistrySeedPlanTests(unittest.TestCase):
         ]
         self.assertTrue(stooq_urls)
         self.assertNotIn("utm_source", "\n".join(stooq_urls))
+        unique_keys = {
+            (record.source_id, record.url_hash) for record in first.frontier_url_records
+        }
+        self.assertEqual(len(first.frontier_url_records), len(unique_keys))
 
 
 if __name__ == "__main__":

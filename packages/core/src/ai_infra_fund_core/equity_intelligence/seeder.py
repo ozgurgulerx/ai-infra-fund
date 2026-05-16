@@ -309,7 +309,7 @@ def build_source_registry_seed_plan(
 
     return SourceRegistrySeedPlan(
         source_records=tuple(source_records),
-        frontier_url_records=tuple(frontier_records),
+        frontier_url_records=_dedupe_frontier_records(tuple(frontier_records)),
         skipped_sources=tuple(skipped),
     )
 
@@ -559,6 +559,18 @@ def _skip_reason(source: RegistrySource, environ: dict[str, str]) -> str | None:
 
 def _slug_for(value: str) -> str:
     return _SLUG_PATTERN.sub("-", value.lower()).strip("-")
+
+
+def _dedupe_frontier_records(
+    records: tuple[FrontierUrlRecord, ...],
+) -> tuple[FrontierUrlRecord, ...]:
+    by_unique_key: dict[tuple[str, str], FrontierUrlRecord] = {}
+    for record in records:
+        key = (record.source_id, record.url_hash)
+        existing = by_unique_key.get(key)
+        if existing is None or record.priority > existing.priority:
+            by_unique_key[key] = record
+    return tuple(by_unique_key.values())
 
 
 _SLUG_PATTERN = re.compile(r"[^a-z0-9]+")

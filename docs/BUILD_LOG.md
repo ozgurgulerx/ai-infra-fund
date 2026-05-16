@@ -22,6 +22,10 @@ Verification:
 - Policy/crawler verification: `./.venv/bin/python -m unittest tests.test_architecture_policy tests.test_crawl_scheduler_config tests.test_crawl_advisory_materialization` passed, 49 tests.
 - `python3 -m compileall packages services tests` passed.
 - `./.venv/bin/python -m unittest discover -s tests` passed, 668 tests, 3 skipped.
+- `docker compose config` passed.
+- First `scripts/seed_public_sources.sh` run exposed a real duplicate-frontier issue caused by canonical `(source_id, url_hash)` collisions; seed-plan de-duplication and source URL template fixes resolved it.
+- `scripts/seed_public_sources.sh` passed, logging skipped optional-secret providers `source_fred_macro` and `source_finnhub_company_news` with missing-secret reasons and seeding 34 watched equities, 18 sources, 380 frontier URLs, and 380 queue items.
+- A second seed pass reported the same source/frontier counts, and the source-registry frontier row count stayed stable, confirming idempotence.
 - `git diff --check` passed.
 
 ## 2026-05-16 Wave 5 Read-Model Enrichment Slice
