@@ -19,10 +19,20 @@ from ai_infra_fund_core.contracts.workstation import (  # noqa: E402
     AnalystBrief,
     AnalystAction,
     FinancialSnapshot,
+    LLMAnalystNote,
+    LLMNoteReviewStatus,
     MacroRegimeSnapshot,
     OutcomeJournalEntry,
     OutcomeLabel,
+    PortfolioExposureSnapshot,
+    PortfolioPosition,
+    RiskRegimeStatus,
+    RiskRegimeType,
+    RiskRegimeUpdate,
     SourceSignal,
+    TradePlan,
+    TradePlanReadiness,
+    TradePlanStatus,
     TradingAdvisory,
     ValuationContext,
 )
@@ -33,8 +43,12 @@ FIRST_CLASS_OBJECTS = (
     FinancialSnapshot,
     ValuationContext,
     MacroRegimeSnapshot,
+    RiskRegimeUpdate,
     TradingAdvisory,
+    TradePlan,
+    PortfolioExposureSnapshot,
     AdvisoryUpdate,
+    LLMAnalystNote,
 )
 FORBIDDEN_FIELD_TERMS = ("broker", "route", "exchange", "order_id", "execution_id", "auto_trade")
 
@@ -122,6 +136,27 @@ class AdvisoryWorkstationContractTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.macro_regime(evidence_ids=())
 
+    def test_risk_regime_update_requires_evidence_and_bounded_confidence(self) -> None:
+        update = self.risk_regime_update(risk_type="export_controls", status="elevated")
+
+        self.assertEqual(RiskRegimeType.EXPORT_CONTROLS, update.risk_type)
+        self.assertEqual(RiskRegimeStatus.ELEVATED, update.status)
+        self.assertEqual(("NVDA", "TSM"), update.affected_tickers)
+
+        invalid = [
+            {"risk_type": "route"},
+            {"status": "execute"},
+            {"confidence": Decimal("1.01")},
+            {"linked_event_ids": ()},
+            {"source_evidence_ids": ()},
+            {"available_at": CAPTURED_AT.replace(hour=9)},
+            {"status": RiskRegimeStatus.ELEVATED, "portfolio_monitoring_note": "", "relief_condition": None, "invalidation_condition": None},
+        ]
+        for overrides in invalid:
+            with self.subTest(overrides=overrides):
+                with self.assertRaises(ValueError):
+                    self.risk_regime_update(**overrides)
+
     def test_advisory_readiness_check_requires_audit_inputs_and_bounded_confidence(self) -> None:
         readiness = self.advisory_readiness_check()
 
@@ -169,6 +204,48 @@ class AdvisoryWorkstationContractTests(unittest.TestCase):
             with self.subTest(overrides=overrides):
                 with self.assertRaises(ValueError):
                     self.trading_advisory(**overrides)
+
+    def test_trade_plan_is_manual_journal_only_and_blocks_missing_readiness(self) -> None:
+        plan = self.trade_plan(status="active", readiness="ready")
+
+        self.assertEqual(TradePlanStatus.ACTIVE, plan.status)
+        self.assertEqual(TradePlanReadiness.READY, plan.readiness)
+        self.assertTrue(plan.manual_journal_only)
+
+        invalid = [
+            {"manual_journal_only": False},
+            {"status": "submitted"},
+            {"advisory_action": "execute"},
+            {"linked_event_ids": ()},
+            {"linked_signal_bundle_id": ""},
+            {"linked_recommendation_artifact_id": ""},
+            {"readiness": TradePlanReadiness.BLOCKED, "blocking_reasons": ()},
+            {"deterministic_check_ids": ("route-check",)},
+        ]
+        for overrides in invalid:
+            with self.subTest(overrides=overrides):
+                with self.assertRaises(ValueError):
+                    self.trade_plan(**overrides)
+
+    def test_portfolio_exposure_snapshot_is_deterministic_and_reconciled(self) -> None:
+        snapshot = self.portfolio_exposure_snapshot()
+
+        self.assertEqual(AdvisoryLabel.ADVISORY_ONLY, snapshot.advisory_label)
+        self.assertEqual(1, snapshot.position_count)
+        self.assertEqual("NVDA", snapshot.positions[0].ticker)
+
+        invalid = [
+            {"advisory_label": "not_advisory"},
+            {"position_count": 2},
+            {"positions": ()},
+            {"total_market_value": Decimal("-1")},
+        ]
+        for overrides in invalid:
+            with self.subTest(overrides=overrides):
+                with self.assertRaises(ValueError):
+                    self.portfolio_exposure_snapshot(**overrides)
+        with self.assertRaises(ValueError):
+            self.portfolio_position(portfolio_weight=Decimal("1.01"))
 
     def test_analyst_brief_is_evidence_backed_and_advisory_only(self) -> None:
         brief = self.analyst_brief()
@@ -227,6 +304,26 @@ class AdvisoryWorkstationContractTests(unittest.TestCase):
             with self.subTest(overrides=overrides):
                 with self.assertRaises(ValueError):
                     self.outcome_journal_entry(**overrides)
+
+    def test_llm_analyst_note_is_audited_and_cannot_modify_deterministic_fields(self) -> None:
+        note = self.llm_analyst_note()
+
+        self.assertEqual("model-run-note", note.model_run_id)
+        self.assertEqual(LLMNoteReviewStatus.APPROVED, note.review_status)
+        self.assertTrue(note.deterministic_fields_not_modified)
+
+        invalid = [
+            {"model_run_id": ""},
+            {"allowed_role": "unmanaged_role"},
+            {"reviewed_object_ids": (), "evidence_ids": ()},
+            {"deterministic_fields_not_modified": ()},
+            {"note": "Please place an order now."},
+            {"review_status": "routed"},
+        ]
+        for overrides in invalid:
+            with self.subTest(overrides=overrides):
+                with self.assertRaises(ValueError):
+                    self.llm_analyst_note(**overrides)
 
     def source_signal(self, **overrides: object) -> SourceSignal:
         data = {
@@ -304,6 +401,27 @@ class AdvisoryWorkstationContractTests(unittest.TestCase):
         data.update(overrides)
         return MacroRegimeSnapshot(**data)
 
+    def risk_regime_update(self, **overrides: object) -> RiskRegimeUpdate:
+        data = {
+            "regime_id": "risk-regime-1",
+            "risk_type": RiskRegimeType.POWER_GRID,
+            "status": RiskRegimeStatus.WATCH,
+            "severity": "medium",
+            "confidence": Decimal("0.74"),
+            "linked_event_ids": ("market-event-1",),
+            "affected_segments": ("power_grid",),
+            "affected_tickers": ("NVDA", "TSM"),
+            "summary": "Power constraints remain a gating factor for data center capacity.",
+            "portfolio_monitoring_note": "Review concentration in power-sensitive AI infrastructure names.",
+            "relief_condition": "Interconnection queue improvement and new contracted power visibility.",
+            "invalidation_condition": "Risk recedes if evidence shows power constraints are no longer binding.",
+            "as_of": AS_OF,
+            "available_at": AS_OF,
+            "source_evidence_ids": ("evidence-risk",),
+        }
+        data.update(overrides)
+        return RiskRegimeUpdate(**data)
+
     def advisory_readiness_check(self, **overrides: object) -> AdvisoryReadinessCheck:
         data = {
             "check_id": "readiness-1",
@@ -345,6 +463,65 @@ class AdvisoryWorkstationContractTests(unittest.TestCase):
         }
         data.update(overrides)
         return TradingAdvisory(**data)
+
+    def trade_plan(self, **overrides: object) -> TradePlan:
+        data = {
+            "trade_plan_id": "trade-plan-nvda-1",
+            "ticker": "nvda",
+            "company": "NVIDIA",
+            "status": TradePlanStatus.DRAFT,
+            "advisory_action": AnalystAction.WATCH,
+            "linked_event_ids": ("market-event-1",),
+            "linked_signal_bundle_id": "signal-bundle-1",
+            "linked_recommendation_artifact_id": "recommendation-1",
+            "entry_exit_levels_id": "levels-nvda-1",
+            "price_target_scenario_id": "scenario-nvda-1",
+            "target_weights_id": "target-weights-1",
+            "deterministic_check_ids": ("risk-check-1",),
+            "readiness": TradePlanReadiness.REVIEW_NEEDED,
+            "blocking_reasons": ("awaiting-human-review",),
+            "manual_journal_only": True,
+            "last_reviewed_at": AS_OF,
+        }
+        data.update(overrides)
+        return TradePlan(**data)
+
+    def portfolio_position(self, **overrides: object) -> PortfolioPosition:
+        data = {
+            "ticker": "NVDA",
+            "company": "NVIDIA",
+            "segment_tags": ("ai_hardware_accelerators",),
+            "market_value": Decimal("8755"),
+            "portfolio_weight": Decimal("0.18"),
+            "cost_basis": Decimal("7600"),
+            "unrealized_pnl": Decimal("1155"),
+            "open_trade_plan_id": "trade-plan-nvda-1",
+            "risk_flags": ("valuation_pressure",),
+            "last_price_timestamp": AS_OF,
+        }
+        data.update(overrides)
+        return PortfolioPosition(**data)
+
+    def portfolio_exposure_snapshot(self, **overrides: object) -> PortfolioExposureSnapshot:
+        data = {
+            "snapshot_id": "portfolio-snapshot-1",
+            "as_of": AS_OF,
+            "currency": "USD",
+            "source": "local_journal",
+            "advisory_label": AdvisoryLabel.ADVISORY_ONLY,
+            "total_market_value": Decimal("50000"),
+            "cash_placeholder": Decimal("5000"),
+            "gross_equity_exposure": Decimal("0.9"),
+            "position_count": 1,
+            "positions": (self.portfolio_position(),),
+            "correlation_exposure_ids": ("correlation-ai-accelerators",),
+            "pnl_summary_id": "pnl-summary-1",
+            "target_weights_id": "target-weights-1",
+            "concentration_flags": ("single_name_concentration",),
+            "stale_price_flags": (),
+        }
+        data.update(overrides)
+        return PortfolioExposureSnapshot(**data)
 
     def analyst_brief(self, **overrides: object) -> AnalystBrief:
         data = {
@@ -406,6 +583,22 @@ class AdvisoryWorkstationContractTests(unittest.TestCase):
         }
         data.update(overrides)
         return OutcomeJournalEntry(**data)
+
+    def llm_analyst_note(self, **overrides: object) -> LLMAnalystNote:
+        data = {
+            "note_id": "llm-note-1",
+            "model_run_id": "model-run-note",
+            "scope": "trade_plan",
+            "allowed_role": "trade_plan_critic",
+            "reviewed_object_ids": ("trade-plan-nvda-1",),
+            "evidence_ids": ("evidence-1",),
+            "note": "Plan has evidence linkage and needs human review before journal use.",
+            "deterministic_fields_not_modified": ("target_weights", "entry_exit_levels", "pnl"),
+            "created_at": AS_OF,
+            "review_status": LLMNoteReviewStatus.APPROVED,
+        }
+        data.update(overrides)
+        return LLMAnalystNote(**data)
 
 
 if __name__ == "__main__":

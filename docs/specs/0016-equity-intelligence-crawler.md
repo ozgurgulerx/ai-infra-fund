@@ -52,6 +52,7 @@ Allowed:
 Forbidden:
 
 - crawling arbitrary internet sources without watchlist or source-registry configuration
+- crawling private documents, paid reports, broker/account documents, or licensed research
 - scraping paid reports
 - crawling private documents, local file trees, email inboxes, cloud drives, data rooms, or account portals
 - ingesting sensitive private financial documents

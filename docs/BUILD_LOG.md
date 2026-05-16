@@ -1,21 +1,47 @@
 # Build Log
 
+## 2026-05-16 Wave 1 Parallel-Agent Workstation Alignment
+
+Implemented the latest visible parallel-agent Wave 1 plan from the shared planning thread.
+
+- Added `docs/PARALLEL_AGENT_PLAN.md` as the explicit agent coordination surface with ownership, merge order, LLM/deterministic boundary, forbidden changes, and verification commands.
+- Replaced the stale Phase 7 runtime task in `docs/CURRENT_TASK.md` with the current Wave 1 workstation alignment task.
+- Updated `docs/plans/active/current-plan.md` so Agent 1 owns the parallel-agent plan and the stale cockpit-readiness DoD wording is removed.
+- Added first-class core contracts and tests for `RiskRegimeUpdate`, `TradePlan`, `PortfolioExposureSnapshot`, `PortfolioPosition`, and `LLMAnalystNote`.
+- Expanded data-contract docs and contract-doc tests for `SegmentImpact`, `EquityImpactAssessment`, `RiskRegimeUpdate`, `TradePlan`, `PortfolioExposureSnapshot`, `AnalystBrief`, `OutcomeJournalEntry`, and `LLMAnalystNote`.
+- Strengthened `docs/LLM_ANALYST_PROMPT_PACK.md` so analyst evaluation and decision points are LLM-mediated, evidence-linked, and auditable while deterministic code owns scores, weights, constraints, levels, exposure, PnL, and gates.
+- Added prompt-pack coverage for `fundamental_snapshot_reviewer`, `valuation_context_analyst`, `macro_regime_reviewer`, `portfolio_exposure_explainer`, and `llm_note_reviewer`.
+- Tightened architecture policy coverage for the expanded workstation contract set and crawler private/premium-source exclusions.
+- Preserved advisory-only and no-execution boundaries. No dependencies, database migrations, backend runtime behavior, frontend behavior, model calls, broker paths, or deployment files were changed.
+
+Verification:
+
+- `./.venv/bin/python -m unittest tests.contracts.test_advisory_workstation_contracts tests.test_advisory_workstation_contract_docs tests.test_llm_analyst_prompt_pack tests.test_situational_awareness_mock_data tests.test_wave2_workstation_ui tests.test_architecture_policy` passed, 73 tests.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 661 tests, 3 skipped.
+- `python3 -m compileall packages services tests` passed.
+- `npm run build --prefix apps/web` passed.
+- `npm audit --omit=dev --prefix apps/web` passed, 0 vulnerabilities.
+- `docker compose config` passed.
+- `git diff --check` passed.
+- Cloud frontend proxy `/api/backend/health` returned `status: ok`.
+- Cloud frontend proxy `/api/backend/ready` returned `status: ready`, `database: ok`, `production_internal_token: ok`, and advisory-only boundaries.
+
 ## 2026-05-16 Phase 7 Final Cloud Rollout Follow-Up
 
 Completed the final integration step from the shared planning thread for Phase 7 cloud runtime hardening.
 
 - Confirmed the shared ChatGPT planning thread is still reachable as `ChatGPT - AI Growth Trading System`.
-- Built and pushed corrected ACR images with tag `20260516workerpreflight`:
+- Built and pushed interim corrected ACR images with tag `20260516workerpreflight` while validating the worker preflight fix:
   - `aistartuptr.azurecr.io/ai-infra-fund-api:20260516workerpreflight`
   - `aistartuptr.azurecr.io/ai-infra-fund-worker:20260516workerpreflight`
   - `aistartuptr.azurecr.io/ai-infra-fund-web:20260516workerpreflight`
-- Updated `deploy/aks-ai-infra-fund.yaml` and `deploy/fixture-advisory-job.yaml` to the corrected release tag.
+- Updated `deploy/aks-ai-infra-fund.yaml` and `deploy/fixture-advisory-job.yaml`; final AKS manifests point API and worker workloads at release tag `b573f27`.
 - Applied the AKS release manifest to the documented `aks-fund-rag` cluster in namespace `ai-infra-fund`.
 - Completed migration job `ai-infra-fund-migrate-20260516workerpreflight`.
 - Fixed a production worker readiness regression found during rollout: the worker required `AI_INFRA_FUND_INTERNAL_TOKEN` in production but did not pass the configured-token status into the shared runtime preflight.
 - Added regression coverage for production worker startup with and without the internal token.
-- Confirmed API and worker deployments run the corrected tag and have zero restarts after rollout.
-- Updated Azure App Service `ai-infra-fund-frontend` to `DOCKER|aistartuptr.azurecr.io/ai-infra-fund-web:20260516workerpreflight`.
+- Confirmed API and worker deployments run `aistartuptr.azurecr.io/ai-infra-fund-api:b573f27` and `aistartuptr.azurecr.io/ai-infra-fund-worker:b573f27`.
+- Tested newer web images on Azure App Service, then restored Azure App Service `ai-infra-fund-frontend` to the known-good image `DOCKER|aistartuptr.azurecr.io/ai-infra-fund-web:26d9367` after the newer web tags timed out at container startup.
 - Updated the frontend App Service `AI_INFRA_FUND_INTERNAL_API_BASE_URL` to the current AKS load balancer endpoint after detecting it still pointed at an older API IP.
 - Preserved hard boundaries: advisory/reporting only, no broker integration, no live order placement, no execution endpoint, no execution UI, no automated trading behavior, no unmanaged model calls, and no dependency changes.
 
@@ -26,11 +52,13 @@ Verification:
 - `git diff --check` passed.
 - Direct AKS API `/health` returned `status: ok`.
 - Direct AKS API `/ready` returned `status: ready`, `database: ok`, `production_internal_token: ok`, and `advisory_only: true`.
+- AKS API and worker deployments were confirmed healthy on release tag `b573f27`.
 - Frontend proxy `/api/backend/health` returned `status: ok`.
 - Frontend proxy `/api/backend/ready` returned `status: ready`, `database: ok`, `production_internal_token: ok`, and `advisory_only: true`.
-- Frontend proxy `/api/backend/internal/analyst-brief/latest` returned an advisory-only brief with 9 market events.
+- Frontend proxy `/api/backend/internal/analyst-brief/latest` returned an advisory-only brief with 9 market events after App Service cold-start delay.
 - Frontend proxy `/api/backend/internal/trading-advisory/latest` returned 8 advisory-only items.
 - Frontend proxy `/api/backend/internal/market-events/NVDA` returned 7 advisory-only NVDA event items.
+- Azure App Service was confirmed on the known-good frontend image `DOCKER|aistartuptr.azurecr.io/ai-infra-fund-web:26d9367` with `AI_INFRA_FUND_INTERNAL_API_BASE_URL=http://74.178.223.132`.
 - Public cockpit HTML contains `API read model`, `Advisory-only`, and `No transaction surface`.
 
 ## 2026-05-16 Advisory Workstation Agent A-E Alignment

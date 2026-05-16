@@ -20,6 +20,7 @@ Define the initial contract surface for Phase 1 implementation.
 - `FinancialSnapshot`
 - `ValuationContext`
 - `MacroRegimeSnapshot`
+- `RiskRegimeUpdate`
 - `FeatureSet`
 - `ModelRun`
 - `SignalBundle`
@@ -30,8 +31,12 @@ Define the initial contract surface for Phase 1 implementation.
 - `RecommendationArtifact`
 - `RecommendationAudit`
 - `TradingAdvisory`
+- `TradePlan`
+- `PortfolioExposureSnapshot`
+- `AnalystBrief`
 - `AdvisoryUpdate`
 - `OutcomeJournalEntry`
+- `LLMAnalystNote`
 - `IncidentRecord`
 - `DataQualityCheck`
 - `RunArtifact`
@@ -247,6 +252,36 @@ Rules:
 - Regime labels must be controlled values or explicitly marked review-needed.
 - MacroRegimeSnapshot can inform interpretation, but deterministic code owns exposure and risk-limit checks.
 
+## RiskRegimeUpdate
+
+`RiskRegimeUpdate` captures market, policy, supply-chain, power, capex, or portfolio risk-regime changes that affect analyst interpretation.
+
+Required fields:
+
+- `regime_id`
+- `risk_type`
+- `status`
+- `severity`
+- `confidence`
+- `linked_event_ids`
+- `affected_segments`
+- `affected_tickers`
+- `summary`
+- `portfolio_monitoring_note`
+- `relief_condition`
+- `invalidation_condition`
+- `as_of`
+- `available_at`
+- `source_evidence_ids`
+
+Rules:
+
+- Must link to validated MarketEvents or direct evidence through `linked_event_ids` and `source_evidence_ids`.
+- `risk_type` and `status` must be controlled values.
+- Elevated or stressed risk regimes must include monitoring, relief, or invalidation context.
+- Risk regime updates can trigger review, but deterministic code owns risk constraints, exposure math, and publication gates.
+- RiskRegimeUpdate is advisory-only and cannot imply broker transmission, routing, or market-action automation.
+
 ## TradingAdvisory
 
 `TradingAdvisory` is an advisory-only output for ticker or portfolio review.
@@ -283,6 +318,111 @@ Rules:
 - Target scenarios are scenarios, not predictions.
 - Deterministic code owns PnL, exposure, risk-limit checks, accounting, stale-data gates, and publication policy checks.
 - Advisory payloads and deterministic check payloads must not include broker, route, exchange, order_id, execution_id, or auto_trade fields.
+
+## TradePlan
+
+`TradePlan` represents advisory-only planning guidance for local manual journal review.
+
+Required fields:
+
+- `trade_plan_id`
+- `ticker`
+- `company`
+- `status`
+- `advisory_action`
+- `linked_event_ids`
+- `linked_signal_bundle_id`
+- `linked_recommendation_artifact_id`
+- `entry_exit_levels_id`
+- `price_target_scenario_id`
+- `target_weights_id`
+- `deterministic_check_ids`
+- `readiness`
+- `blocking_reasons`
+- `manual_journal_only`
+- `last_reviewed_at`
+
+Rules:
+
+- `manual_journal_only` must be true.
+- Must link to evidence-backed MarketEvents, a SignalBundle, a recommendation artifact, deterministic checks, and local planning levels where available.
+- Any blocked or stale plan must include `blocking_reasons`.
+- Entry, add, trim, exit, and invalidation levels are planning guidance, not orders.
+- TradePlan must not encode broker, routing, fill, external transmission, or automated market-action state.
+
+## PortfolioExposureSnapshot
+
+`PortfolioExposureSnapshot` represents deterministic portfolio exposure, concentration, correlation, and PnL context for the analyst workstation.
+
+Required fields:
+
+- `snapshot_id`
+- `as_of`
+- `currency`
+- `source`
+- `advisory_label`
+- `total_market_value`
+- `cash_placeholder`
+- `gross_equity_exposure`
+- `position_count`
+- `positions`
+- `correlation_exposure_ids`
+- `pnl_summary_id`
+- `target_weights_id`
+- `concentration_flags`
+- `stale_price_flags`
+
+Position fields:
+
+- `ticker`
+- `company`
+- `segment_tags`
+- `market_value`
+- `portfolio_weight`
+- `cost_basis`
+- `unrealized_pnl`
+- `open_trade_plan_id`
+- `risk_flags`
+- `last_price_timestamp`
+
+Rules:
+
+- `advisory_label` must be advisory-only.
+- `position_count` must equal the number of positions.
+- Market value, exposure, portfolio weight, and PnL values are deterministic outputs, not LLM outputs.
+- Missing or stale price state must be visible and must block balancing suggestions where material.
+- Snapshot payloads must not include broker account, route, fill, or execution state.
+
+## AnalystBrief
+
+`AnalystBrief` synthesizes validated analyst state into daily or intraday cockpit output.
+
+Required fields:
+
+- `brief_id`
+- `as_of`
+- `generated_at`
+- `title`
+- `advisory_label`
+- `executive_summary`
+- `highest_conviction_theme_updates`
+- `ticker_focus_list`
+- `open_questions`
+- `next_review_triggers`
+- `market_event_ids`
+- `segment_impact_ids`
+- `risk_regime_update_ids`
+- `suggested_action_ids`
+- `model_run_ids`
+- `freshness_status`
+
+Rules:
+
+- `advisory_label` must be visible and advisory-only.
+- Briefs must link to evidence-backed MarketEvents or downstream objects.
+- LLM-authored brief text must link to `model_run_ids` and cannot alter deterministic rankings, scores, exposure, target weights, PnL, or readiness gates.
+- Missing evidence, stale inputs, unresolved contradictions, or failed deterministic checks must remain visible in the brief.
+- AnalystBrief cannot include execution-language instructions.
 
 ## AdvisoryUpdate
 
@@ -345,6 +485,31 @@ Rules:
 - Must preserve evidence and MarketEvents available at decision time.
 - PnL and plan-adherence fields must come from deterministic accounting and comparison logic.
 - LLMs may critique outcomes or draft lessons learned but must not calculate PnL or accounting values.
+
+## LLMAnalystNote
+
+`LLMAnalystNote` stores a bounded model-authored explanation, critique, summary, or review note tied to specific analyst objects.
+
+Required fields:
+
+- `note_id`
+- `model_run_id`
+- `scope`
+- `allowed_role`
+- `reviewed_object_ids`
+- `evidence_ids`
+- `note`
+- `deterministic_fields_not_modified`
+- `created_at`
+- `review_status`
+
+Rules:
+
+- Must link to a governed `ModelRun`.
+- Must use an allowed analyst role.
+- Must link to reviewed objects or evidence.
+- Must list protected deterministic fields when the note discusses scores, risk, target weights, levels, exposure, or PnL.
+- LLMAnalystNote can explain, critique, or review; it cannot modify deterministic fields or create market-action instructions.
 
 ## Contract Rules
 

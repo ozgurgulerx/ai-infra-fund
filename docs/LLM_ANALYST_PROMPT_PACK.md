@@ -10,6 +10,7 @@ The pack is documentation only. It defines contracts for future prompt implement
 
 - The system is advisory-only.
 - LLMs may classify, extract, summarize, review, critique, and explain.
+- Every analyst evaluation and decision point must be LLM-mediated, evidence-linked, and auditable.
 - LLMs must not generate final deterministic scores, target weights, constraints, PnL, final entry or exit levels, correlation exposure, concentration checks, publication gates, or executable trade instructions.
 - Deterministic code owns numeric scoring, risk, constraints, target weights, scenario values, entry and exit levels, portfolio exposure, PnL, and publication checks.
 - All model routing must use `config/model_profiles.yaml`; prompts reference routing roles, not deployment names.
@@ -203,6 +204,109 @@ Every role response should include:
 - If bull and bear cases conflict without enough evidence, emit `needs_review`.
 - If the data class disallows the planned route, return a denied/fallback result and preserve deterministic pipeline continuity.
 
+## Role: `fundamental_snapshot_reviewer`
+
+### Allowed inputs
+
+- Deterministic `FinancialSnapshot` values, evidence IDs, source URIs, filing or disclosure timestamps, and freshness flags.
+- Watchlist ticker metadata and related MarketEvents.
+
+### Allowed outputs
+
+- Narrative review of financial trend quality, missing fields, and point-in-time caveats.
+- Evidence-backed notes about revenue, margin, capex, estimate-revision, cash, debt, and disclosure context.
+- Review status and missing-evidence flags.
+
+### Forbidden outputs
+
+- Recomputed financial values, deterministic scores, target weights, constraints, PnL, final entry or exit levels, or executable trade instructions.
+- Brokerage, routing, fill, automated-market-action, or execution output.
+- Unsupported fundamental claims without evidence IDs.
+
+### Schema expectations
+
+- Output must preserve the supplied `FinancialSnapshot` values unchanged.
+- Any note must reference ticker, as-of timestamp, evidence IDs, freshness state, and review status.
+- Any uncertainty must be explicit instead of hidden in stronger language.
+
+### ModelRun audit requirements
+
+- Use routing intent `evidence_summary` for review and `orchestration_validation` for schema repair.
+- Record prompt version, input hash, output hash, ticker IDs, evidence IDs, schema validity, retry count, and fallback status.
+
+### Escalation and fallback
+
+- If financial evidence is stale, missing, or contradictory, mark the snapshot review incomplete.
+- If the data class disallows the route, return a denied/fallback result and preserve deterministic values.
+
+## Role: `valuation_context_analyst`
+
+### Allowed inputs
+
+- Deterministic `FinancialSnapshot` values, peer groups, scenario inputs, `ValuationContext`, evidence IDs, and input hashes.
+- Risk flags, MarketEvents, SegmentImpacts, and thesis context.
+
+### Allowed outputs
+
+- Valuation scenario explanation, peer-comparison caveats, sensitivity narrative, and evidence-backed risk notes.
+- Missing-evidence or stale-scenario warnings.
+
+### Forbidden outputs
+
+- Recomputed scenario values, final price targets, deterministic scores, target weights, constraints, PnL, final entry or exit levels, or executable trade instructions.
+- Brokerage, routing, fill, automated-market-action, or execution output.
+- Valuation claims without evidence IDs or deterministic input hashes.
+
+### Schema expectations
+
+- Output must preserve supplied scenario values and `deterministic_inputs_hash`.
+- Output must link to `ValuationContext`, evidence IDs, ticker, as-of timestamp, and review status.
+- Price targets must be described as scenarios, not predictions.
+
+### ModelRun audit requirements
+
+- Use routing intent `evidence_summary` for scenario explanation and `adversarial_review` for critique.
+- Record prompt version, input hash, output hash, valuation context ID, evidence IDs, schema validity, retry count, and fallback status.
+
+### Escalation and fallback
+
+- If scenario inputs are missing or stale, return a caveated review and block stronger valuation language.
+- If evidence conflicts, surface contradiction flags instead of resolving them without support.
+
+## Role: `macro_regime_reviewer`
+
+### Allowed inputs
+
+- `MacroRegimeSnapshot`, public macro evidence IDs, rates, liquidity, credit, semiconductor cycle, AI capex cycle, energy, and geopolitical context.
+- Linked MarketEvents and RiskRegimeUpdates.
+
+### Allowed outputs
+
+- Macro-regime interpretation, contradiction flags, stale-source notes, and risk-context explanation.
+- Evidence-backed notes about how macro conditions affect AI infrastructure interpretation.
+
+### Forbidden outputs
+
+- Deterministic risk scores, exposure changes, target weights, constraints, PnL, final entry or exit levels, or executable trade instructions.
+- Brokerage, routing, fill, automated-market-action, or execution output.
+- Regime changes without evidence IDs.
+
+### Schema expectations
+
+- Output must preserve supplied macro regime values.
+- Required links: evidence IDs, as-of timestamp, related risk object IDs when present, and review status.
+- Unavailable macro data must be shown as missing rather than inferred.
+
+### ModelRun audit requirements
+
+- Use routing intent `evidence_summary` or `adversarial_review`.
+- Record prompt version, input hash, output hash, macro object IDs, evidence IDs, schema validity, retry count, and fallback status.
+
+### Escalation and fallback
+
+- If the macro regime is stale or unsupported, mark downstream interpretation as review-needed.
+- If the route is unavailable, preserve deterministic state and add missing-review context.
+
 ## Role: `risk_regime_reviewer`
 
 ### Allowed inputs
@@ -305,6 +409,41 @@ Every role response should include:
 - If the plan lacks invalidation, evidence, or deterministic readiness checks, mark it not review-ready.
 - If private journal context is included, route local-only or deny cloud use under data-class policy.
 
+## Role: `portfolio_exposure_explainer`
+
+### Allowed inputs
+
+- Deterministic `PortfolioExposureSnapshot`, position facts, correlation exposure IDs, PnL summary IDs, target weights IDs, concentration flags, and stale-price flags.
+- Evidence IDs, market snapshot IDs, and local journal context when data policy allows.
+
+### Allowed outputs
+
+- Explanation of exposure, concentration, stale-price, and risk-flag context.
+- Review notes for portfolio balancing discussions and analyst attention queues.
+- Missing-data or stale-data warnings.
+
+### Forbidden outputs
+
+- Recomputed exposure, PnL, portfolio weights, target weights, constraints, final entry or exit levels, or executable trade instructions.
+- Brokerage, routing, fill, automated-market-action, or execution output.
+- Any change to portfolio facts or deterministic accounting values.
+
+### Schema expectations
+
+- Output must preserve all supplied numeric exposure and PnL values.
+- Required links: snapshot ID, target weights ID where present, PnL summary ID where present, evidence IDs or market snapshot IDs, and review status.
+- Notes must distinguish explanation from deterministic portfolio math.
+
+### ModelRun audit requirements
+
+- Use routing intent `evidence_summary` for explanation or `adversarial_review` for risk critique.
+- Record prompt version, input hash, output hash, portfolio snapshot ID, evidence IDs, schema validity, retry count, and fallback status.
+
+### Escalation and fallback
+
+- If prices or portfolio facts are stale, mark balancing suggestions as blocked.
+- If private journal context is present, route local-only or deny cloud use under data-class policy.
+
 ## Role: `brief_synthesizer`
 
 ### Allowed inputs
@@ -372,3 +511,37 @@ Every role response should include:
 
 - If private journal notes are included, route local-only or deny cloud use under data-class policy.
 - If point-in-time evidence is missing, mark outcome review incomplete and request evidence repair.
+
+## Role: `llm_note_reviewer`
+
+### Allowed inputs
+
+- Draft `LLMAnalystNote` objects, reviewed object IDs, evidence IDs, ModelRun metadata, role names, and deterministic protected-field lists.
+- Advisory object excerpts required to check wording and evidence linkage.
+
+### Allowed outputs
+
+- Review status, compliance critique, evidence-linkage warnings, and advisory-only wording repairs.
+- Notes about missing ModelRun links, missing evidence, or unsafe wording.
+
+### Forbidden outputs
+
+- Deterministic scores, target weights, constraints, PnL, exposure values, final entry or exit levels, publication gates, or executable trade instructions.
+- Brokerage, routing, fill, automated-market-action, or execution output.
+- Approval of notes that modify protected deterministic fields.
+
+### Schema expectations
+
+- Output must preserve `model_run_id`, reviewed object IDs, evidence IDs, and protected-field lists.
+- Required review values: note ID, allowed role, review status, evidence status, protected-field status, and fallback status.
+- Any unsafe note must be rejected or quarantined.
+
+### ModelRun audit requirements
+
+- Use routing intent `adversarial_review` or `orchestration_validation`.
+- Record prompt version, input hash, output hash, note ID, reviewed object IDs, evidence IDs, schema validity, retry count, and fallback status.
+
+### Escalation and fallback
+
+- If note provenance is missing, reject the note for downstream use.
+- If the route is unavailable, preserve the original note as pending review and do not strengthen advisory language.

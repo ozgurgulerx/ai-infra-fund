@@ -44,7 +44,7 @@ The advisory workstation source taxonomy should cover these configured public-so
 - macro/rates/liquidity commentary
 - public sentiment/news flow
 
-The runtime must not crawl arbitrary internet sources without watchlist or source-registry configuration. It must not crawl private documents, scrape paid reports, ingest sensitive private financial documents, or materialize broker/account documents as evidence.
+The runtime must not crawl arbitrary internet sources without watchlist or source-registry configuration. It must not crawl private documents, paid reports, broker/account documents, or licensed research. It must not scrape paid reports, ingest sensitive private financial documents, or materialize broker/account documents as evidence.
 
 Search or news expansion may only create candidate public-source URLs for approval; it must not directly schedule unconfigured URLs into the frontier.
 

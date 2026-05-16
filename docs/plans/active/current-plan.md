@@ -2,9 +2,9 @@
 
 ## Current Status
 
-The older five-agent readiness wave has been replaced by the six-agent ai-infra-fund plan. Phases 0 through 6 are represented in the current implementation history: advisory contracts, fixture-backed read models, read-only APIs, API-backed cockpit readiness, configured public-source crawl materialization, governed LLM extraction/review stubs, and outcome-journal foundations.
+The older five-agent readiness wave and the later six-agent runtime wave have been superseded by the current parallel-agent workstation alignment plan in `docs/PARALLEL_AGENT_PLAN.md`. Phases 0 through 7 are represented in the current implementation history: advisory contracts, fixture-backed read models, read-only APIs, API-backed cockpit readiness, configured public-source crawl materialization, governed LLM extraction/review stubs, outcome-journal foundations, and cloud runtime hardening.
 
-The current implementation pass covers Phase 7: shared cloud/runtime ops preflight, richer `/ready` checks, redacted runtime status, and worker startup hardening.
+The current coordination pass covers Wave 1 post-Phase 7 harness and parallel-agent alignment: current task state, first-class workstation contracts, prompt-pack role coverage, architecture policy tests, and mock-data normalization.
 
 Specs remain canonical. This plan is temporary coordination state. If this plan conflicts with a spec, the spec wins.
 
@@ -25,22 +25,20 @@ Specs remain canonical. This plan is temporary coordination state. If this plan 
 
 | Stream | Purpose | Owned Files | Tests |
 |---|---|---|---|
-| Agent 1 - Current task + plan coordination | Keep the active task phase-scoped, replace the five-agent wave, and make six-agent ownership explicit. | `docs/CURRENT_TASK.md`, `docs/plans/active/current-plan.md` | `git diff --check -- docs/CURRENT_TASK.md docs/plans/active/current-plan.md` |
-| Agent 2 - Advisory contracts + read models | Freeze object vocabulary, advisory contract shapes, read-model semantics, evidence references, and deterministic boundary language. | `docs/ANALYST_OBJECT_MODEL.md`, `docs/specs/0003-data-contracts.md`, `packages/core/src/ai_infra_fund_core/contracts/**`, `tests/contracts/**` | contract-focused unit tests, data-contract tests, `git diff --check` |
-| Agent 3 - Fixture-backed DB analyst loop + read-only APIs | Implement fixture-backed PostgreSQL/pgvector analyst loop and read-only advisory APIs for cockpit readiness. | database/read-model service files, fixture loader files, read-only API route files, API tests under `tests/**` | DB/read-model tests, API tests, architecture policy tests if routes change |
-| Agent 4 - API-backed Daily Trading Cockpit | Replace static cockpit reads with read-only API data and visible readiness checks while preserving advisory-only UI guardrails. | `apps/web/**`, UI tests under `tests/**` | cockpit UI tests, control-room UI tests, frontend build, frontend audit if applicable |
-| Agent 5 - Public-source crawler + LLM analyst review | Add public-source ingestion and bounded LLM extraction/review with source provenance, private-research policy, model routing, and `ModelRun` audit. | crawler service files, `docs/LLM_ANALYST_PROMPT_PACK.md`, prompt/crawler tests under `tests/**` | crawler policy tests, prompt-pack tests, model-routing/audit tests |
-| Agent 6 - Outcome evaluation + cloud hardening + final integration | Add outcome journal/evaluation checks, harden cloud runtime, resolve cross-stream conflicts, update build log, verify, commit, push, and deploy when applicable. | outcome/evaluation files, cloud/runtime files, integration docs, `docs/BUILD_LOG.md` | full Python suite, compile check, frontend checks when touched, deployment validation when applicable |
+| Agent 1 - Current task + plan coordination | Keep the active task phase-scoped and make parallel-agent ownership explicit. | `docs/CURRENT_TASK.md`, `docs/PARALLEL_AGENT_PLAN.md`, `docs/plans/active/current-plan.md` | `git diff --check -- docs/CURRENT_TASK.md docs/PARALLEL_AGENT_PLAN.md docs/plans/active/current-plan.md` |
+| Agent 2 - Analyst object model + contracts | Fill missing first-class workstation contracts and keep docs/code/test vocabulary aligned. | `docs/ANALYST_OBJECT_MODEL.md`, `docs/specs/0003-data-contracts.md`, `packages/core/src/ai_infra_fund_core/contracts/**`, `tests/contracts/**`, `tests/test_advisory_workstation_contract_docs.py` | contract-focused unit tests, contract-doc tests, `git diff --check` |
+| Agent 3 - LLM analyst prompt pack | Ensure analyst review roles are LLM-mediated, evidence-linked, auditable, and bounded away from deterministic math. | `docs/LLM_ANALYST_PROMPT_PACK.md`, `tests/test_llm_analyst_prompt_pack.py` | prompt-pack tests, architecture policy tests |
+| Agent 4 - Architecture policy coverage | Keep advisory-only, no-execution, crawler-source, storage, model-routing, and deterministic/LLM ownership policies enforceable. | `tests/test_architecture_policy.py`, crawler policy docs as needed | architecture policy tests |
+| Agent 5 - Mock data normalization | Keep static fixtures consistent with the shared object model and evidence lineage before Wave 2 UI/API work. | `docs/mock_data/**`, `tests/test_situational_awareness_mock_data.py` | mock-data tests |
 
 ## Merge Order
 
 1. Agent 1 lands coordination files first.
-2. Agent 2 completes Phase 0 contract/read-model freeze.
-3. Agent 3 completes Phase 1 fixture-backed DB analyst loop and Phase 2 read-only APIs.
-4. Agent 4 completes Phase 3 API-backed Daily Trading Cockpit readiness checks.
-5. Agent 5 completes Phase 4 public-source crawler and Phase 5 LLM analyst extraction/review.
-6. Agent 6 completes Phase 6 outcome journal/evaluation and Phase 7 cloud runtime hardening.
-7. Agent 6 performs final integration, updates `docs/BUILD_LOG.md`, runs verification, commits, pushes, and deploys when credentials and changed files require it.
+2. Agent 2 completes object contracts and contract-doc coverage.
+3. Agent 5 normalizes mock data if object-model changes require fixture updates.
+4. Agent 3 completes LLM analyst prompt-pack coverage.
+5. Agent 4 completes architecture policy coverage.
+6. Final integration updates `docs/BUILD_LOG.md`, runs verification, commits, and pushes. Cloud deployment is only required when runtime, deployment, API, or frontend behavior changes.
 
 ## Forbidden Changes
 
@@ -94,8 +92,6 @@ Stream owners run their targeted tests. Final integration runs:
 ./.venv/bin/python -m unittest tests.test_architecture_policy
 ./.venv/bin/python -m unittest discover -s tests
 python3 -m compileall packages services tests
-npm run build --prefix apps/web
-npm audit --omit=dev --prefix apps/web
 git diff --check
 git status --short
 ```
@@ -104,8 +100,8 @@ Frontend checks are required when frontend files change. Cloud deployment valida
 
 ## Definition Of Done
 
-- `docs/CURRENT_TASK.md` points to advisory contracts and API-backed Daily Trading Cockpit readiness checks.
-- Six agent streams are complete or concrete blockers are documented.
+- `docs/CURRENT_TASK.md` and `docs/PARALLEL_AGENT_PLAN.md` point to the current post-Phase 7 harness/agent-plan alignment phase, with `docs/plans/active/current-plan.md` as the active implementation-plan pointer.
+- Wave 1 agent streams are complete or concrete blockers are documented.
 - Phases 0 through 7 are complete in order or explicitly deferred with rationale.
 - File ownership conflicts are resolved without reverting unrelated work.
 - Object model, contract docs, read-only APIs, cockpit UI, crawler, prompt pack, model-routing audit, outcome evaluation, and cloud runtime agree on the same advisory vocabulary.

@@ -2,24 +2,13 @@
 
 ## Task
 
-Implement Phase 7 cloud runtime and ops hardening for the AI Infrastructure Trading Advisory Workstation.
+Complete Wave 1 parallel-agent alignment for the AI Infrastructure Trading Advisory Workstation.
 
-Earlier passes moved the workstation from static/mock readiness toward contract-backed, API-backed, evidence-backed advisory operation. This pass adds shared runtime preflight checks for cloud deployment readiness and operational status while preserving all advisory-only boundaries.
+This task formalizes the latest shared planning-thread guidance, fills missing first-class workstation contracts, tightens LLM analyst prompt coverage, and updates architecture policy coverage before Wave 2 UI/API expansion continues.
 
 ## Product Objective
 
-Prepare the Daily Trading Cockpit, API, worker, crawler, and advisory analyst pipeline for production-shaped runtime operation while preserving advisory-only boundaries.
-
-This improves:
-
-- redacted runtime readiness reports
-- shared API/worker preflight checks
-- model-profile configuration checks
-- data directory visibility
-- production internal-token policy checks
-- crawl user-agent contact checks
-- advisory-only and configured-source-only boundary visibility
-- cloud runtime hardening
+Improve analyst brief usefulness, catalyst interpretation, segment impact mapping, equity thesis quality, risk-regime awareness, and outcome review quality while preserving advisory-only boundaries.
 
 ## Governing Docs And Specs
 
@@ -30,71 +19,51 @@ This improves:
 - `docs/ANALYST_OBJECT_MODEL.md`
 - `docs/LLM_ANALYST_PROMPT_PACK.md`
 - `docs/UI_SCREEN_SPECS.md`
+- `docs/PARALLEL_AGENT_PLAN.md`
 - `docs/specs/0002-trading-policy.md`
 - `docs/specs/0003-data-contracts.md`
-- `docs/specs/0005-ui-acceptance.md`
-- `docs/specs/0015-containerized-deployment.md`
-- `docs/plans/active/current-plan.md`
+- `docs/specs/0004-agent-contracts.md`
+- `docs/specs/0008-model-routing-and-audit.md`
+- `docs/specs/0016-equity-intelligence-crawler.md`
+- `docs/specs/0017-crawl-pipeline-runtime.md`
 - `config/model_profiles.yaml`
 
 Specs are canonical. If this task conflicts with a spec, the spec wins.
 
-## Phase Plan
-
-1. Phase 0 - Contract/read-model freeze
-   Freeze advisory object contracts, read-model vocabulary, evidence identifiers, model-run references, signal-bundle references, deterministic check references, and cockpit readiness semantics before runtime implementation expands.
-
-2. Phase 1 - Fixture-backed DB analyst loop
-   Build a repeatable fixture-backed PostgreSQL/pgvector analyst loop for advisory objects, evidence links, model runs, and deterministic readiness checks.
-
-3. Phase 2 - Read-only APIs
-   Expose advisory read models through read-only APIs. APIs may retrieve, filter, and report advisory state only.
-
-4. Phase 3 - API-backed cockpit UI
-   Move the Daily Trading Cockpit from static data to read-only API data while retaining advisory labels, evidence links, deterministic readiness checks, and no execution controls.
-
-5. Phase 4 - Real public source crawler
-   Add real public-source crawling for allowed sources only. Respect robots, source terms, rate limits, provenance, and private-research restrictions.
-
-6. Phase 5 - LLM analyst extraction/review
-   Add bounded LLM extraction, classification, summarization, review, critique, and explanation flows routed through model profiles and audited with `ModelRun` records.
-
-7. Phase 6 - Outcome journal/evaluation
-   Add outcome journal and evaluation loops that compare advisory artifacts against later outcomes without creating broker, order, execution, or autonomous trading behavior.
-
-8. Phase 7 - Cloud runtime hardening
-   Harden cloud runtime, observability, secret handling, deployment validation, and operational readiness for the advisory workstation.
-
-## Six-Agent Ownership
+## Wave 1 Ownership
 
 | Agent | Stream | Owned Scope |
 |---|---|---|
-| Agent 1 | Current task + plan coordination | `docs/CURRENT_TASK.md`, `docs/plans/active/current-plan.md` |
-| Agent 2 | Advisory contracts + read models | object model docs, data contracts, core contract modules, contract tests |
-| Agent 3 | PostgreSQL/pgvector analyst loop + read-only APIs | database/read-model services, fixture loaders, read-only API routes, API tests |
-| Agent 4 | API-backed cockpit UI + readiness checks | Daily Trading Cockpit UI, read-only API client, frontend readiness tests |
-| Agent 5 | Public-source crawler + LLM analyst review | allowed public crawler, prompt pack alignment, model-run audit tests |
-| Agent 6 | Outcome evaluation + cloud hardening + integration | outcome journal, evaluation checks, cloud runtime docs/tests, final integration |
+| Agent 1 | Coordination / CURRENT_TASK | `docs/CURRENT_TASK.md`, `docs/PARALLEL_AGENT_PLAN.md`, `docs/plans/active/current-plan.md`, `docs/BUILD_LOG.md` |
+| Agent 2 | Analyst object model + contracts | `docs/ANALYST_OBJECT_MODEL.md`, `docs/specs/0003-data-contracts.md`, `packages/core/src/ai_infra_fund_core/contracts/**`, contract tests |
+| Agent 3 | LLM analyst prompt pack | `docs/LLM_ANALYST_PROMPT_PACK.md`, prompt-pack tests |
+| Agent 4 | Architecture policy tests | `tests/test_architecture_policy.py` |
+| Agent 5 | Mock data normalization | `docs/mock_data/**`, mock-data tests |
 
 ## Allowed Files
 
-The full six-agent implementation may touch only files needed for the phase owned by each agent. Agent-specific ownership is recorded in `docs/plans/active/current-plan.md`.
-
-For this Phase 7 pass, allowed files are:
-
-- shared runtime preflight code under `packages/core/src/ai_infra_fund_core/runtime/`
-- API readiness wiring under `services/api/src/ai_infra_fund_api/main.py`
-- worker startup readiness wiring under `services/worker/src/ai_infra_fund_worker/main.py`
-- deployment/runtime tests under `tests/`
-- deployment/runtime docs under `docs/`
 - `docs/CURRENT_TASK.md`
+- `docs/PARALLEL_AGENT_PLAN.md`
 - `docs/plans/active/current-plan.md`
+- `docs/BUILD_LOG.md`
+- `docs/LLM_ANALYST_PROMPT_PACK.md`
+- `docs/specs/0003-data-contracts.md`
+- `docs/specs/0016-equity-intelligence-crawler.md`
+- `docs/specs/0017-crawl-pipeline-runtime.md`
+- `packages/core/src/ai_infra_fund_core/contracts/**`
+- `tests/contracts/**`
+- `tests/test_advisory_workstation_contract_docs.py`
+- `tests/test_llm_analyst_prompt_pack.py`
+- `tests/test_situational_awareness_mock_data.py`
+- `tests/test_architecture_policy.py`
 
 ## Forbidden Changes
 
 - no dependency changes
-- no deployment rollout unless explicitly requested
-- no cloud secret reads or secret value logging
+- no backend runtime changes
+- no database migrations
+- no frontend changes
+- no deployment rollout unless runtime/deploy/frontend behavior changes
 - no broker integration
 - no live order placement
 - no execution endpoints
@@ -105,58 +74,28 @@ For this Phase 7 pass, allowed files are:
 - no paid-report scraping
 - no unmanaged model calls
 - no model names hard-coded in business logic
-- no LLM-owned scores, risk, constraints, target weights, entry/exit levels, scenario math, PnL, or publication gates
+- no LLM-owned scores, risk, constraints, target weights, entry/exit levels, scenario math, PnL, readiness checks, or publication gates
 - no DuckDB/Parquet v1 dependency
-
-## Guardrails
-
-- Advisory and reporting only.
-- Manual buy/sell entry is local journal/planning only and must not transmit orders.
-- LLMs may classify, extract, summarize, review, critique, and explain.
-- Deterministic code owns scores, risk, backtests, constraints, target weights, portfolio exposure, entry/exit levels, scenario math, PnL, readiness checks, and publication gates.
-- Model routing must use `config/model_profiles.yaml`; business logic must not hard-code model names.
-- PostgreSQL + pgvector is the v1 canonical data spine.
-- Private research is local-only by default; cloud calls must respect data-class policy.
-- Every model call creates a `ModelRun` record.
-- Recommendation-like artifacts require advisory label, evidence IDs, model run IDs, signal bundle ID, target weights ID where applicable, and deterministic checks.
-- Public crawlers must preserve source provenance and must not crawl private docs or paid reports.
-- Read-only APIs must not create broker, order, execution, allocation, or autonomous action surfaces.
-
-## Input Contract
-
-Use canonical docs/specs, existing fixture/mock data, and existing test infrastructure. Do not introduce new dependencies for this plan.
-
-## Output Contract
-
-The completed six-agent plan must produce:
-
-- frozen advisory object contracts and read-model semantics
-- fixture-backed PostgreSQL/pgvector analyst loop
-- read-only advisory APIs
-- API-backed Daily Trading Cockpit readiness checks
-- public-source crawler with provenance and source-policy controls
-- bounded LLM analyst extraction/review with model routing and `ModelRun` audit
-- outcome journal/evaluation artifacts
-- cloud runtime hardening and verification
 
 ## Acceptance Criteria
 
-- `/ready` returns redacted runtime preflight data, not only a database flag.
-- `/ready` preserves `checks.database` for existing frontend status consumers.
-- Runtime reports include advisory-only and configured-source-only boundaries.
-- Runtime reports do not expose database passwords, internal tokens, provider keys, or full secret-bearing connection strings.
-- Worker startup uses the shared runtime preflight and fails on blocking checks.
-- Crawl mode requires a contactable `SEC_EDGAR_USER_AGENT` when that check is enabled.
-- PostgreSQL/pgvector remains the canonical v1 data spine.
-- Private research policy is preserved for crawler, LLM, and cloud runtime work.
-- No new dependencies are added.
+- `docs/PARALLEL_AGENT_PLAN.md` exists and records the latest visible agent ownership and merge order.
+- `docs/CURRENT_TASK.md` no longer points at stale Phase 7 cloud runtime work.
+- First-class workstation contracts exist for risk regime updates, trade plans, portfolio exposure snapshots, and LLM analyst notes.
+- Data-contract docs include the first-class workstation objects used by Wave 2 UI and advisory workflows.
+- Prompt pack states that analyst evaluation and decision points are LLM-mediated, evidence-linked, and auditable.
+- Prompt pack covers the analyst roles named in the object model.
+- Architecture policy tests cover the expanded contract set, crawler private/premium-source boundaries, and deterministic/LLM ownership.
+- Advisory-only, no broker/order/execution, deterministic math, model routing, PostgreSQL/pgvector, and private-research guardrails are preserved.
 
 ## Tests To Add Or Run
 
-Targeted Phase 7 verification:
-
 ```bash
-./.venv/bin/python -m unittest tests.test_deployment_readiness
+./.venv/bin/python -m unittest tests.contracts.test_advisory_workstation_contracts
+./.venv/bin/python -m unittest tests.test_advisory_workstation_contract_docs
+./.venv/bin/python -m unittest tests.test_llm_analyst_prompt_pack
+./.venv/bin/python -m unittest tests.test_situational_awareness_mock_data
+./.venv/bin/python -m unittest tests.test_architecture_policy
 python3 -m compileall packages services tests
 git diff --check
 ```
@@ -164,21 +103,16 @@ git diff --check
 Final integration may additionally run:
 
 ```bash
-./.venv/bin/python -m unittest tests.test_architecture_policy
 ./.venv/bin/python -m unittest discover -s tests
-python3 -m compileall packages services tests
 npm run build --prefix apps/web
 npm audit --omit=dev --prefix apps/web
-git diff --check
 git status --short
 ```
 
 ## Definition Of Done
 
-- Phase 7 runtime preflight exists in shared core code.
-- API and worker both consume the shared preflight.
-- `/ready` exposes redacted runtime and advisory-boundary status.
-- Runtime failures are blocking only for actual readiness blockers.
-- Advisory-only, no broker/order/execution, deterministic math, model routing, PostgreSQL/pgvector, and private-research guardrails are preserved.
-- Targeted deployment-readiness tests pass.
-- `docs/BUILD_LOG.md` records the runtime hardening pass.
+- Wave 1 alignment artifacts are complete.
+- Relevant contract, prompt-pack, mock-data, and architecture policy tests pass.
+- Compile check passes.
+- `docs/BUILD_LOG.md` records the pass.
+- Remaining gaps are documented.

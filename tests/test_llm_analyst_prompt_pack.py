@@ -10,12 +10,17 @@ REQUIRED_ROLES = [
     "source_signal_monitor",
     "market_event_extractor",
     "segment_mapping_reviewer",
+    "fundamental_snapshot_reviewer",
+    "valuation_context_analyst",
+    "macro_regime_reviewer",
     "equity_thesis_analyst",
     "risk_regime_reviewer",
     "trading_advisory_synthesizer",
     "trade_plan_critic",
+    "portfolio_exposure_explainer",
     "brief_synthesizer",
     "outcome_reviewer",
+    "llm_note_reviewer",
 ]
 
 REQUIRED_ROLE_SECTIONS = [
@@ -28,6 +33,7 @@ REQUIRED_ROLE_SECTIONS = [
 ]
 
 REQUIRED_POLICY_PHRASES = [
+    "Every analyst evaluation and decision point must be LLM-mediated",
     "config/model_profiles.yaml",
     "ModelRun",
     "private research is local-only by default",

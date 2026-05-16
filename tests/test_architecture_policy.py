@@ -128,8 +128,16 @@ ADVISORY_WORKSTATION_CONTRACT_OBJECTS = [
     "FinancialSnapshot",
     "ValuationContext",
     "MacroRegimeSnapshot",
+    "SegmentImpact",
+    "EquityImpactAssessment",
+    "RiskRegimeUpdate",
     "TradingAdvisory",
+    "TradePlan",
+    "PortfolioExposureSnapshot",
+    "AnalystBrief",
     "AdvisoryUpdate",
+    "OutcomeJournalEntry",
+    "LLMAnalystNote",
 ]
 
 FORBIDDEN_ADVISORY_CONTRACT_FIELD_TERMS = [
@@ -142,6 +150,11 @@ FORBIDDEN_ADVISORY_CONTRACT_FIELD_TERMS = [
     "auto_trade",
 ]
 
+ADVISORY_CONTRACT_FIELD_TERM_ALLOWLIST = {
+    ("SegmentImpact", "first_order_tickers", "order"),
+    ("SegmentImpact", "second_order_tickers", "order"),
+}
+
 TRADING_ADVISORY_POLICY_PHRASES = [
     "`TradingAdvisory` is an advisory-only output",
     "`advisory_label` must be advisory-only",
@@ -152,6 +165,7 @@ TRADING_ADVISORY_POLICY_PHRASES = [
 
 CRAWLER_BOUNDARY_PHRASES = [
     "crawling arbitrary internet sources without watchlist or source-registry configuration",
+    "private documents, paid reports, broker/account documents, or licensed research",
     "broker, order, route, fill, execution, or automated trading outputs",
     "any live market action endpoint or UI control",
     "any execution/trading action",
@@ -161,6 +175,7 @@ CRAWLER_BOUNDARY_PHRASES = [
 
 CRAWL_RUNTIME_BOUNDARY_PHRASES = [
     "must not crawl arbitrary internet sources without watchlist or source-registry configuration",
+    "must not crawl private documents, paid reports, broker/account documents, or licensed research",
     "Forbidden runtime outputs:",
     "broker records",
     "order records",
@@ -228,6 +243,7 @@ DETERMINISTIC_MODULE_ROOTS = [
     "packages/core/src/ai_infra_fund_core/portfolio",
     "packages/core/src/ai_infra_fund_core/evaluation",
     "packages/core/src/ai_infra_fund_core/recommendations",
+    "packages/core/src/ai_infra_fund_core/contracts",
 ]
 
 FORBIDDEN_MODEL_CLIENT_IMPORT_PATTERNS = [
@@ -276,6 +292,7 @@ TRACKED_SECRET_ALLOWLIST = {
 }
 
 LLM_PROMPT_PACK_REQUIRED_BOUNDARY_PHRASES = [
+    "Every analyst evaluation and decision point must be LLM-mediated",
     "config/model_profiles.yaml",
     "ModelRun",
     "private research is local-only by default",
@@ -731,6 +748,8 @@ class ArchitecturePolicyTests(unittest.TestCase):
                 for field_name in contract_field_names(body):
                     lowered = field_name.lower()
                     for forbidden in FORBIDDEN_ADVISORY_CONTRACT_FIELD_TERMS:
+                        if (object_name, field_name, forbidden) in ADVISORY_CONTRACT_FIELD_TERM_ALLOWLIST:
+                            continue
                         if forbidden in lowered:
                             offenders.append(
                                 f"{relative_path} {object_name}.{field_name} contains {forbidden}"

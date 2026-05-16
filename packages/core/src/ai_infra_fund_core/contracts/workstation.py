@@ -15,6 +15,7 @@ from .common import (
     require_content_hash,
     require_decimal_range,
     require_non_empty_tuple,
+    require_non_negative,
     require_positive,
     require_text,
 )
@@ -46,8 +47,83 @@ class OutcomeLabel(str, Enum):
     REVIEW_NEEDED = "review_needed"
 
 
+class RiskRegimeType(str, Enum):
+    MACRO_RATES = "macro_rates"
+    LIQUIDITY = "liquidity"
+    AI_CAPEX = "ai_capex"
+    POWER_GRID = "power_grid"
+    SUPPLY_CHAIN = "supply_chain"
+    EXPORT_CONTROLS = "export_controls"
+    VALUATION = "valuation"
+    PORTFOLIO = "portfolio"
+    GEOPOLITICAL = "geopolitical"
+
+
+class RiskRegimeStatus(str, Enum):
+    NORMAL = "normal"
+    WATCH = "watch"
+    ELEVATED = "elevated"
+    STRESSED = "stressed"
+    IMPROVING = "improving"
+    REVIEW_NEEDED = "review_needed"
+
+
+class TradePlanStatus(str, Enum):
+    DRAFT = "draft"
+    ACTIVE = "active"
+    PAUSED = "paused"
+    BLOCKED = "blocked"
+    INVALIDATED = "invalidated"
+    RETIRED = "retired"
+
+
+class TradePlanReadiness(str, Enum):
+    READY = "ready"
+    BLOCKED = "blocked"
+    REVIEW_NEEDED = "review_needed"
+    STALE_DATA = "stale_data"
+
+
+class LLMNoteReviewStatus(str, Enum):
+    PENDING_REVIEW = "pending_review"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    QUARANTINED = "quarantined"
+
+
 REQUIRED_SCENARIOS = frozenset({"bear", "base", "bull"})
 FORBIDDEN_OBJECT_FIELD_TERMS = frozenset({"broker", "route", "exchange", "order", "execution", "auto_trade"})
+ALLOWED_LLM_ANALYST_ROLES = frozenset(
+    {
+        "source_signal_monitor",
+        "market_event_extractor",
+        "market_event_reviewer",
+        "fundamental_snapshot_reviewer",
+        "valuation_context_analyst",
+        "macro_regime_reviewer",
+        "segment_mapper",
+        "segment_mapping_reviewer",
+        "equity_thesis_analyst",
+        "risk_regime_reviewer",
+        "trading_advisory_synthesizer",
+        "trade_plan_critic",
+        "portfolio_exposure_explainer",
+        "brief_synthesizer",
+        "outcome_reviewer",
+        "llm_note_reviewer",
+    }
+)
+FORBIDDEN_ACTION_PHRASES = frozenset(
+    {
+        "place an order",
+        "submit an order",
+        "execute a trade",
+        "route to broker",
+        "broker credentials",
+        "order ticket",
+        "start live trading",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -196,6 +272,48 @@ class MacroRegimeSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class RiskRegimeUpdate:
+    regime_id: str
+    risk_type: RiskRegimeType
+    status: RiskRegimeStatus
+    severity: str
+    confidence: Decimal
+    linked_event_ids: tuple[str, ...]
+    affected_segments: tuple[str, ...]
+    affected_tickers: tuple[str, ...]
+    summary: str
+    portfolio_monitoring_note: str
+    relief_condition: str | None
+    invalidation_condition: str | None
+    as_of: datetime
+    available_at: datetime
+    source_evidence_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "regime_id", _required_text(self.regime_id, "regime_id"))
+        object.__setattr__(self, "risk_type", coerce_enum(self.risk_type, RiskRegimeType, "risk_type"))
+        object.__setattr__(self, "status", coerce_enum(self.status, RiskRegimeStatus, "status"))
+        object.__setattr__(self, "severity", _required_text(self.severity, "severity"))
+        object.__setattr__(self, "confidence", _confidence(self.confidence))
+        object.__setattr__(self, "linked_event_ids", _required_text_tuple(self.linked_event_ids, "linked_event_ids"))
+        object.__setattr__(self, "affected_segments", _required_text_tuple(self.affected_segments, "affected_segments"))
+        object.__setattr__(self, "affected_tickers", _required_text_tuple(self.affected_tickers, "affected_tickers", uppercase=True))
+        object.__setattr__(self, "summary", _required_text(self.summary, "summary"))
+        object.__setattr__(self, "portfolio_monitoring_note", _required_text(self.portfolio_monitoring_note, "portfolio_monitoring_note"))
+        object.__setattr__(self, "relief_condition", _optional_text(self.relief_condition, "relief_condition"))
+        object.__setattr__(self, "invalidation_condition", _optional_text(self.invalidation_condition, "invalidation_condition"))
+        if self.status in {RiskRegimeStatus.ELEVATED, RiskRegimeStatus.STRESSED} and not (
+            self.portfolio_monitoring_note or self.relief_condition or self.invalidation_condition
+        ):
+            raise ValueError("elevated or stressed risk regimes require monitoring, relief, or invalidation context")
+        as_of = require_aware_datetime(self.as_of, "as_of")
+        available_at = require_aware_datetime(self.available_at, "available_at")
+        if available_at < as_of:
+            raise ValueError("available_at must be greater than or equal to as_of")
+        object.__setattr__(self, "source_evidence_ids", _required_text_tuple(self.source_evidence_ids, "source_evidence_ids"))
+
+
+@dataclass(frozen=True, slots=True)
 class AdvisoryReadinessCheck:
     check_id: str
     check_name: str
@@ -274,6 +392,132 @@ class TradingAdvisory:
         _reject_forbidden_payload_keys(self.deterministic_checks, "deterministic_checks")
         object.__setattr__(self, "readiness_checks", _required_readiness_checks(self.readiness_checks))
         require_aware_datetime(self.created_at, "created_at")
+
+
+@dataclass(frozen=True, slots=True)
+class TradePlan:
+    trade_plan_id: str
+    ticker: str
+    company: str
+    status: TradePlanStatus
+    advisory_action: AnalystAction
+    linked_event_ids: tuple[str, ...]
+    linked_signal_bundle_id: str
+    linked_recommendation_artifact_id: str
+    entry_exit_levels_id: str | None
+    price_target_scenario_id: str | None
+    target_weights_id: str | None
+    deterministic_check_ids: tuple[str, ...]
+    readiness: TradePlanReadiness
+    blocking_reasons: tuple[str, ...]
+    manual_journal_only: bool
+    last_reviewed_at: datetime | None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "trade_plan_id", _required_text(self.trade_plan_id, "trade_plan_id"))
+        object.__setattr__(self, "ticker", _required_text(self.ticker, "ticker").upper())
+        object.__setattr__(self, "company", _required_text(self.company, "company"))
+        object.__setattr__(self, "status", coerce_enum(self.status, TradePlanStatus, "status"))
+        object.__setattr__(self, "advisory_action", coerce_enum(self.advisory_action, AnalystAction, "advisory_action"))
+        object.__setattr__(self, "linked_event_ids", _required_text_tuple(self.linked_event_ids, "linked_event_ids"))
+        object.__setattr__(
+            self,
+            "linked_signal_bundle_id",
+            _required_text(self.linked_signal_bundle_id, "linked_signal_bundle_id"),
+        )
+        object.__setattr__(
+            self,
+            "linked_recommendation_artifact_id",
+            _required_text(self.linked_recommendation_artifact_id, "linked_recommendation_artifact_id"),
+        )
+        object.__setattr__(self, "entry_exit_levels_id", _optional_text(self.entry_exit_levels_id, "entry_exit_levels_id"))
+        object.__setattr__(
+            self,
+            "price_target_scenario_id",
+            _optional_text(self.price_target_scenario_id, "price_target_scenario_id"),
+        )
+        object.__setattr__(self, "target_weights_id", _optional_text(self.target_weights_id, "target_weights_id"))
+        object.__setattr__(self, "deterministic_check_ids", _required_text_tuple(self.deterministic_check_ids, "deterministic_check_ids"))
+        _reject_forbidden_text_values(self.deterministic_check_ids, "deterministic_check_ids")
+        object.__setattr__(self, "readiness", coerce_enum(self.readiness, TradePlanReadiness, "readiness"))
+        object.__setattr__(self, "blocking_reasons", _optional_text_tuple(self.blocking_reasons, "blocking_reasons"))
+        if self.readiness in {TradePlanReadiness.BLOCKED, TradePlanReadiness.STALE_DATA} and not self.blocking_reasons:
+            raise ValueError("blocked or stale trade plans require blocking_reasons")
+        if self.manual_journal_only is not True:
+            raise ValueError("TradePlan must be manual_journal_only")
+        if self.last_reviewed_at is not None:
+            require_aware_datetime(self.last_reviewed_at, "last_reviewed_at")
+
+
+@dataclass(frozen=True, slots=True)
+class PortfolioPosition:
+    ticker: str
+    company: str
+    segment_tags: tuple[str, ...]
+    market_value: Decimal
+    portfolio_weight: Decimal
+    cost_basis: Decimal
+    unrealized_pnl: Decimal
+    open_trade_plan_id: str | None
+    risk_flags: tuple[str, ...]
+    last_price_timestamp: datetime
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "ticker", _required_text(self.ticker, "ticker").upper())
+        object.__setattr__(self, "company", _required_text(self.company, "company"))
+        object.__setattr__(self, "segment_tags", _required_text_tuple(self.segment_tags, "segment_tags"))
+        object.__setattr__(self, "market_value", require_non_negative(self.market_value, "market_value"))
+        object.__setattr__(self, "portfolio_weight", require_decimal_range(self.portfolio_weight, "portfolio_weight", Decimal("0"), Decimal("1")))
+        object.__setattr__(self, "cost_basis", require_non_negative(self.cost_basis, "cost_basis"))
+        object.__setattr__(self, "unrealized_pnl", Decimal(str(self.unrealized_pnl)))
+        object.__setattr__(self, "open_trade_plan_id", _optional_text(self.open_trade_plan_id, "open_trade_plan_id"))
+        object.__setattr__(self, "risk_flags", _optional_text_tuple(self.risk_flags, "risk_flags"))
+        require_aware_datetime(self.last_price_timestamp, "last_price_timestamp")
+
+
+@dataclass(frozen=True, slots=True)
+class PortfolioExposureSnapshot:
+    snapshot_id: str
+    as_of: datetime
+    currency: str
+    source: str
+    advisory_label: AdvisoryLabel
+    total_market_value: Decimal
+    cash_placeholder: Decimal
+    gross_equity_exposure: Decimal
+    position_count: int
+    positions: tuple[PortfolioPosition, ...]
+    correlation_exposure_ids: tuple[str, ...]
+    pnl_summary_id: str | None
+    target_weights_id: str | None
+    concentration_flags: tuple[str, ...]
+    stale_price_flags: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "snapshot_id", _required_text(self.snapshot_id, "snapshot_id"))
+        require_aware_datetime(self.as_of, "as_of")
+        object.__setattr__(self, "currency", _required_text(self.currency, "currency").upper())
+        object.__setattr__(self, "source", _required_text(self.source, "source"))
+        object.__setattr__(self, "advisory_label", coerce_enum(self.advisory_label, AdvisoryLabel, "advisory_label"))
+        if self.advisory_label is not AdvisoryLabel.ADVISORY_ONLY:
+            raise ValueError("PortfolioExposureSnapshot must be advisory-only")
+        object.__setattr__(self, "total_market_value", require_non_negative(self.total_market_value, "total_market_value"))
+        object.__setattr__(self, "cash_placeholder", require_non_negative(self.cash_placeholder, "cash_placeholder"))
+        object.__setattr__(
+            self,
+            "gross_equity_exposure",
+            require_decimal_range(self.gross_equity_exposure, "gross_equity_exposure", Decimal("0"), Decimal("1")),
+        )
+        if not isinstance(self.position_count, int) or self.position_count < 0:
+            raise ValueError("position_count must be a non-negative integer")
+        object.__setattr__(self, "positions", _required_positions(self.positions))
+        if self.position_count != len(self.positions):
+            raise ValueError("position_count must equal the number of positions")
+        object.__setattr__(self, "correlation_exposure_ids", _optional_text_tuple(self.correlation_exposure_ids, "correlation_exposure_ids"))
+        object.__setattr__(self, "pnl_summary_id", _optional_text(self.pnl_summary_id, "pnl_summary_id"))
+        object.__setattr__(self, "target_weights_id", _optional_text(self.target_weights_id, "target_weights_id"))
+        object.__setattr__(self, "concentration_flags", _optional_text_tuple(self.concentration_flags, "concentration_flags"))
+        object.__setattr__(self, "stale_price_flags", _optional_text_tuple(self.stale_price_flags, "stale_price_flags"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -418,6 +662,43 @@ class OutcomeJournalEntry:
         object.__setattr__(self, "llm_review_note_id", _optional_text(self.llm_review_note_id, "llm_review_note_id"))
 
 
+@dataclass(frozen=True, slots=True)
+class LLMAnalystNote:
+    note_id: str
+    model_run_id: str
+    scope: str
+    allowed_role: str
+    reviewed_object_ids: tuple[str, ...]
+    evidence_ids: tuple[str, ...]
+    note: str
+    deterministic_fields_not_modified: tuple[str, ...]
+    created_at: datetime
+    review_status: LLMNoteReviewStatus
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "note_id", _required_text(self.note_id, "note_id"))
+        object.__setattr__(self, "model_run_id", _required_text(self.model_run_id, "model_run_id"))
+        object.__setattr__(self, "scope", _required_text(self.scope, "scope"))
+        allowed_role = _required_text(self.allowed_role, "allowed_role")
+        if allowed_role not in ALLOWED_LLM_ANALYST_ROLES:
+            raise ValueError("allowed_role must be a governed LLM analyst role")
+        object.__setattr__(self, "allowed_role", allowed_role)
+        object.__setattr__(self, "reviewed_object_ids", _optional_text_tuple(self.reviewed_object_ids, "reviewed_object_ids"))
+        object.__setattr__(self, "evidence_ids", _optional_text_tuple(self.evidence_ids, "evidence_ids"))
+        if not self.reviewed_object_ids and not self.evidence_ids:
+            raise ValueError("LLMAnalystNote requires reviewed_object_ids or evidence_ids")
+        note = _required_text(self.note, "note")
+        _reject_forbidden_action_language(note, "note")
+        object.__setattr__(self, "note", note)
+        object.__setattr__(
+            self,
+            "deterministic_fields_not_modified",
+            _required_text_tuple(self.deterministic_fields_not_modified, "deterministic_fields_not_modified"),
+        )
+        require_aware_datetime(self.created_at, "created_at")
+        object.__setattr__(self, "review_status", coerce_enum(self.review_status, LLMNoteReviewStatus, "review_status"))
+
+
 def _required_text(value: object, field_name: str) -> str:
     return require_text(str(value) if value is not None else None, field_name).strip()
 
@@ -447,6 +728,13 @@ def _required_readiness_checks(values: object) -> tuple[AdvisoryReadinessCheck, 
     return checks
 
 
+def _required_positions(values: object) -> tuple[PortfolioPosition, ...]:
+    positions = require_non_empty_tuple(normalize_tuple(values, "positions"), "positions")
+    if not all(isinstance(position, PortfolioPosition) for position in positions):
+        raise ValueError("positions must contain PortfolioPosition instances")
+    return positions
+
+
 def _confidence(value: Decimal) -> Decimal:
     return require_decimal_range(value, "confidence", Decimal("0"), Decimal("1"))
 
@@ -474,3 +762,18 @@ def _reject_forbidden_payload_keys(values: Any, field_name: str) -> None:
     elif isinstance(values, (list, tuple)):
         for value in values:
             _reject_forbidden_payload_keys(value, field_name)
+
+
+def _reject_forbidden_text_values(values: tuple[str, ...], field_name: str) -> None:
+    for value in values:
+        lowered = value.lower()
+        if any(term in lowered for term in FORBIDDEN_OBJECT_FIELD_TERMS):
+            raise ValueError(
+                f"{field_name} cannot include broker, route, exchange, order, execution, or auto_trade terms"
+            )
+
+
+def _reject_forbidden_action_language(value: str, field_name: str) -> None:
+    lowered = value.lower()
+    if any(phrase in lowered for phrase in FORBIDDEN_ACTION_PHRASES):
+        raise ValueError(f"{field_name} cannot include executable market-action language")
