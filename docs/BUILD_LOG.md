@@ -1,5 +1,19 @@
 # Build Log
 
+## 2026-05-16 App Diagrams
+
+Added a Mermaid-only visual source map for the AI Infrastructure Trading Advisory Workstation.
+
+- Created `docs/APP_DIAGRAMS.md` with product operating loop, runtime architecture, data lineage, LLM/deterministic boundary, AI infrastructure segment map, advisory readiness gate, daily brief generation sequence, UI navigation map, read-only API surface, and build roadmap diagrams.
+- Updated `README.md` with embedded Mermaid product-loop and runtime-boundary diagrams plus a link to the full diagram set.
+- Updated `docs/PROJECT_MAP.md` to point future developers and Codex agents at the diagrams.
+- Preserved hard boundaries: advisory/reporting only, no broker integration, no live order placement, no execution endpoint, no execution UI, manual journal only, and deterministic ownership of accounting, PnL, risk checks, readiness checks, schemas, validation, and audit lineage.
+- No application code, backend code, frontend code, dependency, database, broker, order-placement, or execution changes were made.
+
+Verification:
+
+- `git diff --check` passed.
+
 ## 2026-05-16 Fixture-Backed Advisory Workstation Read Model
 
 Implemented the first PostgreSQL-backed product loop for the advisory workstation, using fixture evidence instead of live crawling.

@@ -1,5 +1,7 @@
 # Project Map
 
+For the current operator-grade visual map of product flow, runtime architecture, data lineage, UI navigation, API surface, and roadmap, see [`docs/APP_DIAGRAMS.md`](APP_DIAGRAMS.md).
+
 ## 1. Product North Star
 
 This is a local-first, advisory-only high-alpha AI infrastructure analyst system. It ingests evidence, extracts `MarketEvent`s, computes deterministic signals, ranks candidates, applies risk and invalidation checks, and produces audited analyst briefs. It never places trades.

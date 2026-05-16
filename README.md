@@ -55,6 +55,73 @@ Important ownership rules:
 - Raw PDFs, CSVs, downloaded files, private notes, and exports may live in ignored local `data/` paths. PostgreSQL stores metadata, hashes, provenance, and audit links.
 - DuckDB + Parquet is reserved for a future analytical scale-out path and is not a v1 runtime dependency.
 
+## Architecture And Product-Flow Diagrams
+
+The full diagram set lives in [`docs/APP_DIAGRAMS.md`](docs/APP_DIAGRAMS.md). The core product loop and runtime boundary are embedded here for quick repo orientation.
+
+### Advisory Product Loop
+
+```mermaid
+flowchart LR
+  sources["Configured Public Sources"]
+  signal["SourceSignal"]
+  evidence["EvidenceItem"]
+  event["MarketEvent"]
+  segment["SegmentImpact"]
+  equity["EquityImpactAssessment"]
+  valuation["ValuationContext"]
+  risk["RiskRegimeUpdate"]
+  advisory["TradingAdvisory"]
+  brief["AnalystBrief"]
+  plan["Manual Trade Plan"]
+  journal["Manual Trade Journal"]
+  outcome["Outcome Review"]
+  boundary["Hard boundary:<br/>advisory/reporting only<br/>no broker, no order, no execution"]
+
+  sources --> signal --> evidence --> event --> segment --> equity
+  equity --> valuation --> advisory
+  equity --> risk --> advisory
+  advisory --> brief --> plan --> journal --> outcome
+  outcome -. "calibrates future reviews" .-> sources
+  plan -. "manual analyst action outside system" .-> boundary
+  journal -. "local record only" .-> boundary
+```
+
+### Runtime Boundary
+
+```mermaid
+flowchart TB
+  ext["External public sources<br/>IR, SEC, earnings, news, macro, policy"]
+  watchlist["config/ai_equity_watchlist.yaml<br/>configured universe and source URLs"]
+  profiles["config/model_profiles.yaml<br/>LLM roles, data-class policy, fallbacks"]
+  env["Environment variables<br/>database URL, internal token, CORS, data dir"]
+  migrate["migrate container<br/>schema migrations"]
+  worker["worker container<br/>crawler, advisory jobs, background runs"]
+  api["FastAPI API<br/>read-only advisory/reporting endpoints<br/>local manual journal endpoints"]
+  web["Next.js advisory workstation UI<br/>cockpit and workbenches"]
+  db[("PostgreSQL + pgvector<br/>canonical v1 data spine")]
+  model["Governed model providers<br/>only through model profiles"]
+  absent["Intentionally absent:<br/>broker integration<br/>order routing<br/>execution endpoint<br/>execution UI"]
+
+  ext --> worker
+  watchlist --> worker
+  profiles --> worker
+  profiles --> model
+  env --> worker
+  env --> api
+  env --> web
+  migrate --> db
+  worker --> db
+  worker -. "allowed extraction/review when policy permits" .-> model
+  api --> db
+  web -->|"GET /api/backend/* proxy or configured API base URL"| api
+
+  web -. "prohibited: direct DB access" .-> db
+  web -. "prohibited: model API calls" .-> model
+  api -. "read-only advisory surface" .-> absent
+  worker -. "no market actions" .-> absent
+```
+
 ## Repository Layout
 
 ```text
@@ -267,6 +334,7 @@ Production-like deployments should provide secrets through the platform secret m
 The product and architecture rules live in:
 
 - `AGENTS.md`
+- `docs/APP_DIAGRAMS.md`
 - `docs/specs/0001-product-vision.md`
 - `docs/specs/0002-trading-policy.md`
 - `docs/specs/0003-data-contracts.md`
