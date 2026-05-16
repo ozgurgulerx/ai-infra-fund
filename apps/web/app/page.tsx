@@ -1,5 +1,3 @@
-import { headers } from "next/headers";
-
 import { AppShell } from "../components/app-shell";
 
 export const dynamic = "force-dynamic";
@@ -116,12 +114,16 @@ const ANALYST_BRIEF_ENDPOINT = "/internal/analyst-brief/latest";
 
 async function fetchAnalystBrief(): Promise<AnalystBriefReadModel> {
   try {
-    const headerList = await headers();
-    const host = headerList.get("host") ?? "localhost:3000";
-    const proto = headerList.get("x-forwarded-proto") ?? "http";
     const response = await fetch(
-      `${proto}://${host}/api/backend${ANALYST_BRIEF_ENDPOINT}`,
-      { cache: "no-store", method: "GET" },
+      new URL(
+        ANALYST_BRIEF_ENDPOINT,
+        internalApiBaseUrl(),
+      ),
+      {
+        cache: "no-store",
+        headers: internalApiHeaders(),
+        method: "GET",
+      },
     );
     const payload = await readAnalystBriefPayload(response);
 
@@ -138,6 +140,21 @@ async function fetchAnalystBrief(): Promise<AnalystBriefReadModel> {
       `API-backed analyst brief unavailable: ${reason}`,
     );
   }
+}
+
+function internalApiBaseUrl(): string {
+  return (process.env.AI_INFRA_FUND_INTERNAL_API_BASE_URL ?? "http://localhost:8000").replace(
+    /\/$/,
+    "",
+  );
+}
+
+function internalApiHeaders(): HeadersInit | undefined {
+  const token = process.env.AI_INFRA_FUND_INTERNAL_TOKEN?.trim();
+  if (!token) {
+    return undefined;
+  }
+  return { "x-internal-token": token };
 }
 
 async function readAnalystBriefPayload(

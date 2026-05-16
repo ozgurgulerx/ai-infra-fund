@@ -1,0 +1,45 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ai-infra-fund-fixture-advisory
+  namespace: ai-infra-fund
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: ai-infra-fund-fixture-advisory
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: fixture-advisory
+          image: aistartuptr.azurecr.io/ai-infra-fund-worker:22bd91b
+          imagePullPolicy: Always
+          command:
+            - python
+            - -m
+            - ai_infra_fund_worker.fixture_advisory_run
+          env:
+            - name: AI_INFRA_FUND_FIXTURE_BRIEF_PATH
+              value: /app/docs/mock_data/situational_awareness_brief.example.json
+          envFrom:
+            - configMapRef:
+                name: ai-infra-fund-config
+            - secretRef:
+                name: ai-infra-fund-db
+          volumeMounts:
+            - name: fixture-brief
+              mountPath: /app/docs/mock_data
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: fixture-brief
+          configMap:
+            name: ai-infra-fund-fixture-brief

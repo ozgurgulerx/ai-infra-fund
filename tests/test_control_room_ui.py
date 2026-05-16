@@ -326,6 +326,17 @@ class ControlRoomUiTests(unittest.TestCase):
         ]
         self.assertEqual([], [text for text in required if text not in page])
 
+    def test_daily_brief_does_not_derive_server_fetch_origin_from_request_headers(
+        self,
+    ) -> None:
+        page = read_web("app/page.tsx")
+        self.assertIn("AI_INFRA_FUND_INTERNAL_API_BASE_URL", page)
+        self.assertIn("AI_INFRA_FUND_INTERNAL_TOKEN", page)
+        self.assertIn("internalApiBaseUrl", page)
+        self.assertNotIn('get("host")', page)
+        self.assertNotIn('get("x-forwarded-proto")', page)
+        self.assertNotIn("next/headers", page)
+
     def test_dashboard_summary_fetches_have_degraded_backend_fallbacks(self) -> None:
         api = read_web("lib/api.ts")
         self.assertIn("degraded", api)

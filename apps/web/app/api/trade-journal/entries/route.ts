@@ -28,17 +28,55 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const payload = await request.json();
+  let payload: unknown;
+  try {
+    payload = await request.json();
+  } catch {
+    return tradeJournalError(
+      "invalid_trade_journal_payload",
+      "Trade journal payload must be valid JSON.",
+      400,
+    );
+  }
   return forwardTradeJournalRequest("POST", payload);
 }
 
 async function forwardTradeJournalRequest(method: "GET" | "POST", payload?: unknown) {
-  const response = await fetch(`${apiBaseUrl()}${BACKEND_TRADE_JOURNAL_ENTRIES_ENDPOINT}`, {
-    body: method === "POST" ? JSON.stringify(payload) : undefined,
-    cache: "no-store",
-    headers: internalHeaders(method),
-    method
-  });
-  const body = await response.json();
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl()}${BACKEND_TRADE_JOURNAL_ENTRIES_ENDPOINT}`, {
+      body: method === "POST" ? JSON.stringify(payload) : undefined,
+      cache: "no-store",
+      headers: internalHeaders(method),
+      method
+    });
+  } catch {
+    return tradeJournalError(
+      "trade_journal_backend_unavailable",
+      "Trade journal backend unavailable.",
+      503,
+    );
+  }
+
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    return tradeJournalError(
+      "trade_journal_backend_unavailable",
+      "Trade journal backend returned an invalid response.",
+      503,
+    );
+  }
   return NextResponse.json(body, { status: response.status });
+}
+
+function tradeJournalError(code: string, message: string, status: 400 | 503) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: { code, message }
+    },
+    { status }
+  );
 }

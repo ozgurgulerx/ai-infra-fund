@@ -8,6 +8,8 @@ Implemented the first PostgreSQL-backed product loop for the advisory workstatio
 - Added read-only API endpoints for latest source signals, market events, analyst brief, trading advisories, and per-ticker analyst summaries.
 - Added a fixture advisory worker command and `scripts/run_fixture_advisory_once.sh` to seed the mocked situational-awareness brief into PostgreSQL with audit/run lineage.
 - Updated the Daily Trading Cockpit to load the brief through the backend proxy instead of reading static JSON directly.
+- Hardened the server-rendered brief fetch so the page uses the configured internal API base URL and internal token instead of deriving an origin from request headers.
+- Hardened the local trade-journal proxy to return structured 400/503 errors for invalid JSON, backend fetch failures, and invalid backend responses.
 - Kept the boundary advisory-only: no broker integration, no live order placement, no execution endpoint, no execution UI, no model calls, and no scoring implementation.
 
 Verification:
@@ -22,7 +24,31 @@ Verification:
 - `scripts/run_fixture_advisory_once.sh` passed and wrote `run-fixture-advisory-00b5b8e7f548033b`.
 - `GET /internal/analyst-brief/latest` returned `status=available` and `advisory_label=advisory_only`.
 - `GET /internal/trading-advisory/latest` returned advisory-only records with evidence IDs, model run IDs, signal bundle IDs, target weights IDs, and deterministic checks.
+- `./.venv/bin/python -m unittest tests.test_control_room_ui tests.test_architecture_policy` passed, 51 tests, after the server-rendered brief fetch hardening.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 599 tests, 3 skipped, after the trade-journal proxy hardening.
 - `git diff --check` passed.
+
+Cloud deployment validation:
+
+- Built and pushed ACR images with tag `22bd91b`:
+  - `aistartuptr.azurecr.io/ai-infra-fund-api:22bd91b`
+  - `aistartuptr.azurecr.io/ai-infra-fund-worker:22bd91b`
+  - `aistartuptr.azurecr.io/ai-infra-fund-web:22bd91b`
+- Updated `deploy/aks-ai-infra-fund.yaml` to API/worker tag `22bd91b`.
+- Applied AKS rollout in namespace `ai-infra-fund`.
+- Recreated and completed `job/ai-infra-fund-migrate`; migration output applied `0010_advisory_workstation_read_models.sql`.
+- Rolled out `deployment/ai-infra-fund-api` and `deployment/ai-infra-fund-worker`.
+- Updated Azure App Service `ai-infra-fund-frontend` to web image tag `22bd91b`, then to `20260516advisoryreadmodel-web` for the server-rendered brief fetch hardening.
+- Added and ran `deploy/fixture-advisory-job.yaml` with a temporary fixture ConfigMap; the cloud fixture job wrote `run-fixture-advisory-00b5b8e7f548033b`.
+- Verified cloud endpoints:
+  - `http://74.178.223.132/health`
+  - `http://74.178.223.132/ready`
+  - `https://ai-infra-fund-frontend.azurewebsites.net`
+  - `https://ai-infra-fund-frontend.azurewebsites.net/api/backend/health`
+  - `https://ai-infra-fund-frontend.azurewebsites.net/api/backend/ready`
+  - `https://ai-infra-fund-frontend.azurewebsites.net/api/backend/internal/analyst-brief/latest`
+  - `https://ai-infra-fund-frontend.azurewebsites.net/api/backend/internal/trading-advisory/latest`
+  - `https://ai-infra-fund-frontend.azurewebsites.net/api/backend/internal/ticker/NVDA/analyst-summary`
 
 ## 2026-05-16 Advisory Workstation Contract And Policy Alignment
 

@@ -53,6 +53,19 @@ class TradeJournalUiTests(unittest.TestCase):
         self.assertIn("AI_INFRA_FUND_INTERNAL_API_BASE_URL", proxy)
         self.assertIn("NEXT_PUBLIC_API_BASE_URL", proxy)
 
+    def test_trade_journal_proxy_returns_structured_errors(self) -> None:
+        proxy = read_web("app/api/trade-journal/entries/route.ts")
+        required = [
+            "invalid_trade_journal_payload",
+            "trade_journal_backend_unavailable",
+            "tradeJournalError",
+            "try",
+            "catch",
+            "status: 400",
+            "503",
+        ]
+        self.assertEqual([], [text for text in required if text not in proxy])
+
     def test_trade_journal_ui_has_no_execution_controls(self) -> None:
         combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())
         forbidden_label_patterns = [
