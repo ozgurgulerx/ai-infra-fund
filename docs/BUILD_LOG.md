@@ -771,3 +771,44 @@ Remaining v1.1 items:
 - Improve source-specific extraction quality for public search/API pages that currently produce low-signal titles such as raw JSON snippets or provider messages.
 - Configure optional public-data secrets if FRED and Finnhub sources should participate in seeded cloud ingestion.
 - Tune source registry URLs that returned remote 403/404 responses during the bounded crawler pass.
+
+## 2026-05-16 Live Crawler Materialization Hardening
+
+Hardened the configured public-source crawler loop so successful live captures
+materialize durable `EvidenceItem` rows and link downstream `EquityEvent`,
+`SourceSignal`, and `MarketEvent` records to the same evidence ID.
+
+- Added worker-side EvidenceItem persistence for successful configured public
+  captures.
+- Preserved deterministic event extraction and no-model-call behavior.
+- Linked each extracted crawl event to the capture EvidenceItem before
+  materializing analyst read-model records.
+- Added deterministic JSON article-list extraction for public API captures.
+- Suppressed provider error pages and generic search-result pages from becoming
+  MarketEvents.
+- Added `scripts/crawl_materialization_smoke.sh` with specific diagnostics for:
+  - frontier seeded but not leased,
+  - leases acquired but fetch failed,
+  - captures written but no evidence item,
+  - evidence item written but no source signal,
+  - source signal written but no MarketEvent.
+
+Verification:
+
+- RED checkpoint: `./.venv/bin/python -m unittest tests.worker.test_crawl_materialization_loop` failed on missing evidence repository injection and missing smoke script.
+- `./.venv/bin/python -m unittest tests.worker.test_crawl_materialization_loop` passed, 4 tests.
+- `./.venv/bin/python -m unittest tests.test_crawl_extraction tests.test_event_extractor_deterministic tests.worker.test_crawl_materialization_loop` passed, 20 tests.
+- `./.venv/bin/python -m unittest tests.test_crawl_advisory_materialization tests.test_crawl_worker_loop tests.worker.test_crawl_materialization_loop` passed, 10 tests, 2 skipped.
+- `./.venv/bin/python -m unittest tests.test_architecture_policy tests.worker.test_crawl_materialization_loop` passed, 45 tests.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 672 tests, 3 skipped.
+- `python3 -m compileall packages services tests` passed.
+- `docker compose config` passed.
+- `scripts/seed_public_sources.sh` passed locally, seeding 34 equities, 18 active sources, 312 frontier URLs, and 312 queue items; EIA/FRED/Finnhub skipped cleanly due missing optional secrets.
+- `docker compose run --rm worker python -m ai_infra_fund_worker.crawl run --once --batch-size 20 --domain-cap 2` passed locally with 20 leased, 11 succeeded, 0 not modified, and 9 failed remote-source responses.
+- `scripts/crawl_materialization_smoke.sh` passed locally with nonzero frontier, queue, crawl log, raw capture, EvidenceItem, SourceSignal, and MarketEvent counts.
+- `git diff --check` passed.
+
+Guardrails:
+
+- Advisory-only boundary preserved.
+- No broker integration, order placement, execution endpoint, execution UI, model call, paid/private scraping, or arbitrary crawler source was added.
