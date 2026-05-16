@@ -21,12 +21,33 @@ Verification:
 - `docker compose config` passed.
 - `scripts/compose_smoke.sh` passed after fixing the outcome-journal migration foreign-key type from `TEXT` to `UUID`.
 
+Cloud deployment validation:
+
+- Built and pushed ACR images with tag `59e7c33`:
+  - `aistartuptr.azurecr.io/ai-infra-fund-api:59e7c33`
+  - `aistartuptr.azurecr.io/ai-infra-fund-worker:59e7c33`
+- Detected and fixed an API image build-target issue during rollout: the first ACR API build used the Dockerfile `test` stage, the new API pod crash-looped running deployment-readiness tests, and the image was rebuilt with explicit `--target runtime`.
+- Updated and pushed `deploy/aks-ai-infra-fund.yaml` in commit `62bdbc9` with API, worker, and migration job tag `59e7c33`.
+- Applied the AKS rollout in namespace `ai-infra-fund`.
+- Completed `job/ai-infra-fund-migrate-59e7c33`; migration output applied `0011_outcome_journal_read_model.sql`.
+- Rolled out `deployment/ai-infra-fund-api` and `deployment/ai-infra-fund-worker`.
+- Verified cloud endpoints:
+  - `http://74.178.223.132/health`
+  - `http://74.178.223.132/ready`
+  - `https://ai-infra-fund-frontend.azurewebsites.net/api/backend/health`
+  - `https://ai-infra-fund-frontend.azurewebsites.net/api/backend/ready`
+  - `https://ai-infra-fund-frontend.azurewebsites.net/api/backend/internal/outcome-journal/latest`
+- Confirmed cloud API and worker deployments run `aistartuptr.azurecr.io/*:59e7c33`; current API, worker, and PostgreSQL pods are running with zero restarts.
+
 ## 2026-05-16 App Diagrams
 
 Added a Mermaid-only visual source map for the AI Infrastructure Trading Advisory Workstation.
 
 - Created `docs/APP_DIAGRAMS.md` with product operating loop, runtime architecture, data lineage, LLM/deterministic boundary, AI infrastructure segment map, advisory readiness gate, daily brief generation sequence, UI navigation map, read-only API surface, and build roadmap diagrams.
-- Updated `README.md` with embedded Mermaid product-loop and runtime-boundary diagrams plus a link to the full diagram set.
+- Generated README PNG overview assets with OpenAI's image model and deterministic label compositing:
+  - `docs/assets/ai-infra-workstation-product-flow-openai.png`
+  - `docs/assets/ai-infra-workstation-runtime-architecture-openai.png`
+- Updated `README.md` with the OpenAI-generated visual overview assets, embedded Mermaid product-loop/runtime-boundary diagrams, and a link to the full diagram set.
 - Updated `docs/PROJECT_MAP.md` to point future developers and Codex agents at the diagrams.
 - Preserved hard boundaries: advisory/reporting only, no broker integration, no live order placement, no execution endpoint, no execution UI, manual journal only, and deterministic ownership of accounting, PnL, risk checks, readiness checks, schemas, validation, and audit lineage.
 - No application code, backend code, frontend code, dependency, database, broker, order-placement, or execution changes were made.

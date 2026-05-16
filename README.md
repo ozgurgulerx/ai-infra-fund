@@ -59,6 +59,12 @@ Important ownership rules:
 
 The full diagram set lives in [`docs/APP_DIAGRAMS.md`](docs/APP_DIAGRAMS.md). The core product loop and runtime boundary are embedded here for quick repo orientation.
 
+The PNG overviews below were generated through OpenAI's image model and then composited with deterministic text labels so repo terminology stays exact.
+
+![AI Infrastructure Trading Advisory Workstation product operating loop generated with OpenAI image model](docs/assets/ai-infra-workstation-product-flow-openai.png)
+
+![AI Infrastructure Trading Advisory Workstation runtime architecture generated with OpenAI image model](docs/assets/ai-infra-workstation-runtime-architecture-openai.png)
+
 ### Advisory Product Loop
 
 ```mermaid
@@ -149,9 +155,7 @@ The v1 runtime boundary is Docker Compose:
 
 The current deployed shape mirrors that boundary: web runs as an Azure App Service, backend services run in AKS, and images are built and pushed through Azure Container Registry.
 
-![AI Infrastructure Fund deployment diagram generated with Gemini Nano Banana](docs/assets/ai-infra-fund-deployment-nanobanana.png)
-
-The generated diagram is a visual overview. The Mermaid diagram below is the exact source-of-truth representation for architecture reviews.
+The Mermaid diagram below is the exact source-of-truth representation for architecture reviews.
 
 ```mermaid
 flowchart TB
