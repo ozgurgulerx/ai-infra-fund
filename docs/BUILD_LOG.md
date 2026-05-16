@@ -27,6 +27,14 @@ Verification:
 - `scripts/compose_smoke.sh` passed.
 - `git diff --check` passed.
 
+Cloud validation:
+
+- Verified the canonical cloud API health and readiness through the frontend proxy.
+- Refreshed the AKS fixture-brief ConfigMap from `docs/mock_data/situational_awareness_brief.example.json`.
+- Recreated and completed `job/ai-infra-fund-fixture-advisory`; the job wrote `run-fixture-advisory-249080a9469ca0ab` with 9 source signals, 9 market events, and 8 advisory records.
+- Verified the cloud analyst brief and trading-advisory feeds include the new CEG advisory record.
+- No cloud image rollout was required because this wave did not change service routes, migrations, Dockerfiles, deployment manifests, or frontend runtime code.
+
 ## 2026-05-16 Phase 7 Cloud Runtime Ops Hardening
 
 Implemented the next phase from the shared planning thread: cloud runtime and ops hardening.
