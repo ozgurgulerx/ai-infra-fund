@@ -808,6 +808,36 @@ Verification:
 - `scripts/crawl_materialization_smoke.sh` passed locally with nonzero frontier, queue, crawl log, raw capture, EvidenceItem, SourceSignal, and MarketEvent counts.
 - `git diff --check` passed.
 
+Cloud deployment validation:
+
+- Runtime commit `50b7d3b` was already on `origin/main` with the crawler hardening changes.
+- Built and pushed `aistartuptr.azurecr.io/ai-infra-fund-worker:a8c6f45`; the active AKS worker deployment remained on runtime image `aistartuptr.azurecr.io/ai-infra-fund-worker:50b7d3b`, which contains the same crawler code changes.
+- Confirmed AKS worker deployment `ai-infra-fund-worker` rolled out successfully.
+- Ran cloud source seed through the worker pod:
+  - skipped `source_eia_electricity` because `EIA_API_KEY` is not configured,
+  - skipped `source_fred_macro` because `FRED_API_KEY` is not configured,
+  - skipped `source_finnhub_company_news` because `FINNHUB_API_KEY` is not configured,
+  - seeded 34 equities, 18 active sources, 312 frontier URLs, and 312 queue items.
+- Ran cloud crawler once with `--batch-size 20 --domain-cap 2`.
+  - leased 20 configured public-source rows,
+  - succeeded on 2 captures,
+  - failed 18 remote-source responses with logged HTTP 403/429/500 style outcomes,
+  - made no model calls.
+- Verified cloud database totals:
+  - `source_frontier_urls=415`,
+  - `crawl_queue_items=415`,
+  - `crawl_logs=782`,
+  - `source_raw_captures=195`,
+  - `evidence_items=66`,
+  - `source_signals=203`,
+  - `market_events=203`.
+- Verified recent cloud materialization rows had evidence provenance:
+  - `recent_crawl_logs=421`,
+  - `recent_captures=79`,
+  - `recent_evidence_items=42`,
+  - `recent_source_signals_with_evidence=53`,
+  - `recent_market_events_with_evidence=53`.
+
 Guardrails:
 
 - Advisory-only boundary preserved.
