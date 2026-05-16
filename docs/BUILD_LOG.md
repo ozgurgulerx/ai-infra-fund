@@ -28,6 +28,14 @@ Verification:
 - A second seed pass reported the same source/frontier counts, and the source-registry frontier row count stayed stable, confirming idempotence.
 - `git diff --check` passed.
 
+Cloud deployment validation:
+
+- Built and pushed `aistartuptr.azurecr.io/ai-infra-fund-worker:3d1c154` through ACR.
+- Updated AKS deployment `ai-infra-fund-worker` to worker image tag `3d1c154`; rollout completed.
+- Executed `python -m ai_infra_fund_worker.crawl seed` inside the cloud worker context.
+- Cloud seed logged skipped optional-secret providers `source_fred_macro` and `source_finnhub_company_news` with missing-secret reasons and seeded 34 watched equities, 18 sources, 380 frontier URLs, and 380 queue items.
+- Verified cloud health/readiness through the canonical frontend proxy; health returned `status: ok`, readiness returned `status: ready`, `database: ok`, and `source_policy: ok`.
+
 ## 2026-05-16 Wave 5 Read-Model Enrichment Slice
 
 Implemented the first bounded Wave 5 enrichment pass after the shared-thread reconciliation.
