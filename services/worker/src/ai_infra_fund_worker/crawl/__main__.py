@@ -41,6 +41,14 @@ def _watchlist_path() -> Path:
     return Path(__file__).resolve().parents[5] / "config" / "ai_equity_watchlist.yaml"
 
 
+def _source_registry_path() -> Path | None:
+    explicit = os.environ.get("AI_INFRA_FUND_SOURCE_REGISTRY_PATH")
+    if explicit:
+        return Path(explicit)
+    candidate = Path(__file__).resolve().parents[5] / "config" / "source_registry.yaml"
+    return candidate if candidate.exists() else None
+
+
 def _captures_root() -> Path:
     explicit = os.environ.get("AI_INFRA_FUND_CAPTURES_ROOT")
     if explicit:
@@ -58,6 +66,7 @@ def cmd_seed(_args: argparse.Namespace) -> int:
         report = seed_watchlist(
             connection,
             watchlist_path=_watchlist_path(),
+            source_registry_path=_source_registry_path(),
             now=datetime.now(tz=timezone.utc),
         )
     finally:

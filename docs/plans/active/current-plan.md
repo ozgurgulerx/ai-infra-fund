@@ -4,7 +4,7 @@
 
 The latest visible shared-thread plan has been reconciled against the repository. The codebase already contains the first product spine the plan requested: contracts, fixture-backed PostgreSQL read models, read-only APIs, API-backed cockpit UI, deterministic configured crawler runtime, LLM extraction/review stubs, outcome-journal foundations, and cloud runtime hardening.
 
-The current implementation pass covers the first Wave 5 read-model enrichment slice. It promotes richer workstation feeds into first-class fixture-backed PostgreSQL read models and read-only API surfaces before governed public-source and LLM analyst extraction/review work expands.
+The current implementation pass moves the workstation beyond fixture-only daily briefs. It adds a deterministic daily brief worker that publishes readiness-gated advisory read models from PostgreSQL and expands configured public-source coverage through a source registry used by crawler seeding.
 
 Specs remain canonical. This plan is temporary coordination state. If this plan conflicts with a spec, the spec wins.
 
@@ -16,8 +16,8 @@ Specs remain canonical. This plan is temporary coordination state. If this plan 
 | Phase 1 | Fixture-backed DB analyst loop | Complete | PostgreSQL/pgvector-backed fixtures exercise advisory objects, evidence, model runs, run artifacts, and deterministic readiness references. |
 | Phase 2 | Read-only APIs | Complete | Advisory read models are exposed through read-only API surfaces with no broker/order/execution capabilities. |
 | Phase 3 | API-backed cockpit UI | Complete | Daily Trading Cockpit renders API-backed readiness checks with advisory labels, evidence, model-run refs, and deterministic status. |
-| Phase 4 | Real public source crawler | Partial | Deterministic configured-public-source crawler runtime exists; broader source coverage remains a future bounded task. |
-| Phase 5 | Daily brief/read-model enrichment | In progress | First slice promotes risk-regime updates, trade plans, portfolio exposure snapshots, and LLM analyst notes into first-class read models and read-only workstation APIs. |
+| Phase 4 | Real public source crawler | Partial | Deterministic configured-public-source crawler runtime exists; source registry seeding now covers primary, specialist, market-data, news/API, and public social-attention lanes. |
+| Phase 5 | Daily brief/read-model enrichment | Partial | The daily brief worker now reads DB-backed analyst objects and persists readiness-gated `TradingAdvisory`, `AnalystBrief`, and run-artifact records. |
 | Phase 6 | LLM analyst extraction/review | Partial | Protocol, payload guards, data-class policy, and stubs exist; real model-routed extraction/review remains a future bounded task. |
 | Phase 7 | Outcome journal/evaluation | Partial | Outcome journal foundation exists; richer analyst-quality evaluation can expand later. |
 | Phase 8 | Cloud runtime hardening | Complete | Runtime configuration, secrets, deployment checks, and cloud readiness validation are hardened. |
@@ -26,7 +26,7 @@ Specs remain canonical. This plan is temporary coordination state. If this plan 
 
 | Stream | Purpose | Owned Files | Tests |
 |---|---|---|---|
-| Agent 1 - Current task + plan coordination | Keep the active task phase-scoped and make parallel-agent ownership explicit. | `docs/CURRENT_TASK.md`, `docs/PARALLEL_AGENT_PLAN.md`, `docs/plans/active/current-plan.md` | `git diff --check -- docs/CURRENT_TASK.md docs/PARALLEL_AGENT_PLAN.md docs/plans/active/current-plan.md` |
+| Current task + plan coordination | Keep the active task phase-scoped and record the daily-brief/source-registry pass. | `docs/CURRENT_TASK.md`, `docs/plans/active/current-plan.md`, `docs/BUILD_LOG.md` | `git diff --check -- docs/CURRENT_TASK.md docs/plans/active/current-plan.md docs/BUILD_LOG.md` |
 | Agent 2 - Analyst object model + contracts | Fill missing first-class workstation contracts and keep docs/code/test vocabulary aligned. | `docs/ANALYST_OBJECT_MODEL.md`, `docs/specs/0003-data-contracts.md`, `packages/core/src/ai_infra_fund_core/contracts/**`, `tests/contracts/**`, `tests/test_advisory_workstation_contract_docs.py` | contract-focused unit tests, contract-doc tests, `git diff --check` |
 | Agent 3 - LLM analyst prompt pack | Ensure analyst review roles are LLM-mediated, evidence-linked, auditable, and bounded away from deterministic math. | `docs/LLM_ANALYST_PROMPT_PACK.md`, `tests/test_llm_analyst_prompt_pack.py` | prompt-pack tests, architecture policy tests |
 | Agent 4 - Architecture policy coverage | Keep advisory-only, no-execution, crawler-source, storage, model-routing, and deterministic/LLM ownership policies enforceable. | `tests/test_architecture_policy.py`, crawler policy docs as needed | architecture policy tests |
@@ -101,7 +101,7 @@ Frontend checks are required when frontend files change. Cloud deployment valida
 
 ## Definition Of Done
 
-- `docs/CURRENT_TASK.md` names one bounded Wave 5 read-model enrichment slice.
+- `docs/CURRENT_TASK.md` names one bounded daily-brief/source-registry implementation slice.
 - `docs/PARALLEL_AGENT_PLAN.md` records completed waves and the current Wave 5 first slice.
 - File ownership conflicts are resolved without reverting unrelated work.
 - Object model, contract docs, read-only APIs, cockpit UI, crawler, prompt pack, model-routing audit, outcome evaluation, and cloud runtime agree on the same advisory vocabulary.

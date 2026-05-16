@@ -1,5 +1,29 @@
 # Build Log
 
+## 2026-05-16 Daily Brief Worker And Source Registry
+
+Implemented the next advisory-workstation phase from the shared planning thread.
+
+- Added a deterministic `daily_ai_infra_brief_run` worker that reads current DB-backed analyst objects, builds readiness-gated `TradingAdvisory` rows, persists an `AnalystBrief`, and records an `audit.run_artifacts` entry.
+- Added `scripts/run_daily_ai_infra_brief_once.sh` for the local Compose-backed one-shot worker path.
+- Added a configured public-source registry under `config/source_registry.yaml` covering company IR, SEC filings, macro/rates data, semiconductor supply chain sources, datacenter/power sources, AI-progress sources, market data, and public news/sentiment metadata.
+- Added `docs/SOURCE_QUALITY_POLICY.md` and `scripts/seed_public_sources.sh` to document and run configured public-source seeding.
+- Added source-registry validation and deterministic seed-plan generation that preserves source quality metadata, skips optional-secret sources when credentials are absent, and strips secret placeholders from stored frontier URLs.
+- Wired the crawler seed command to use the source registry when present while preserving the legacy watchlist/provider fallback.
+- Preserved hard boundaries: advisory/reporting only, configured public sources only, no private-document crawling, no paid-report scraping, no broker integration, no live order placement, no execution endpoint, no execution UI, no unmanaged model calls, no frontend changes, no dependency changes, and no database migration changes.
+
+Verification:
+
+- RED checkpoint: `./.venv/bin/python -m unittest tests.test_daily_ai_infra_brief_run` failed on the missing daily brief worker and script.
+- RED checkpoint present on local branch: `tests.equity_intelligence.test_source_registry` and `tests.worker.test_source_registry_seed` failed on the missing source registry config and seed wiring.
+- GREEN checkpoint: `./.venv/bin/python -m unittest tests.test_daily_ai_infra_brief_run` passed, 4 tests.
+- GREEN checkpoint: `./.venv/bin/python -m unittest tests.equity_intelligence.test_source_registry tests.worker.test_source_registry_seed` passed, 8 tests.
+- Combined targeted verification: `./.venv/bin/python -m unittest tests.test_daily_ai_infra_brief_run tests.equity_intelligence.test_source_registry tests.worker.test_source_registry_seed` passed, 12 tests.
+- Policy/crawler verification: `./.venv/bin/python -m unittest tests.test_architecture_policy tests.test_crawl_scheduler_config tests.test_crawl_advisory_materialization` passed, 49 tests.
+- `python3 -m compileall packages services tests` passed.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 668 tests, 3 skipped.
+- `git diff --check` passed.
+
 ## 2026-05-16 Wave 5 Read-Model Enrichment Slice
 
 Implemented the first bounded Wave 5 enrichment pass after the shared-thread reconciliation.

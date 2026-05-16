@@ -68,7 +68,7 @@ class DailyAiInfraBriefRunTests(unittest.TestCase):
         self.assertIn("evidence_present", advisory_params[10])
         self.assertIn("source_fresh", advisory_params[10])
         self.assertIn("data_class_allowed", advisory_params[10])
-        self.assertIsNone(advisory_params[11])
+        self.assertEqual("trade-plan-1", advisory_params[11])
         advisory_payload = json.loads(advisory_params[12])
         self.assertEqual(["market-event-1"], advisory_payload["market_event_ids"])
         self.assertEqual(["segment-1"], advisory_payload["segment_impact_ids"])
@@ -368,7 +368,9 @@ class FakeCursor:
 
 class FakeConnection:
     def __init__(self, evidence_rows: list[tuple[object, ...]] | None = None) -> None:
-        self.cursor_instance = FakeCursor(evidence_rows or [evidence_row()])
+        self.cursor_instance = FakeCursor(
+            [evidence_row()] if evidence_rows is None else evidence_rows
+        )
         self.commit_count = 0
 
     def cursor(self) -> FakeCursor:

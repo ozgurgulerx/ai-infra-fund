@@ -1,0 +1,250 @@
+version: 1
+
+sources:
+  - source_id: source_sec_edgar
+    source_name: SEC EDGAR
+    tier: tier_0_primary
+    source_kind: sec_filings
+    base_url: https://www.sec.gov
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.98
+    refresh_interval_minutes: 360
+    fanout: ticker
+    url_templates:
+      - https://www.sec.gov/edgar/search/#/q={ticker}
+
+  - source_id: source_nvidia_official
+    source_name: NVIDIA Official Feeds
+    tier: tier_0_primary
+    source_kind: company_investor_relations
+    base_url: https://investor.nvidia.com
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.96
+    refresh_interval_minutes: 360
+    fanout: static
+    ticker_allowlist: [NVDA]
+    url_templates:
+      - https://investor.nvidia.com/news-and-events/news/default.aspx
+
+  - source_id: source_tsmc_ir_monthly_revenue
+    source_name: TSMC IR Monthly Revenue
+    tier: tier_0_primary
+    source_kind: earnings_releases
+    base_url: https://investor.tsmc.com
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.96
+    refresh_interval_minutes: 720
+    fanout: static
+    ticker_allowlist: [TSM]
+    url_templates:
+      - https://investor.tsmc.com/english/monthly-revenue
+
+  - source_id: source_eia_electricity
+    source_name: EIA Electricity Data
+    tier: tier_0_primary
+    source_kind: utility_load_growth_guidance
+    base_url: https://www.eia.gov
+    license_label: public
+    data_class: public_market_data
+    trust_weight: 0.95
+    refresh_interval_minutes: 1440
+    fanout: series
+    series_ids: [ELEC.GEN.ALL-US-99.M, ELEC.SALES.US-ALL.M]
+    url_templates:
+      - https://api.eia.gov/v2/electricity/retail-sales/data/?facets[seriesId][]={series_id}
+
+  - source_id: source_fred_macro
+    source_name: FRED Macro Series
+    tier: tier_0_primary
+    source_kind: macro_rates_liquidity_commentary
+    base_url: https://api.stlouisfed.org/fred
+    license_label: public
+    data_class: public_market_data
+    trust_weight: 0.99
+    refresh_interval_minutes: 1440
+    requires_secret: true
+    secret_env_var: FRED_API_KEY
+    fanout: series
+    series_ids: [DFF, DGS10, T10Y2Y, INDPRO]
+    url_templates:
+      - https://api.stlouisfed.org/fred/series/observations?series_id={series_id}&api_key={api_key}
+
+  - source_id: source_semianalysis_public
+    source_name: SemiAnalysis Public Metadata
+    tier: tier_1_specialist
+    source_kind: semiconductor_supply_chain_news
+    base_url: https://www.semianalysis.com
+    license_label: public_metadata_only
+    data_class: public_evidence
+    trust_weight: 0.90
+    refresh_interval_minutes: 720
+    metadata_only: true
+    fanout: ticker
+    url_templates:
+      - https://www.semianalysis.com/search?q={ticker}
+
+  - source_id: source_semiconductor_engineering
+    source_name: Semiconductor Engineering
+    tier: tier_1_specialist
+    source_kind: semiconductor_supply_chain_news
+    base_url: https://semiengineering.com
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.88
+    refresh_interval_minutes: 720
+    fanout: ticker
+    url_templates:
+      - https://semiengineering.com/?s={ticker}
+
+  - source_id: source_semiwiki
+    source_name: SemiWiki
+    tier: tier_1_specialist
+    source_kind: cowos_advanced_packaging_news
+    base_url: https://semiwiki.com
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.84
+    refresh_interval_minutes: 720
+    fanout: ticker
+    url_templates:
+      - https://semiwiki.com/?s={ticker}
+
+  - source_id: source_datacenter_dynamics
+    source_name: Data Center Dynamics
+    tier: tier_1_specialist
+    source_kind: datacenter_leasing_power_contracts
+    base_url: https://www.datacenterdynamics.com
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.86
+    refresh_interval_minutes: 360
+    fanout: ticker
+    url_templates:
+      - https://www.datacenterdynamics.com/en/search/?q={ticker}
+
+  - source_id: source_datacenter_knowledge
+    source_name: Data Center Knowledge
+    tier: tier_1_specialist
+    source_kind: datacenter_leasing_power_contracts
+    base_url: https://www.datacenterknowledge.com
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.82
+    refresh_interval_minutes: 720
+    fanout: ticker
+    url_templates:
+      - https://www.datacenterknowledge.com/search?q={ticker}
+
+  - source_id: source_ieee_spectrum_ai_energy
+    source_name: IEEE Spectrum AI/Energy/Computing
+    tier: tier_1_specialist
+    source_kind: power_grid_nuclear_gas
+    base_url: https://spectrum.ieee.org
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.84
+    refresh_interval_minutes: 720
+    fanout: static
+    ticker_allowlist: [NVDA]
+    url_templates:
+      - https://spectrum.ieee.org/search?q=AI%20data%20center%20power
+
+  - source_id: source_deeplearning_ai_batch
+    source_name: DeepLearning.AI The Batch
+    tier: tier_1_specialist
+    source_kind: ai_model_progress
+    base_url: https://www.deeplearning.ai
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.82
+    refresh_interval_minutes: 720
+    fanout: static
+    ticker_allowlist: [NVDA]
+    url_templates:
+      - https://www.deeplearning.ai/the-batch/
+
+  - source_id: source_epoch_ai
+    source_name: Epoch AI
+    tier: tier_1_specialist
+    source_kind: ai_model_progress
+    base_url: https://epoch.ai
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.86
+    refresh_interval_minutes: 1440
+    fanout: static
+    ticker_allowlist: [NVDA]
+    url_templates:
+      - https://epoch.ai/blog
+
+  - source_id: source_metr
+    source_name: METR
+    tier: tier_1_specialist
+    source_kind: ai_model_progress
+    base_url: https://metr.org
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.84
+    refresh_interval_minutes: 1440
+    fanout: static
+    ticker_allowlist: [NVDA]
+    url_templates:
+      - https://metr.org/blog/
+
+  - source_id: source_gdelt_doc
+    source_name: GDELT DOC 2.0
+    tier: tier_2_news_api
+    source_kind: public_sentiment_news_flow
+    base_url: https://api.gdeltproject.org
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.74
+    refresh_interval_minutes: 120
+    fanout: ticker
+    url_templates:
+      - https://api.gdeltproject.org/api/v2/doc/doc?query={ticker}&mode=ArtList&format=json&maxrecords=250
+
+  - source_id: source_finnhub_company_news
+    source_name: Finnhub Company News
+    tier: tier_2_news_api
+    source_kind: public_sentiment_news_flow
+    base_url: https://finnhub.io/api/v1
+    license_label: public_free_tier
+    data_class: public_evidence
+    trust_weight: 0.82
+    refresh_interval_minutes: 120
+    requires_secret: true
+    secret_env_var: FINNHUB_API_KEY
+    fanout: ticker
+    url_templates:
+      - https://finnhub.io/api/v1/company-news?symbol={ticker}&token={api_token}
+
+  - source_id: source_stooq_market_data
+    source_name: Stooq Market Data
+    tier: tier_2_news_api
+    source_kind: market_price_snapshot
+    base_url: https://stooq.com
+    license_label: public
+    data_class: public_market_data
+    trust_weight: 0.80
+    refresh_interval_minutes: 1440
+    fanout: ticker
+    url_templates:
+      - https://stooq.com/q/d/l/?s={ticker}.us&i=d
+
+  - source_id: source_public_social_attention
+    source_name: Public Social Attention Metadata
+    tier: tier_3_social_attention
+    source_kind: public_sentiment_news_flow
+    base_url: https://trends.google.com
+    license_label: public_metadata_only
+    data_class: public_evidence
+    trust_weight: 0.60
+    refresh_interval_minutes: 1440
+    metadata_only: true
+    fanout: ticker
+    url_templates:
+      - https://trends.google.com/trends/explore?q={ticker}
