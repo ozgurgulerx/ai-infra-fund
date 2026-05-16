@@ -44,8 +44,12 @@ def run_once(
         settings,
         service="worker",
         database_available=connection_check(settings),
+        internal_token_configured=bool(
+            (os.getenv("AI_INFRA_FUND_INTERNAL_TOKEN") or "").strip()
+        ),
         require_internal_token=_is_production(settings.environment),
         require_model_profiles=True,
+        require_crawl_user_agent=_is_crawl_mode(os.getenv("AI_INFRA_FUND_WORKER_MODE")),
         env=os.environ,
     )
     if not report.ready:
@@ -148,6 +152,10 @@ def _run_crawl_mode(settings: RuntimeSettings) -> None:
 
 def _is_production(environment: str) -> bool:
     return environment.strip().lower() in {"production", "prod"}
+
+
+def _is_crawl_mode(mode: str | None) -> bool:
+    return str(mode or "").strip().lower() == "crawl"
 
 
 if __name__ == "__main__":

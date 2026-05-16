@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
 import tomllib
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -324,6 +326,36 @@ class WorkerReadinessTests(unittest.TestCase):
         self.assertEqual(
             2, main.run_once(settings, connection_check=lambda _settings: False)
         )
+
+    def test_production_worker_startup_uses_configured_internal_token(self) -> None:
+        from ai_infra_fund_core.runtime.config import RuntimeSettings
+        from ai_infra_fund_worker import main
+
+        with tempfile.TemporaryDirectory() as tmp:
+            profiles = Path(tmp) / "model_profiles.yaml"
+            profiles.write_text("profiles: []\n", encoding="utf-8")
+            settings = RuntimeSettings(
+                database_url="postgresql://user:pass@postgres:5432/ai_infra_fund",
+                data_dir=tmp,
+                model_profiles_path=str(profiles),
+                environment="production",
+            )
+
+            with patch.dict(
+                os.environ,
+                {"AI_INFRA_FUND_INTERNAL_TOKEN": "configured-token"},
+                clear=True,
+            ):
+                self.assertEqual(
+                    0,
+                    main.run_once(settings, connection_check=lambda _settings: True),
+                )
+
+            with patch.dict(os.environ, {}, clear=True):
+                self.assertEqual(
+                    2,
+                    main.run_once(settings, connection_check=lambda _settings: True),
+                )
 
 
 class RuntimeOpsPreflightTests(unittest.TestCase):
