@@ -18,7 +18,7 @@ sources:
     source_name: NVIDIA Official Feeds
     tier: tier_0_primary
     source_kind: company_investor_relations
-    base_url: https://investor.nvidia.com
+    base_url: https://nvidianews.nvidia.com
     license_label: public
     data_class: public_evidence
     trust_weight: 0.96
@@ -26,7 +26,7 @@ sources:
     fanout: static
     ticker_allowlist: [NVDA]
     url_templates:
-      - https://investor.nvidia.com/news-and-events/news/default.aspx
+      - https://nvidianews.nvidia.com/news
 
   - source_id: source_tsmc_ir_monthly_revenue
     source_name: TSMC IR Monthly Revenue
@@ -46,15 +46,17 @@ sources:
     source_name: EIA Electricity Data
     tier: tier_0_primary
     source_kind: utility_load_growth_guidance
-    base_url: https://www.eia.gov
+    base_url: https://api.eia.gov
     license_label: public
     data_class: public_market_data
     trust_weight: 0.95
     refresh_interval_minutes: 1440
+    requires_secret: true
+    secret_env_var: EIA_API_KEY
     fanout: series
     series_ids: [ELEC.GEN.ALL-US-99.M, ELEC.SALES.US-ALL.M]
     url_templates:
-      - https://api.eia.gov/v2/electricity/retail-sales/data/?facets[seriesId][]={series_id}&frontier_ticker={ticker}
+      - https://api.eia.gov/v2/electricity/retail-sales/data/?facets[seriesId][]={series_id}&api_key={api_key}&frontier_ticker={ticker}
 
   - source_id: source_fred_macro
     source_name: FRED Macro Series
@@ -76,7 +78,7 @@ sources:
     source_name: SemiAnalysis Public Metadata
     tier: tier_1_specialist
     source_kind: semiconductor_supply_chain_news
-    base_url: https://www.semianalysis.com
+    base_url: https://semianalysis.com
     license_label: public_metadata_only
     data_class: public_evidence
     trust_weight: 0.90
@@ -84,7 +86,7 @@ sources:
     metadata_only: true
     fanout: ticker
     url_templates:
-      - https://www.semianalysis.com/search?q={ticker}
+      - https://semianalysis.com/?s={ticker}
 
   - source_id: source_semiconductor_engineering
     source_name: Semiconductor Engineering

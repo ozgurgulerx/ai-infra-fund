@@ -2,14 +2,15 @@
 
 ## Task
 
-Implement the next advisory-workstation phase from the shared planning thread:
+Implement the v1.1 source-quality cleanup from the v1 completion report:
 
-1. Add a deterministic `daily_ai_infra_brief_run` worker that builds the current `AnalystBrief` and publishable `TradingAdvisory` rows from DB-backed read models.
-2. Add configured public-source registry support for the crawler seed path.
+1. Improve deterministic public-source extraction so low-signal captures such as raw JSON snippets, provider messages, and generic search pages do not become misleading MarketEvent titles.
+2. Tune configured public-source registry URLs that returned avoidable 403/404 responses during the bounded cloud crawler pass.
+3. Persist a crawler `EvidenceItem` for successful public captures so SourceSignals and MarketEvents point at durable evidence, not only a synthetic evidence ID.
 
 ## Product Objective
 
-Move beyond fixture-only cockpit data by generating the daily brief from persisted analyst objects and by making crawler source coverage explicitly configured, public, and auditable.
+Improve the usefulness of DB-backed daily brief inputs by keeping crawler output configured, public, provenance-backed, evidence-linked, and less noisy before downstream advisory generation.
 
 ## Governing Docs And Specs
 
@@ -29,17 +30,16 @@ Specs are canonical. If this task conflicts with a spec, the spec wins.
 
 - configured public-source registry files under `config/`
 - source-registry validation and seed planning under `packages/core/src/ai_infra_fund_core/equity_intelligence/`
-- crawl seed wiring under `services/worker/src/ai_infra_fund_worker/crawl/`
-- daily brief worker code under `services/worker/src/ai_infra_fund_worker/`
-- worker run scripts under `scripts/`
-- active task, plan, and build-log docs
+- deterministic crawl extraction/materialization under `packages/core/src/ai_infra_fund_core/equity_intelligence/`
+- crawl worker wiring under `services/worker/src/ai_infra_fund_worker/crawl/` only if needed
+- focused worker smoke scripts under `scripts/`
+- active task and build-log docs
 - focused tests under `tests/`
 
 ## Forbidden Changes
 
 - no dependency changes
 - no frontend changes
-- no deployment rollout unless explicitly requested after verification
 - no broker integration
 - no live order placement
 - no execution endpoints
@@ -54,19 +54,20 @@ Specs are canonical. If this task conflicts with a spec, the spec wins.
 
 ## Acceptance Criteria
 
-- `daily_ai_infra_brief_run` reads current DB-backed analyst objects and writes readiness-gated `TradingAdvisory` rows plus an `AnalystBrief`.
-- The daily worker persists an `audit.run_artifacts` record and returns a stable run summary.
-- The daily worker suppresses candidates with missing evidence, stale sources, disallowed data classes, unresolved contradictions, or restricted publication language.
-- `config/source_registry.yaml` defines configured public sources for primary, specialist, news/API, and social-attention tiers.
-- Crawl seeding can use the source registry, skips optional-secret sources when credentials are absent, and never stores secret placeholders in frontier URLs.
+- Deterministic extraction uses better public-source summaries when a captured title is generic, raw JSON-like, provider boilerplate, or search-result boilerplate.
+- Crawler output remains advisory-only and evidence-linked.
+- Successful public crawl captures persist an `EvidenceItem` and link legacy `EquityEvent`, `SourceSignal`, and `MarketEvent` rows to that evidence ID.
+- Registry changes stay within configured public sources and do not add new source categories.
+- Optional-secret sources still skip cleanly when credentials are absent and never store secret placeholders in frontier URLs.
 - No broker/order/execution route or UI surface is introduced.
-- No application frontend, read-only API, dependency, or migration changes are introduced.
+- No application frontend, read-only API, dependency, migration, or model-router changes are introduced.
 
 ## Tests To Run
 
 ```bash
-./.venv/bin/python -m unittest tests.test_daily_ai_infra_brief_run tests.equity_intelligence.test_source_registry tests.worker.test_source_registry_seed
-python3 -m compileall packages/core/src/ai_infra_fund_core/equity_intelligence services/worker/src/ai_infra_fund_worker tests
+./.venv/bin/python -m unittest tests.test_crawl_extraction tests.test_event_extractor_deterministic tests.equity_intelligence.test_source_registry tests.worker.test_source_registry_seed
+./.venv/bin/python -m unittest tests.worker.test_crawl_materialization_loop tests.test_crawl_worker_loop tests.test_crawl_advisory_materialization
+python3 -m compileall packages/core/src/ai_infra_fund_core/equity_intelligence services/worker/src/ai_infra_fund_worker/crawl tests
 ./.venv/bin/python -m unittest tests.test_architecture_policy tests.test_crawl_scheduler_config tests.test_crawl_advisory_materialization
 git diff --check
 ```
@@ -79,8 +80,7 @@ Final integration may additionally run:
 
 ## Definition Of Done
 
-- RED tests were committed before implementation.
 - Targeted verification passes.
 - Full Python verification passes unless explicitly deferred with reason.
-- `docs/BUILD_LOG.md` records the daily brief/source-registry pass.
+- `docs/BUILD_LOG.md` records the v1.1 source-quality cleanup.
 - Changes are committed.

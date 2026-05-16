@@ -166,6 +166,30 @@ class SourceRegistryValidationTests(unittest.TestCase):
         ):
             self.assertIn(expected, names)
 
+    def test_project_registry_tunes_known_failed_public_urls(self) -> None:
+        from ai_infra_fund_core.equity_intelligence.source_registry import (
+            load_source_registry,
+        )
+
+        registry = load_source_registry(ROOT / "config" / "source_registry.yaml")
+        sources = {source.source_id: source for source in registry.sources}
+
+        nvidia = sources["source_nvidia_official"]
+        self.assertEqual(
+            ("https://nvidianews.nvidia.com/news",),
+            nvidia.url_templates,
+        )
+
+        semianalysis = sources["source_semianalysis_public"]
+        self.assertEqual(
+            ("https://semianalysis.com/?s={ticker}",),
+            semianalysis.url_templates,
+        )
+
+        eia = sources["source_eia_electricity"]
+        self.assertTrue(eia.requires_secret)
+        self.assertEqual("EIA_API_KEY", eia.secret_env_var)
+
     def test_rejects_invalid_tier_and_private_source(self) -> None:
         from ai_infra_fund_core.equity_intelligence.source_registry import (
             validate_source_registry,

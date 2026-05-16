@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+import json
 from typing import cast
 
 import feedparser  # type: ignore[import-untyped]
@@ -123,7 +124,71 @@ def extract(
         return extract_rss(body)
     if ctype == "application/pdf":
         return extract_pdf(body)
+    if ctype == "application/json":
+        return extract_json(body)
     return extract_html(body, base_url=base_url)
+
+
+def extract_json(body: bytes) -> ExtractedDocument:
+    text = body.decode("utf-8", errors="replace")
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        clean_text = text.strip()
+        return ExtractedDocument(
+            title=None,
+            published_at=None,
+            clean_text=clean_text,
+            lang=None,
+            chars=len(clean_text),
+            quality_score=_quality_score(clean_text),
+        )
+    article_titles = _json_article_titles(payload)
+    provider_message = _json_provider_message(payload)
+    clean_text = "\n".join(article_titles) or provider_message or ""
+    return ExtractedDocument(
+        title=article_titles[0] if article_titles else provider_message or None,
+        published_at=None,
+        clean_text=clean_text,
+        lang=None,
+        chars=len(clean_text),
+        quality_score=_quality_score(clean_text),
+    )
+
+
+def _json_article_titles(payload: object) -> tuple[str, ...]:
+    raw_articles = _json_records(payload)
+    if not isinstance(raw_articles, list):
+        return ()
+
+    titles: list[str] = []
+    for article in raw_articles:
+        if not isinstance(article, dict):
+            continue
+        title = str(article.get("title") or article.get("headline") or "").strip()
+        if title:
+            titles.append(title)
+    return tuple(titles)
+
+
+def _json_records(payload: object) -> object:
+    if isinstance(payload, dict):
+        for key in ("articles", "data", "results", "items", "feed"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                return value
+        return ()
+    return payload
+
+
+def _json_provider_message(payload: object) -> str | None:
+    if not isinstance(payload, dict):
+        return None
+    for key in ("error", "errorMessage", "message", "detail", "status"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
 
 
 def _bs_fallback(html: str) -> str:
@@ -208,6 +273,7 @@ __all__ = [
     "ExtractedDocument",
     "RssItem",
     "extract",
+    "extract_json",
     "extract_html",
     "extract_pdf",
     "extract_rss",

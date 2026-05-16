@@ -62,6 +62,22 @@ RSS_SAMPLE = b"""<?xml version="1.0" encoding="UTF-8"?>
 """
 
 
+GDELT_JSON_SAMPLE = b"""{
+  "articles": [
+    {
+      "title": "Microsoft expands AI datacenter lease in Texas",
+      "url": "https://example.com/msft-ai-datacenter-lease",
+      "sourceCountry": "United States"
+    },
+    {
+      "title": "Nuclear PPA supports new AI campus",
+      "url": "https://example.com/nuclear-ppa-ai-campus"
+    }
+  ]
+}
+"""
+
+
 class ExtractHtmlTests(unittest.TestCase):
     def test_extracts_title_and_clean_text_from_html(self) -> None:
         doc = extract_html(HTML_SAMPLE, base_url="https://nvidianews.nvidia.com/")
@@ -111,6 +127,19 @@ class DispatchTests(unittest.TestCase):
     def test_dispatcher_falls_back_to_html_for_unknown_text(self) -> None:
         result = extract("text/plain", HTML_SAMPLE, base_url="https://x.test/")
         self.assertIsInstance(result, ExtractedDocument)
+
+    def test_dispatcher_routes_json_article_lists_to_readable_document(self) -> None:
+        result = extract(
+            "application/json",
+            GDELT_JSON_SAMPLE,
+            base_url="https://api.gdeltproject.org/api/v2/doc/doc",
+        )
+
+        self.assertIsInstance(result, ExtractedDocument)
+        doc = result
+        self.assertEqual("Microsoft expands AI datacenter lease in Texas", doc.title)
+        self.assertIn("Nuclear PPA supports new AI campus", doc.clean_text)
+        self.assertNotIn('"articles"', doc.clean_text)
 
 
 if __name__ == "__main__":

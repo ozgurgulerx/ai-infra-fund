@@ -121,6 +121,9 @@ def _from_html(
     doc: ExtractedDocument,
     fetched_at: datetime,
 ) -> tuple[EquityEventRecord, ...]:
+    if _is_non_event_page(doc):
+        return ()
+
     title = (doc.title or "").strip()
     event_type = _classify_html(title)
     event_time = doc.published_at or fetched_at
@@ -159,6 +162,32 @@ def _classify_html(title: str) -> str:
     if any(kw in lowered for kw in _PRESS_KEYWORDS):
         return EVENT_TYPE_COMPANY_IR
     return EVENT_TYPE_COMPANY_IR
+
+
+def _is_non_event_page(doc: ExtractedDocument) -> bool:
+    title = (doc.title or "").strip().lower()
+    text = doc.clean_text.strip().lower()
+    if not title and not text:
+        return True
+    if title.startswith(("{", "[")) or text.startswith(("{", "[")):
+        return True
+    if '"articles"' in text or '"results"' in text:
+        return True
+    if "google trends" in title:
+        return True
+    if title.startswith("get your apikey") or "get your apikey" in text:
+        return True
+    if "missing api_key" in text or "missing api key" in text:
+        return True
+    if "invalid api key" in text or "api key required" in text:
+        return True
+    if "validation_error" in text and "api_key" in text:
+        return True
+    if title.startswith("you searched for ") or title.startswith("search results"):
+        return True
+    if text.startswith("search results for "):
+        return True
+    return False
 
 
 def _hash(ticker: str, event_type: str, when: datetime, summary: str, salt: str) -> str:

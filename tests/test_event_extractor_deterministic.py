@@ -132,6 +132,74 @@ class ExtractEventsFromHtmlTests(unittest.TestCase):
         # No published_at on the page — event_time falls back to fetched_at
         self.assertEqual(FETCHED_AT, events[0].event_time)
 
+    def test_skips_provider_error_pages_instead_of_creating_market_events(self) -> None:
+        doc = ExtractedDocument(
+            title="Get your apikey: 8:va",
+            published_at=None,
+            clean_text="Get your apikey: 8:validation_error missing api_key",
+            lang="en",
+            chars=52,
+            quality_score=0.1,
+        )
+
+        events = extract_events(
+            ticker="NVDA",
+            source_id="source_eia_electricity",
+            capture_id="capture-provider-error",
+            extracted=doc,
+            fetched_at=FETCHED_AT,
+        )
+
+        self.assertEqual((), events)
+
+    def test_skips_generic_search_result_pages_instead_of_using_search_title(self) -> None:
+        doc = ExtractedDocument(
+            title="You searched for AMD - Semiconductor Engineering",
+            published_at=None,
+            clean_text="Search results for AMD",
+            lang="en",
+            chars=22,
+            quality_score=0.1,
+        )
+
+        events = extract_events(
+            ticker="AMD",
+            source_id="source_semiconductor_engineering",
+            capture_id="capture-search-page",
+            extracted=doc,
+            fetched_at=FETCHED_AT,
+        )
+
+        self.assertEqual((), events)
+
+    def test_uses_json_article_title_instead_of_raw_json_summary(self) -> None:
+        doc = ExtractedDocument(
+            title="Microsoft expands AI datacenter lease in Texas",
+            published_at=None,
+            clean_text=(
+                "Microsoft expands AI datacenter lease in Texas\n"
+                "Nuclear PPA supports new AI campus"
+            ),
+            lang=None,
+            chars=80,
+            quality_score=0.3,
+        )
+
+        events = extract_events(
+            ticker="MSFT",
+            source_id="source_gdelt_doc",
+            capture_id="capture-json",
+            extracted=doc,
+            fetched_at=FETCHED_AT,
+        )
+
+        self.assertEqual(1, len(events))
+        self.assertEqual(
+            "Microsoft expands AI datacenter lease in Texas",
+            events[0].summary,
+        )
+        self.assertFalse(events[0].summary.startswith("{"))
+
 
 class ContentHashTests(unittest.TestCase):
     def test_content_hash_is_deterministic_for_same_inputs(self) -> None:
