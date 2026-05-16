@@ -2,23 +2,23 @@
 
 ## Task
 
-Implement advisory object contracts and API-backed daily cockpit readiness checks.
+Implement Phase 7 cloud runtime and ops hardening for the AI Infrastructure Trading Advisory Workstation.
 
-This task replaces the older five-agent readiness wave with a six-agent implementation plan that moves the AI Infrastructure Trading Advisory Workstation from static/mock readiness toward contract-backed, API-backed, evidence-backed advisory operation.
+Earlier passes moved the workstation from static/mock readiness toward contract-backed, API-backed, evidence-backed advisory operation. This pass adds shared runtime preflight checks for cloud deployment readiness and operational status while preserving all advisory-only boundaries.
 
 ## Product Objective
 
-Prepare the Daily Trading Cockpit and advisory analyst pipeline for production-shaped use while preserving advisory-only boundaries.
+Prepare the Daily Trading Cockpit, API, worker, crawler, and advisory analyst pipeline for production-shaped runtime operation while preserving advisory-only boundaries.
 
 This improves:
 
-- stable advisory object contracts
-- fixture-backed database analyst loops
-- read-only API surfaces
-- API-backed cockpit readiness checks
-- public-source intelligence ingestion
-- bounded LLM analyst extraction and review
-- outcome journal evaluation
+- redacted runtime readiness reports
+- shared API/worker preflight checks
+- model-profile configuration checks
+- data directory visibility
+- production internal-token policy checks
+- crawl user-agent contact checks
+- advisory-only and configured-source-only boundary visibility
 - cloud runtime hardening
 
 ## Governing Docs And Specs
@@ -32,8 +32,8 @@ This improves:
 - `docs/UI_SCREEN_SPECS.md`
 - `docs/specs/0002-trading-policy.md`
 - `docs/specs/0003-data-contracts.md`
-- `docs/specs/0004-cloud-runtime.md`
 - `docs/specs/0005-ui-acceptance.md`
+- `docs/specs/0015-containerized-deployment.md`
 - `docs/plans/active/current-plan.md`
 - `config/model_profiles.yaml`
 
@@ -76,23 +76,25 @@ Specs are canonical. If this task conflicts with a spec, the spec wins.
 | Agent 5 | Public-source crawler + LLM analyst review | allowed public crawler, prompt pack alignment, model-run audit tests |
 | Agent 6 | Outcome evaluation + cloud hardening + integration | outcome journal, evaluation checks, cloud runtime docs/tests, final integration |
 
-Agent 1 may edit only the two coordination docs listed above.
-
 ## Allowed Files
 
 The full six-agent implementation may touch only files needed for the phase owned by each agent. Agent-specific ownership is recorded in `docs/plans/active/current-plan.md`.
 
-For this Agent 1 coordination task, allowed files are:
+For this Phase 7 pass, allowed files are:
 
+- shared runtime preflight code under `packages/core/src/ai_infra_fund_core/runtime/`
+- API readiness wiring under `services/api/src/ai_infra_fund_api/main.py`
+- worker startup readiness wiring under `services/worker/src/ai_infra_fund_worker/main.py`
+- deployment/runtime tests under `tests/`
+- deployment/runtime docs under `docs/`
 - `docs/CURRENT_TASK.md`
 - `docs/plans/active/current-plan.md`
 
 ## Forbidden Changes
 
-- no edits outside Agent 1 owned docs for this coordination pass
 - no dependency changes
-- no product code changes by Agent 1
-- no `docs/BUILD_LOG.md` edits by Agent 1
+- no deployment rollout unless explicitly requested
+- no cloud secret reads or secret value logging
 - no broker integration
 - no live order placement
 - no execution endpoints
@@ -139,20 +141,27 @@ The completed six-agent plan must produce:
 
 ## Acceptance Criteria
 
-- `docs/CURRENT_TASK.md` names the API-backed advisory contracts/cockpit readiness task, not the old five-agent readiness wave or static Wave 2 screen task.
-- `docs/plans/active/current-plan.md` defines six agent streams and Phases 0 through 7.
-- Contract/read-model freeze happens before API, UI, crawler, LLM, evaluation, or cloud hardening work expands.
-- Daily Trading Cockpit readiness checks are read-only, evidence-backed, advisory-labeled, and API-backed by the end of Phase 3.
-- All read-only APIs exclude broker/order/execution surfaces.
+- `/ready` returns redacted runtime preflight data, not only a database flag.
+- `/ready` preserves `checks.database` for existing frontend status consumers.
+- Runtime reports include advisory-only and configured-source-only boundaries.
+- Runtime reports do not expose database passwords, internal tokens, provider keys, or full secret-bearing connection strings.
+- Worker startup uses the shared runtime preflight and fails on blocking checks.
+- Crawl mode requires a contactable `SEC_EDGAR_USER_AGENT` when that check is enabled.
 - PostgreSQL/pgvector remains the canonical v1 data spine.
-- Model routing remains profile-based and audited with `ModelRun`.
-- Deterministic math boundaries are explicit in docs, contracts, tests, and implementation.
 - Private research policy is preserved for crawler, LLM, and cloud runtime work.
 - No new dependencies are added.
 
 ## Tests To Add Or Run
 
-Agent owners run targeted tests for their phase. Final integration should run:
+Targeted Phase 7 verification:
+
+```bash
+./.venv/bin/python -m unittest tests.test_deployment_readiness
+python3 -m compileall packages services tests
+git diff --check
+```
+
+Final integration may additionally run:
 
 ```bash
 ./.venv/bin/python -m unittest tests.test_architecture_policy
@@ -164,18 +173,12 @@ git diff --check
 git status --short
 ```
 
-Agent 1 coordination verification:
-
-```bash
-git diff --check -- docs/CURRENT_TASK.md docs/plans/active/current-plan.md
-```
-
 ## Definition Of Done
 
-- Older five-agent readiness wave is replaced with the six-agent plan.
-- Phases 0 through 7 are represented in the active plan.
-- Agent ownership is explicit enough for parallel work without file conflicts.
+- Phase 7 runtime preflight exists in shared core code.
+- API and worker both consume the shared preflight.
+- `/ready` exposes redacted runtime and advisory-boundary status.
+- Runtime failures are blocking only for actual readiness blockers.
 - Advisory-only, no broker/order/execution, deterministic math, model routing, PostgreSQL/pgvector, and private-research guardrails are preserved.
-- Acceptance criteria and verification commands are documented.
-- Agent 1 edits only `docs/CURRENT_TASK.md` and `docs/plans/active/current-plan.md`.
-- Final integration owner, not Agent 1, updates `docs/BUILD_LOG.md`, runs full verification, commits, pushes, and deploys where applicable.
+- Targeted deployment-readiness tests pass.
+- `docs/BUILD_LOG.md` records the runtime hardening pass.

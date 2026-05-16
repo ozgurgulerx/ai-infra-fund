@@ -66,6 +66,7 @@ from ai_infra_fund_api.routes.trade_journal import (
 )
 from ai_infra_fund_core.runtime.config import RuntimeConfigError, RuntimeSettings
 from ai_infra_fund_core.runtime.database import check_database_connection
+from ai_infra_fund_core.runtime.ops import build_runtime_preflight
 
 
 PROJECT_NAME = "ai-infra-fund"
@@ -201,16 +202,34 @@ def create_app(
         except RuntimeConfigError as error:
             return error_response("readiness_failed", str(error), 503)
 
-        if not connection_check(settings):
-            return error_response("readiness_failed", "database is unavailable", 503)
-
-        return data_response(
-            {
-                "service": SERVICE_NAME,
-                "status": "ready",
-                "checks": {"database": "ok"},
-            }
+        database_available = connection_check(settings)
+        report = build_runtime_preflight(
+            settings,
+            service=SERVICE_NAME,
+            database_available=database_available,
+            internal_token_configured=resolved_internal_token is not None,
+            require_internal_token=_is_production(settings.environment),
+            env=os.environ,
         )
+        payload = report.to_dict()
+        if not report.ready:
+            message = (
+                "database is unavailable"
+                if not database_available
+                else "runtime preflight failed"
+            )
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": {
+                        "code": "readiness_failed",
+                        "message": message,
+                    },
+                    "data": payload,
+                },
+            )
+
+        return data_response(payload)
 
     register_evidence_routes(
         app,
@@ -300,6 +319,10 @@ def _resolve_internal_token(internal_token: str | None | object) -> str | None:
             f"{INTERNAL_TOKEN_ENV} is required when AI_INFRA_FUND_ENV=production"
         )
     return token or None
+
+
+def _is_production(environment: str) -> bool:
+    return environment.strip().lower() in {"production", "prod"}
 
 
 app = create_app()

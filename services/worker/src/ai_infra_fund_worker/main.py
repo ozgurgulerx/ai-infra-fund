@@ -8,6 +8,7 @@ from typing import Callable, Mapping
 
 from ai_infra_fund_core.runtime.config import RuntimeConfigError, RuntimeSettings
 from ai_infra_fund_core.runtime.database import check_database_connection
+from ai_infra_fund_core.runtime.ops import build_runtime_preflight
 
 
 LOGGER = logging.getLogger("ai_infra_fund.worker")
@@ -39,10 +40,23 @@ def run_once(
         settings.environment,
         settings.data_dir,
     )
-    if not connection_check(settings):
-        LOGGER.error("worker startup failed: database unavailable")
+    report = build_runtime_preflight(
+        settings,
+        service="worker",
+        database_available=connection_check(settings),
+        require_internal_token=_is_production(settings.environment),
+        require_model_profiles=True,
+        env=os.environ,
+    )
+    if not report.ready:
+        failed = [
+            check["name"]
+            for check in report.to_dict()["runtime_checks"]
+            if check["status"] == "failed"
+        ]
+        LOGGER.error("worker startup failed: runtime checks failed=%s", failed)
         return 2
-    LOGGER.info("worker ready: jobs are stubbed until later phases")
+    LOGGER.info("worker ready: runtime preflight passed")
     return 0
 
 
@@ -130,6 +144,10 @@ def _run_crawl_mode(settings: RuntimeSettings) -> None:
     LOGGER.info("worker entering crawl mode worker_id=%s", config.worker_id)
     succeeded = run_forever(factory, config=config)
     LOGGER.info("worker crawl mode exited succeeded=%d", succeeded)
+
+
+def _is_production(environment: str) -> bool:
+    return environment.strip().lower() in {"production", "prod"}
 
 
 if __name__ == "__main__":

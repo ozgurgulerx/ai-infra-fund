@@ -39,6 +39,25 @@ Deployment validation must run against Azure cloud resources:
 
 Local `docker compose config` and `scripts/compose_smoke.sh` may be used as preflight checks only.
 
+## Runtime Ops Preflight
+
+The API `/ready` endpoint returns a redacted runtime preflight payload in addition to database readiness. The payload must not expose database URLs, passwords, internal tokens, or provider secrets.
+
+The readiness payload reports:
+
+- service name and environment
+- database check status
+- model profile configuration presence
+- data directory configuration/presence
+- production internal-token policy
+- crawl user-agent contact policy when crawl mode requires it
+- advisory/reporting-only boundary
+- configured-public-source-only crawler policy
+
+Readiness may warn on non-blocking local/runtime conditions such as a missing local data directory, but it must fail on blocking production conditions such as unavailable PostgreSQL, missing required model-profile configuration, missing production internal token, or missing crawl user-agent contact when crawl mode is enabled.
+
+The worker uses the same shared runtime preflight before entering its job loop. Crawl mode still requires `SEC_EDGAR_USER_AGENT` with a contact email or URL.
+
 ## Volumes
 
 - `postgres_data` named volume for PostgreSQL.

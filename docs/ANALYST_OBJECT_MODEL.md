@@ -1189,39 +1189,38 @@ Validated file: `docs/mock_data/situational_awareness_brief.example.json`
 
 ### Observed Shape
 
-- `MarketEvents`: 6 records.
-- `SegmentImpacts`: 6 records.
-- `EquityImpactAssessments`: 7 records.
-- `RiskRegimeUpdates`: 4 records.
-- `AnalystBrief`: 1 object.
-- `portfolio_snapshot`: 19 positions.
-- `open_trade_plans`: 19 plans.
-- `price_target_scenarios`: 19 scenarios.
-- `entry_exit_levels`: 19 level sets.
-- `correlation_exposures`: 6 clusters.
-- `llm_analyst_notes`: 5 notes.
+- Canonical-style fixture feeds: `source_signals`: 9 records, `market_events`: 9 records, `segment_impacts`: 8 records, `equity_impact_assessments`: 22 records, `financial_snapshots`: 22 records, `valuation_contexts`: 22 records, `risk_regime_updates`: 5 records.
+- Advisory and audit feeds: `trading_advisories`: 7 records, `advisory_updates`: 4 records, `advisory_readiness_checks`: 8 records, `evidence_items`: 24 records, `model_runs`: 21 records, `signal_bundles`: 22 records, `target_weight_sets`: 1 record.
+- Display-compatibility groups: `MarketEvents`: 5 records, `SegmentImpacts`: 6 records, `EquityImpactAssessments`: 10 records, `RiskRegimeUpdates`: 4 records, `AnalystBrief`: 1 object.
+- Workstation feeds: `portfolio_snapshot`: 22-position summary, `open_trade_plans`: 7 plans, `price_target_scenarios`: 7 scenarios, `entry_exit_levels`: 7 level sets, `correlation_exposures`: 4 clusters, `llm_analyst_notes`: 3 notes.
+- Data-control feeds: `freshness_metadata`: 1 object, `valuation_data_source_plan`: 5 source categories, `llm_analyst_roles`: 8 role definitions, `suppressed_advisory_candidates`: 3 candidates.
 
-The fixture covers these portfolio and plan tickers: `AMD`, `AMZN`, `ANET`, `ASML`, `AVGO`, `CEG`, `DLR`, `EQIX`, `ETN`, `GOOGL`, `META`, `MRVL`, `MSFT`, `MU`, `NVDA`, `ORCL`, `PWR`, `TSM`, `VRT`.
+The fixture covers these portfolio and plan tickers: `AMD`, `AMZN`, `ANET`, `ASML`, `AVGO`, `CEG`, `DLR`, `EQIX`, `ETN`, `GOOGL`, `META`, `MRVL`, `MSFT`, `MU`, `NVDA`, `ORCL`, `PWR`, `TSM`, `VRT`. It also carries semicap evidence for `AMAT`, `LRCX`, and `KLAC`.
 
 ### Manual Validation Results
 
 - JSON parses successfully.
-- Segment, equity, risk, and trade-plan `linked_event_ids` resolve to existing `MarketEvents`.
-- Every portfolio position has an `open_trade_plan_id` that resolves to `open_trade_plans`.
+- Segment, equity, risk, and trade-plan `linked_event_ids` resolve to existing `market_events`.
+- Every top-position `linked_trade_plan_id` resolves to `open_trade_plans`.
 - Every open trade plan ticker has matching `entry_exit_levels` and `price_target_scenarios`.
 - Every `open_trade_plans[].manual_journal_only` value is `true`.
+- Every `trading_advisories[].readiness_check_ids` reference resolves to `advisory_readiness_checks`.
+- `AnalystBrief` now includes `generated_at`, `market_event_ids`, `segment_impact_ids`, `risk_regime_update_ids`, `suggested_action_ids`, `model_run_ids`, `readiness_check_ids`, `freshness_status`, stale-source context, suppressed count, and `last_successful_run_id`.
+- `freshness_metadata` carries `as_of`, `generated_at`, `last_successful_run_id`, object-family freshness, stale-source notes, and suppressed reason counts.
+- `valuation_data_source_plan` defines allowed public/configured source categories for financial snapshots, valuation context, macro context, and segment catalyst evidence.
+- `llm_analyst_roles` defines source classification, catalyst extraction, segment mapping, equity thesis review, valuation narrative review, risk critique, brief synthesis, and outcome review boundaries.
 - Current fixture uses advisory wording and does not contain broker, order-routing, or execution-state objects.
 
 ### Mismatches And Hardening Gaps
 
-- The fixture does not include first-class `EvidenceItem`, `EvidenceClaim`, `ModelRun`, `SignalBundle`, `RecommendationArtifact`, `TargetWeights`, or deterministic check objects. It uses ID strings for several of those references.
-- `SegmentImpact` records lack explicit `first_order_tickers`, `second_order_tickers`, `confidence`, `time_horizon`, `risk_flags`, `invalidation_condition`, and `latest_evidence_at`.
-- `EquityImpactAssessment` records lack `assessment_id`, `as_of`, `confidence`, `risk_flags`, `invalidation_condition`, `segment_ids`, direct `source_evidence_ids`, `model_run_ids`, and signal/recommendation artifact links.
-- `RiskRegimeUpdate` records lack `severity`, `confidence`, `affected_segments`, `affected_tickers`, `relief_condition`, `invalidation_condition`, `as_of`, `available_at`, and direct `source_evidence_ids`.
+- The fixture includes first-class `evidence_items`, `model_runs`, `signal_bundles`, `target_weight_sets`, and `advisory_readiness_checks`, but still lacks first-class `EvidenceChunk`, `EvidenceClaim`, `RecommendationArtifact`, and deterministic check objects. It uses ID strings or summary lists for those references.
+- `source_signals` remain fixture-shaped rather than full `SourceSignal` contract objects. They lack canonical `source_uri`, `publisher`, `captured_at`, `available_at`, `raw_summary`, `data_class`, `content_hash`, and one-to-one `evidence_id` fields.
+- `SegmentImpact` records still lack explicit `first_order_tickers`, `second_order_tickers`, `confidence`, `time_horizon`, `latest_evidence_at`, and `model_run_ids`. The fixture uses `primary_tickers`, `derivative_tickers`, `risk_flags`, and `invalidation_condition` instead.
+- `EquityImpactAssessment` records are closer to the model but still lack `as_of`, `available_at`, direct `source_evidence_ids`, and recommendation artifact links.
+- `RiskRegimeUpdate` records lack `severity`, `confidence`, `affected_segments`, `affected_tickers`, `invalidation_condition`, `as_of`, `available_at`, and direct `source_evidence_ids`.
 - `TradePlan` records are local-journal-safe, but they lack explicit `entry_exit_levels_id`, `price_target_scenario_id`, `target_weights_id`, `deterministic_check_ids`, and `last_reviewed_at`. The current fixture joins levels and scenarios by ticker instead.
-- `portfolio_snapshot` is the fixture name for `PortfolioExposureSnapshot`. It lacks `correlation_exposure_ids`, `pnl_summary_id`, `target_weights_id`, `concentration_flags`, `stale_price_flags`, and per-position `last_price_timestamp`.
-- `AnalystBrief` lacks `generated_at`, `market_event_ids`, `segment_impact_ids`, `risk_regime_update_ids`, `suggested_action_ids`, `model_run_ids`, and `freshness_status`.
-- `OutcomeJournalEntry` is not first-class in the fixture. The closest representation is `trade_journal_summary.latest_entries`, which lacks `local_only`, `recorded_price`, `recorded_quantity`, `recorded_at`, `evidence_available_ids`, `pnl_id`, `plan_adherence_status`, and `llm_review_note_id`.
-- `LLMAnalystNote` records include `model_run_id`, `scope`, `allowed_role`, `note`, and protected deterministic fields, but lack `reviewed_object_ids`, `evidence_ids`, `created_at`, and `review_status`.
+- `portfolio_snapshot` is the fixture name for `PortfolioExposureSnapshot`. It carries aggregate exposure state but lacks per-position `last_price_timestamp`, explicit `correlation_exposure_ids`, `pnl_summary_id`, `target_weights_id`, `concentration_flags`, and `stale_price_flags`.
+- `OutcomeJournalEntry` is not first-class in the fixture. The closest representation is `manual_trade_journal.entries` plus `trade_journal_summary`, which lacks full object-model fields such as `outcome_entry_id`, `recorded_price`, `recorded_quantity`, `recorded_at`, `evidence_available_ids`, `pnl_id`, `plan_adherence_status`, and `llm_review_note_id`.
+- `LLMAnalystNote` records include `model_run_id`, `scope`, `allowed_role`, `evidence_ids`, `note`, and protected deterministic fields, but lack `reviewed_object_ids`, `created_at`, and `review_status`.
 
 These gaps are acceptable for the current mock fixture as a rich UI prototype, but they should be resolved before the fixture is treated as a canonical schema contract or persistence payload.

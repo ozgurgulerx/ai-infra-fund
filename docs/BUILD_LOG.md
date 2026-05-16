@@ -1,5 +1,37 @@
 # Build Log
 
+## 2026-05-16 Phase 7 Cloud Runtime Ops Hardening
+
+Implemented the next phase from the shared planning thread: cloud runtime and ops hardening.
+
+- Added shared runtime preflight reporting in `ai_infra_fund_core.runtime.ops`.
+- Extended API `/ready` to return a redacted runtime preflight payload while preserving `checks.database` for existing frontend consumers.
+- Added advisory/reporting-only and configured-public-source-only boundary status to readiness output.
+- Added model-profile, data-directory, production internal-token, database, and crawl user-agent checks.
+- Wired worker startup through the same preflight so blocking runtime failures stop the worker before it enters a job loop.
+- Updated the containerized deployment spec and active task/plan docs to reflect Phase 7.
+- Preserved hard boundaries: no broker integration, no live order placement, no execution endpoint, no execution UI, no automated trading behavior, no new model calls, and no dependency changes.
+
+Verification:
+
+- `./.venv/bin/python -m unittest tests.test_deployment_readiness` passed, 23 tests.
+- `python3 -m compileall packages/core/src/ai_infra_fund_core/runtime services/api/src/ai_infra_fund_api/main.py services/worker/src/ai_infra_fund_worker/main.py` passed.
+- `./.venv/bin/python -m unittest tests.test_deployment_readiness tests.test_control_room_ui tests.test_architecture_policy` passed, 88 tests.
+- `./.venv/bin/python -m unittest tests.test_crawl_scheduler_config tests.test_crawl_advisory_materialization tests.test_outcome_journal_api` passed, 12 tests.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 655 tests, 3 skipped.
+- `python3 -m compileall packages services tests` passed.
+- `git diff --check` passed.
+
+Cloud deployment validation:
+
+- Built and pushed ACR images with tag `26d9367` for API, worker, and web.
+- Applied AKS manifest with migration job `ai-infra-fund-migrate-26d9367`.
+- Confirmed AKS API and worker deployments are available.
+- Confirmed AKS migration and fixture advisory jobs completed.
+- Confirmed Azure App Service `ai-infra-fund-frontend` is running `DOCKER|aistartuptr.azurecr.io/ai-infra-fund-web:26d9367`.
+- Verified the public frontend renders the API-backed Daily Trading Cockpit and the proxied API returns healthy, ready, NVDA market-event, analyst-brief, and trading-advisory responses.
+- Kept secret values out of command output, docs, and committed files.
+
 ## 2026-05-16 Advisory Product Sessions From Shared Plan
 
 Implemented the next feasible sessions from the shared completion plan after the fixture-backed read model.
@@ -419,3 +451,42 @@ Verification:
 - Development preflight curl against `/internal/market-events/NVDA` returned an available advisory-only ticker event feed.
 - Development preflight curl against `/` returned the API-backed Daily Trading Cockpit HTML.
 - `git diff --check` passed.
+
+Cloud deployment validation:
+
+- Built and pushed ACR images with tag `26d9367`:
+  - `aistartuptr.azurecr.io/ai-infra-fund-api:26d9367`
+  - `aistartuptr.azurecr.io/ai-infra-fund-worker:26d9367`
+  - `aistartuptr.azurecr.io/ai-infra-fund-web:26d9367`
+- Applied AKS release manifest for API, worker, PostgreSQL, and migration job `ai-infra-fund-migrate-26d9367`.
+- Created the required AKS database/internal-token secret from non-printed values; no secret values were written to logs or docs.
+- Confirmed AKS deployments `ai-infra-fund-api` and `ai-infra-fund-worker` are available.
+- Confirmed AKS jobs `ai-infra-fund-migrate-26d9367` and `ai-infra-fund-fixture-advisory` completed.
+- Seeded the cloud fixture advisory run with run `run-fixture-advisory-44923d93e5daa5c6`, writing 9 source signals, 9 market events, and 7 advisory records.
+- Updated Azure App Service `ai-infra-fund-frontend` to `DOCKER|aistartuptr.azurecr.io/ai-infra-fund-web:26d9367`.
+- Verified cloud endpoints through `https://ai-infra-fund-frontend.azurewebsites.net`:
+  - `/api/backend/health` returned `status: ok`.
+  - `/api/backend/ready` returned `database: ok`.
+  - `/api/backend/internal/market-events/NVDA` returned an available advisory-only ticker event feed.
+  - `/api/backend/internal/analyst-brief/latest` returned an available advisory-only brief with 9 market events.
+  - `/api/backend/internal/trading-advisory/latest` returned an available advisory-only feed with 7 advisory records.
+- Verified the public cockpit HTML renders API-backed content and includes `API read model`, `Advisory-only`, and `No transaction surface`.
+
+## 2026-05-16 Shared Thread Data-Layer Enrichment
+
+Enriched the mock advisory data segment from the accessible shared planning thread and documented the remaining object-model gaps.
+
+- Added fixture-level freshness metadata with `as_of`, `generated_at`, `last_successful_run_id`, object-family freshness, stale-source notes, suppressed reason counts, and suppressed candidate examples.
+- Added a valuation data source plan covering company disclosures, market price reference data, public estimate/revision context, macro/rates/liquidity data, and segment catalyst evidence.
+- Added explicit LLM analyst role boundaries for source classification, catalyst extraction, segment mapping, equity thesis review, valuation narrative review, risk critique, brief synthesis, and outcome review.
+- Added first-class advisory readiness check examples and linked every published mock `trading_advisories` record to a readiness check.
+- Enriched `AnalystBrief` with generation timestamp, linked event/segment/risk/action/model-run/readiness IDs, freshness status, stale-source context, suppressed count, and last successful run ID.
+- Added missing MSFT and META price target scenarios and entry/exit level sets so every open mock trade plan has matching deterministic planning levels and scenario context.
+- Updated `docs/ANALYST_OBJECT_MODEL.md` manual validation counts and mismatch notes to match the current enriched fixture.
+- This pass did not modify application code, backend code, frontend code, dependencies, migrations, broker behavior, live order placement, execution endpoints, automated trading behavior, or external transmission behavior.
+
+Verification:
+
+- `jq . docs/mock_data/situational_awareness_brief.example.json` passed.
+- `./.venv/bin/python -m unittest tests.test_situational_awareness_mock_data tests.test_advisory_workstation_contract_docs` passed, 9 tests.
+- Manual reference check confirmed all `trading_advisories[].readiness_check_ids` resolve and all open trade plan tickers have matching `entry_exit_levels` and `price_target_scenarios`.

@@ -2,7 +2,9 @@
 
 ## Current Status
 
-The older five-agent readiness wave has been replaced by the six-agent ai-infra-fund plan. The active goal is to implement advisory object contracts and API-backed Daily Trading Cockpit readiness checks, then continue through public-source ingestion, bounded LLM analyst review, outcome evaluation, and cloud runtime hardening.
+The older five-agent readiness wave has been replaced by the six-agent ai-infra-fund plan. Phases 0 through 6 are represented in the current implementation history: advisory contracts, fixture-backed read models, read-only APIs, API-backed cockpit readiness, configured public-source crawl materialization, governed LLM extraction/review stubs, and outcome-journal foundations.
+
+The current implementation pass covers Phase 7: shared cloud/runtime ops preflight, richer `/ready` checks, redacted runtime status, and worker startup hardening.
 
 Specs remain canonical. This plan is temporary coordination state. If this plan conflicts with a spec, the spec wins.
 

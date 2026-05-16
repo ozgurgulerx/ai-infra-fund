@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import sys
+import tempfile
 import tomllib
 import unittest
 
@@ -192,6 +194,42 @@ class ApiReadinessTests(unittest.TestCase):
 
         self.assertEqual(200, response.status_code)
         self.assertEqual("ready", response.json()["data"]["status"])
+        self.assertEqual("ok", response.json()["data"]["checks"]["database"])
+        self.assertIn("runtime_checks", response.json()["data"])
+
+    def test_ready_endpoint_returns_runtime_ops_without_secret_values(self) -> None:
+        from fastapi.testclient import TestClient
+
+        from ai_infra_fund_api import main
+        from ai_infra_fund_core.runtime.config import RuntimeSettings
+
+        with tempfile.TemporaryDirectory() as tmp:
+            profiles = Path(tmp) / "model_profiles.yaml"
+            profiles.write_text("profiles: []\n", encoding="utf-8")
+            settings = RuntimeSettings(
+                database_url="postgresql://user:super-secret@postgres:5432/fund",
+                data_dir=tmp,
+                model_profiles_path=str(profiles),
+                environment="production",
+            )
+            app = main.create_app(
+                connection_check=lambda _settings: True,
+                settings_provider=lambda: settings,
+                internal_token="internal-secret-token",
+            )
+
+            response = TestClient(app).get("/ready")
+
+        self.assertEqual(200, response.status_code)
+        payload = response.json()["data"]
+        self.assertEqual("ready", payload["status"])
+        self.assertTrue(payload["advisory_boundary"]["advisory_only"])
+        self.assertTrue(payload["advisory_boundary"]["manual_journal_only"])
+        self.assertEqual("forbidden", payload["advisory_boundary"]["broker_integration"])
+        self.assertEqual("ok", payload["checks"]["production_internal_token"])
+        serialized = json.dumps(payload)
+        self.assertNotIn("super-secret", serialized)
+        self.assertNotIn("internal-secret-token", serialized)
 
     def test_local_web_origin_can_read_health_endpoint(self) -> None:
         from fastapi.testclient import TestClient
@@ -286,6 +324,64 @@ class WorkerReadinessTests(unittest.TestCase):
         self.assertEqual(
             2, main.run_once(settings, connection_check=lambda _settings: False)
         )
+
+
+class RuntimeOpsPreflightTests(unittest.TestCase):
+    def test_runtime_preflight_blocks_missing_crawl_user_agent_when_required(self) -> None:
+        from ai_infra_fund_core.runtime.config import RuntimeSettings
+        from ai_infra_fund_core.runtime.ops import build_runtime_preflight
+
+        with tempfile.TemporaryDirectory() as tmp:
+            profiles = Path(tmp) / "model_profiles.yaml"
+            profiles.write_text("profiles: []\n", encoding="utf-8")
+            settings = RuntimeSettings(
+                database_url="postgresql://user:pass@postgres:5432/fund",
+                data_dir=tmp,
+                model_profiles_path=str(profiles),
+                environment="production",
+            )
+            report = build_runtime_preflight(
+                settings,
+                service="worker",
+                database_available=True,
+                internal_token_configured=True,
+                require_internal_token=True,
+                require_crawl_user_agent=True,
+                env={},
+            )
+
+        payload = report.to_dict()
+        self.assertEqual("not_ready", payload["status"])
+        self.assertEqual("failed", payload["checks"]["crawl_user_agent"])
+        self.assertIn("SEC_EDGAR_USER_AGENT", json.dumps(payload))
+
+    def test_runtime_preflight_accepts_contactable_crawl_user_agent(self) -> None:
+        from ai_infra_fund_core.runtime.config import RuntimeSettings
+        from ai_infra_fund_core.runtime.ops import build_runtime_preflight
+
+        with tempfile.TemporaryDirectory() as tmp:
+            profiles = Path(tmp) / "model_profiles.yaml"
+            profiles.write_text("profiles: []\n", encoding="utf-8")
+            settings = RuntimeSettings(
+                database_url="postgresql://user:pass@postgres:5432/fund",
+                data_dir=tmp,
+                model_profiles_path=str(profiles),
+                environment="production",
+            )
+            report = build_runtime_preflight(
+                settings,
+                service="worker",
+                database_available=True,
+                internal_token_configured=True,
+                require_internal_token=True,
+                require_crawl_user_agent=True,
+                env={"SEC_EDGAR_USER_AGENT": "AI Infra Fund Research <ops@example.com>"},
+            )
+
+        payload = report.to_dict()
+        self.assertEqual("ready", payload["status"])
+        self.assertEqual("ok", payload["checks"]["crawl_user_agent"])
+        self.assertNotIn("postgresql://user:pass", json.dumps(payload))
 
 
 class ComposeSmokeScriptTests(unittest.TestCase):
