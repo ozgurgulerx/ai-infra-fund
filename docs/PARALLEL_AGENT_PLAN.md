@@ -19,7 +19,17 @@ Specs are canonical. Plans are coordination state. If this file conflicts with a
 
 ## Current Wave
 
-Wave 1 aligns the workstation object model, contract tests, LLM analyst prompt pack, architecture policies, and mock-data assumptions before deeper UI/API/runtime work continues.
+The latest visible shared-thread plan recommends a six-agent sequence that starts with contracts, fixture-backed persistence, read-only APIs, and API-backed cockpit UI before real public crawling and LLM analyst extraction expand.
+
+The repository is already implemented and verified through the API-backed cockpit foundation:
+
+| Wave | Status | Evidence |
+|---|---|---|
+| Wave 1 | Complete | Workstation contracts, prompt pack, mock data, and architecture policies are implemented and tested. |
+| Wave 2 | Complete | Fixture-backed PostgreSQL analyst loop persists SourceSignal, EvidenceItem, MarketEvent, SegmentImpact, EquityImpactAssessment, ValuationContext, risk regime, TradingAdvisory, AnalystBrief, ModelRun, and RunArtifact read models. |
+| Wave 3 | Complete | Read-only advisory workstation APIs exist for latest source signals, market events, analyst brief, trading advisory, and ticker analyst summaries. |
+| Wave 4 | Complete | Daily cockpit uses API-backed read models with degraded-state handling. |
+| Wave 5 | Next bounded gate | Expand governed public-source and LLM analyst extraction/review only after a dedicated current task defines ownership and tests. |
 
 ## Agent Ownership
 
@@ -31,7 +41,15 @@ Wave 1 aligns the workstation object model, contract tests, LLM analyst prompt p
 | Agent 4 | Architecture policy coverage | `tests/test_architecture_policy.py` | Guardrails for advisory-only, no execution, deterministic/LLM boundary, storage, crawler boundaries, and secrets. |
 | Agent 5 | Mock data normalization | `docs/mock_data/**`, `tests/test_situational_awareness_mock_data.py` | Static fixture remains consistent with the shared object model and evidence lineage. |
 
-Wave 2 UI agents should not start until Wave 1 tests are green.
+These Wave 1 ownership rows are historical and should not be relaunched unless a future task explicitly reopens Wave 1. New work must create a new current task with disjoint ownership.
+
+## Next Candidate Wave
+
+Wave 5 should be split into smaller tasks before implementation:
+
+1. Real configured public-source coverage: expand source coverage only inside the watchlist/source-registry boundary.
+2. Governed LLM analyst extraction/review: use `config/model_profiles.yaml`, create `ModelRun` records, and emit only draft evidence claims, source signals, market events, segment-impact narratives, equity thesis notes, risk critiques, and advisory explanations.
+3. Deterministic publication gates: keep scores, risk math, constraints, target weights, entry/exit levels, scenario math, PnL, readiness checks, and publication/suppression decisions deterministic.
 
 ## Merge Order
 

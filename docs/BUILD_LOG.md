@@ -1,5 +1,22 @@
 # Build Log
 
+## 2026-05-16 Six-Agent Plan Reconciliation
+
+Reconciled the latest visible shared-thread six-agent guidance against the current repository state.
+
+- Confirmed the fixture-backed PostgreSQL analyst loop already exists through `services/worker/src/ai_infra_fund_worker/fixture_advisory_run.py`, `services/api/migrations/0010_advisory_workstation_read_models.sql`, and `services/api/src/ai_infra_fund_api/repositories/advisory_workstation.py`.
+- Confirmed read-only APIs already expose source signals, market events, latest analyst brief, latest trading advisory, and ticker analyst summaries.
+- Confirmed the deterministic configured-public-source crawler runtime and guarded LLM extraction/review stub boundary exist.
+- Updated `docs/CURRENT_TASK.md`, `docs/PARALLEL_AGENT_PLAN.md`, and `docs/plans/active/current-plan.md` so future agents do not repeat completed Wave 1 work.
+- Identified the next bounded implementation gate as governed public-source and LLM analyst extraction/review expansion, not another fixture/API/cockpit rebuild.
+- No product code, dependencies, migrations, frontend code, backend runtime behavior, broker paths, execution paths, or deployment files were changed.
+
+Verification:
+
+- `./.venv/bin/python -m unittest tests.test_advisory_workstation_read_model_migration tests.test_advisory_workstation_fixture_seed tests.test_advisory_workstation_read_model_repository tests.test_advisory_workstation_read_model_api` passed, 12 tests.
+- `./.venv/bin/python -m unittest tests.test_research_extractor_stub tests.test_crawl_worker_loop` passed, 9 tests, 2 skipped.
+- `./.venv/bin/python -m unittest tests.test_architecture_policy` passed, 41 tests.
+
 ## 2026-05-16 Wave 1 Parallel-Agent Workstation Alignment
 
 Implemented the latest visible parallel-agent Wave 1 plan from the shared planning thread.

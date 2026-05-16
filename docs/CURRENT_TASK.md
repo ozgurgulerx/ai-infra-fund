@@ -2,43 +2,38 @@
 
 ## Task
 
-Complete Wave 1 parallel-agent alignment for the AI Infrastructure Trading Advisory Workstation.
+Reconcile the latest visible six-agent shared-thread guidance with the current codebase and prepare the next bounded wave.
 
-This task formalizes the latest shared planning-thread guidance, fills missing first-class workstation contracts, tightens LLM analyst prompt coverage, and updates architecture policy coverage before Wave 2 UI/API expansion continues.
+The latest guidance says to build the product spine in this order:
+
+1. Contract and read-model freeze.
+2. Fixture-backed PostgreSQL analyst loop.
+3. Read-only APIs.
+4. API-backed cockpit UI.
+5. Real configured public-source coverage.
+6. Governed LLM analyst extraction/review.
+7. Outcome journal/evaluation.
+8. Cloud runtime and ops hardening.
+
+The repository already contains implemented and tested support for waves 0-4 plus outcome-journal and cloud hardening foundations. This task prevents future agents from repeating completed Wave 1 work and makes the next implementation gate explicit.
 
 ## Product Objective
 
-Improve analyst brief usefulness, catalyst interpretation, segment impact mapping, equity thesis quality, risk-regime awareness, and outcome review quality while preserving advisory-only boundaries.
+Improve analyst brief usefulness, evidence quality, catalyst detection, and advisory implementation discipline by keeping the active harness aligned with the actual repository state.
 
 ## Governing Docs And Specs
 
 - `AGENTS.md`
 - `docs/PRODUCT.md`
 - `docs/ARCHITECTURE.md`
-- `docs/ALPHA_ANALYST_PRINCIPLES.md`
-- `docs/ANALYST_OBJECT_MODEL.md`
-- `docs/LLM_ANALYST_PROMPT_PACK.md`
-- `docs/UI_SCREEN_SPECS.md`
 - `docs/PARALLEL_AGENT_PLAN.md`
-- `docs/specs/0002-trading-policy.md`
+- `docs/plans/active/current-plan.md`
 - `docs/specs/0003-data-contracts.md`
-- `docs/specs/0004-agent-contracts.md`
-- `docs/specs/0008-model-routing-and-audit.md`
+- `docs/specs/0012-data-architecture.md`
 - `docs/specs/0016-equity-intelligence-crawler.md`
 - `docs/specs/0017-crawl-pipeline-runtime.md`
-- `config/model_profiles.yaml`
 
 Specs are canonical. If this task conflicts with a spec, the spec wins.
-
-## Wave 1 Ownership
-
-| Agent | Stream | Owned Scope |
-|---|---|---|
-| Agent 1 | Coordination / CURRENT_TASK | `docs/CURRENT_TASK.md`, `docs/PARALLEL_AGENT_PLAN.md`, `docs/plans/active/current-plan.md`, `docs/BUILD_LOG.md` |
-| Agent 2 | Analyst object model + contracts | `docs/ANALYST_OBJECT_MODEL.md`, `docs/specs/0003-data-contracts.md`, `packages/core/src/ai_infra_fund_core/contracts/**`, contract tests |
-| Agent 3 | LLM analyst prompt pack | `docs/LLM_ANALYST_PROMPT_PACK.md`, prompt-pack tests |
-| Agent 4 | Architecture policy tests | `tests/test_architecture_policy.py` |
-| Agent 5 | Mock data normalization | `docs/mock_data/**`, mock-data tests |
 
 ## Allowed Files
 
@@ -46,29 +41,19 @@ Specs are canonical. If this task conflicts with a spec, the spec wins.
 - `docs/PARALLEL_AGENT_PLAN.md`
 - `docs/plans/active/current-plan.md`
 - `docs/BUILD_LOG.md`
-- `docs/LLM_ANALYST_PROMPT_PACK.md`
-- `docs/specs/0003-data-contracts.md`
-- `docs/specs/0016-equity-intelligence-crawler.md`
-- `docs/specs/0017-crawl-pipeline-runtime.md`
-- `packages/core/src/ai_infra_fund_core/contracts/**`
-- `tests/contracts/**`
-- `tests/test_advisory_workstation_contract_docs.py`
-- `tests/test_llm_analyst_prompt_pack.py`
-- `tests/test_situational_awareness_mock_data.py`
-- `tests/test_architecture_policy.py`
 
 ## Forbidden Changes
 
+- no product code
 - no dependency changes
-- no backend runtime changes
 - no database migrations
 - no frontend changes
-- no deployment rollout unless runtime/deploy/frontend behavior changes
+- no backend runtime changes
+- no deployment rollout
 - no broker integration
 - no live order placement
 - no execution endpoints
 - no execution-like UI controls
-- no autonomous trading behavior
 - no arbitrary crawling
 - no private-document crawling
 - no paid-report scraping
@@ -79,40 +64,23 @@ Specs are canonical. If this task conflicts with a spec, the spec wins.
 
 ## Acceptance Criteria
 
-- `docs/PARALLEL_AGENT_PLAN.md` exists and records the latest visible agent ownership and merge order.
-- `docs/CURRENT_TASK.md` no longer points at stale Phase 7 cloud runtime work.
-- First-class workstation contracts exist for risk regime updates, trade plans, portfolio exposure snapshots, and LLM analyst notes.
-- Data-contract docs include the first-class workstation objects used by Wave 2 UI and advisory workflows.
-- Prompt pack states that analyst evaluation and decision points are LLM-mediated, evidence-linked, and auditable.
-- Prompt pack covers the analyst roles named in the object model.
-- Architecture policy tests cover the expanded contract set, crawler private/premium-source boundaries, and deterministic/LLM ownership.
-- Advisory-only, no broker/order/execution, deterministic math, model routing, PostgreSQL/pgvector, and private-research guardrails are preserved.
+- Active plan documents state that the fixture-backed DB loop, read-only APIs, API-backed cockpit, deterministic configured crawler runtime, outcome-journal foundation, and cloud runtime hardening already exist.
+- Active plan documents identify remaining gaps without starting them implicitly.
+- Next recommended implementation gate is bounded to governed public-source and LLM analyst extraction/review work.
+- Advisory-only, no broker/order/execution, deterministic math, model routing, PostgreSQL/pgvector, and private-research guardrails remain preserved.
 
-## Tests To Add Or Run
+## Tests To Run
 
 ```bash
-./.venv/bin/python -m unittest tests.contracts.test_advisory_workstation_contracts
-./.venv/bin/python -m unittest tests.test_advisory_workstation_contract_docs
-./.venv/bin/python -m unittest tests.test_llm_analyst_prompt_pack
-./.venv/bin/python -m unittest tests.test_situational_awareness_mock_data
+./.venv/bin/python -m unittest tests.test_advisory_workstation_read_model_migration tests.test_advisory_workstation_fixture_seed tests.test_advisory_workstation_read_model_repository tests.test_advisory_workstation_read_model_api
+./.venv/bin/python -m unittest tests.test_research_extractor_stub tests.test_crawl_worker_loop
 ./.venv/bin/python -m unittest tests.test_architecture_policy
-python3 -m compileall packages services tests
 git diff --check
-```
-
-Final integration may additionally run:
-
-```bash
-./.venv/bin/python -m unittest discover -s tests
-npm run build --prefix apps/web
-npm audit --omit=dev --prefix apps/web
-git status --short
 ```
 
 ## Definition Of Done
 
-- Wave 1 alignment artifacts are complete.
-- Relevant contract, prompt-pack, mock-data, and architecture policy tests pass.
-- Compile check passes.
-- `docs/BUILD_LOG.md` records the pass.
-- Remaining gaps are documented.
+- Current task and active plan no longer point future agents at completed Wave 1 work.
+- Verification commands pass.
+- `docs/BUILD_LOG.md` records the reconciliation.
+- Remaining implementation gaps are documented.

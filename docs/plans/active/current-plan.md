@@ -2,24 +2,24 @@
 
 ## Current Status
 
-The older five-agent readiness wave and the later six-agent runtime wave have been superseded by the current parallel-agent workstation alignment plan in `docs/PARALLEL_AGENT_PLAN.md`. Phases 0 through 7 are represented in the current implementation history: advisory contracts, fixture-backed read models, read-only APIs, API-backed cockpit readiness, configured public-source crawl materialization, governed LLM extraction/review stubs, outcome-journal foundations, and cloud runtime hardening.
+The latest visible shared-thread plan has been reconciled against the repository. The codebase already contains the first product spine the plan requested: contracts, fixture-backed PostgreSQL read models, read-only APIs, API-backed cockpit UI, deterministic configured crawler runtime, LLM extraction/review stubs, outcome-journal foundations, and cloud runtime hardening.
 
-The current coordination pass covers Wave 1 post-Phase 7 harness and parallel-agent alignment: current task state, first-class workstation contracts, prompt-pack role coverage, architecture policy tests, and mock-data normalization.
+The current coordination pass is harness-only. It updates `docs/CURRENT_TASK.md` and this active plan so future agents do not repeat completed Wave 1 work. The next implementation gate should be scoped separately around governed public-source and LLM analyst extraction/review work.
 
 Specs remain canonical. This plan is temporary coordination state. If this plan conflicts with a spec, the spec wins.
 
 ## Phase Sequence
 
-| Phase | Name | Outcome |
-|---|---|---|
-| Phase 0 | Contract/read-model freeze | Advisory objects, read models, evidence IDs, model-run IDs, signal-bundle links, deterministic check refs, and readiness semantics are frozen before implementation expands. |
-| Phase 1 | Fixture-backed DB analyst loop | PostgreSQL/pgvector-backed fixtures exercise advisory objects, evidence, model runs, and deterministic readiness checks. |
-| Phase 2 | Read-only APIs | Advisory read models are exposed through read-only API surfaces with no broker/order/execution capabilities. |
-| Phase 3 | API-backed cockpit UI | Daily Trading Cockpit renders API-backed readiness checks with advisory labels, evidence, model-run refs, and deterministic status. |
-| Phase 4 | Real public source crawler | Allowed public sources are crawled with provenance, source-policy controls, and no private or paid-report crawling. |
-| Phase 5 | LLM analyst extraction/review | LLMs perform bounded extraction, classification, summarization, review, critique, and explanation with profile-based routing and `ModelRun` audit. |
-| Phase 6 | Outcome journal/evaluation | Advisory outputs are evaluated against later outcomes without becoming broker, order, execution, or autonomous trading systems. |
-| Phase 7 | Cloud runtime hardening | Runtime configuration, secrets, observability, deployment checks, and operational readiness are hardened. |
+| Phase | Name | Status | Outcome |
+|---|---|---|---|
+| Phase 0 | Contract/read-model freeze | Complete | Advisory objects, read models, evidence IDs, model-run IDs, signal-bundle links, deterministic check refs, and readiness semantics are represented in docs, contracts, tests, and fixtures. |
+| Phase 1 | Fixture-backed DB analyst loop | Complete | PostgreSQL/pgvector-backed fixtures exercise advisory objects, evidence, model runs, run artifacts, and deterministic readiness references. |
+| Phase 2 | Read-only APIs | Complete | Advisory read models are exposed through read-only API surfaces with no broker/order/execution capabilities. |
+| Phase 3 | API-backed cockpit UI | Complete | Daily Trading Cockpit renders API-backed readiness checks with advisory labels, evidence, model-run refs, and deterministic status. |
+| Phase 4 | Real public source crawler | Partial | Deterministic configured-public-source crawler runtime exists; broader source coverage remains a future bounded task. |
+| Phase 5 | LLM analyst extraction/review | Partial | Protocol, payload guards, data-class policy, and stubs exist; real model-routed extraction/review remains a future bounded task. |
+| Phase 6 | Outcome journal/evaluation | Partial | Outcome journal foundation exists; richer analyst-quality evaluation can expand later. |
+| Phase 7 | Cloud runtime hardening | Complete | Runtime configuration, secrets, deployment checks, and cloud readiness validation are hardened. |
 
 ## Streams
 
@@ -100,14 +100,11 @@ Frontend checks are required when frontend files change. Cloud deployment valida
 
 ## Definition Of Done
 
-- `docs/CURRENT_TASK.md` and `docs/PARALLEL_AGENT_PLAN.md` point to the current post-Phase 7 harness/agent-plan alignment phase, with `docs/plans/active/current-plan.md` as the active implementation-plan pointer.
-- Wave 1 agent streams are complete or concrete blockers are documented.
-- Phases 0 through 7 are complete in order or explicitly deferred with rationale.
+- `docs/CURRENT_TASK.md` names one bounded task and does not reopen completed Wave 1 work.
+- `docs/PARALLEL_AGENT_PLAN.md` records completed waves and the next candidate gate.
 - File ownership conflicts are resolved without reverting unrelated work.
 - Object model, contract docs, read-only APIs, cockpit UI, crawler, prompt pack, model-routing audit, outcome evaluation, and cloud runtime agree on the same advisory vocabulary.
 - Architecture policy tests pass.
-- Full Python suite passes.
-- Compile check passes.
-- Frontend checks pass if frontend files changed.
-- `docs/BUILD_LOG.md` is updated during final integration by Agent 6.
-- Changes are committed and pushed by the final integration owner.
+- Targeted verification for the current task passes.
+- `docs/BUILD_LOG.md` is updated during final integration.
+- Changes are committed and pushed by the final integration owner when implementation changes are made.
