@@ -9,6 +9,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_PHASE0_FILES = [
     "AGENTS.md",
+    "docs/PRODUCT.md",
+    "docs/ALPHA_ANALYST_PRINCIPLES.md",
+    "docs/ARCHITECTURE.md",
+    "docs/CURRENT_TASK.md",
+    "docs/HARNESS.md",
+    "docs/SPEC_ROUTER.md",
+    "docs/BUILD_LOG.md",
+    "docs/DECISIONS.md",
+    "docs/plans/active/current-plan.md",
+    "docs/plans/archive/deployment_harness.md",
     "docs/specs/0001-product-vision.md",
     "docs/specs/0002-trading-policy.md",
     "docs/specs/0003-data-contracts.md",
@@ -24,6 +34,8 @@ REQUIRED_PHASE0_FILES = [
     "docs/specs/0013-llm-routing-and-governance.md",
     "docs/specs/0014-risk-monitoring-and-incidents.md",
     "docs/specs/0015-containerized-deployment.md",
+    "docs/specs/0016-equity-intelligence-crawler.md",
+    "docs/specs/0017-crawl-pipeline-runtime.md",
     "config/model_profiles.yaml",
     "docker-compose.yml",
     "docker-compose.prod.example.yml",
@@ -38,14 +50,16 @@ REQUIRED_PHASE0_FILES = [
 ]
 
 NON_NEGOTIABLE_PHRASES = [
-    "advisory-only",
-    "No live order placement",
+    "Advisory-only system",
+    "no live order placement",
     "Deterministic code owns scores",
     "config/model_profiles.yaml",
     "PostgreSQL + pgvector",
-    "Docker Compose",
-    "TargetWeights",
+    "DuckDB/Parquet is future optional only",
+    "target weights",
     "evidence IDs",
+    "ModelRun",
+    ".env.example",
 ]
 
 MODEL_PROFILE_REQUIRED_ROLES = [
@@ -135,9 +149,8 @@ class ArchitecturePolicyTests(unittest.TestCase):
 
     def test_specs_agree_on_postgresql_only_v1_storage(self) -> None:
         required_files = [
-            "docs/plans/data_plan.md",
-            "docs/plans/database_design.md",
-            "docs/plans/deployment_harness.md",
+            "docs/ARCHITECTURE.md",
+            "docs/DECISIONS.md",
             "docs/specs/0012-data-architecture.md",
             "docs/specs/0015-containerized-deployment.md",
             "AGENTS.md",
@@ -145,15 +158,30 @@ class ArchitecturePolicyTests(unittest.TestCase):
         for relative_path in required_files:
             text = read_text(relative_path)
             self.assertIn("PostgreSQL + pgvector", text, relative_path)
-            self.assertIn("not a v1 dependency", text, relative_path)
+            self.assertRegex(
+                text,
+                r"DuckDB(/|\s*\+\s*)Parquet.*future optional",
+                relative_path,
+            )
 
     def test_deprecated_v1_storage_references_are_absent(self) -> None:
         offenders: list[str] = []
-        for path in existing_text_files("docs/plans", "docs/specs", "AGENTS.md"):
+        for path in existing_text_files("docs/specs", "AGENTS.md"):
             text = path.read_text(encoding="utf-8")
             for pattern in DEPRECATED_STORAGE_PATTERNS:
                 if pattern in text:
                     offenders.append(f"{path.relative_to(ROOT)} contains {pattern}")
+        for relative_path in (
+            "docs/PRODUCT.md",
+            "docs/ARCHITECTURE.md",
+            "docs/HARNESS.md",
+            "docs/DECISIONS.md",
+            "docs/SPEC_ROUTER.md",
+        ):
+            text = read_text(relative_path)
+            for pattern in DEPRECATED_STORAGE_PATTERNS:
+                if pattern in text:
+                    offenders.append(f"{relative_path} contains {pattern}")
         self.assertEqual([], offenders)
 
     def test_model_profiles_define_required_roles(self) -> None:
@@ -260,8 +288,8 @@ class ArchitecturePolicyTests(unittest.TestCase):
         self.assertIn("secretKeyRef:", text)
 
     def test_docs_distinguish_local_and_production_readiness(self) -> None:
-        deployment_plan = read_text("docs/plans/deployment_readiness_plan.md")
-        container_plan = read_text("docs/plans/containerization_plan.md")
+        deployment_plan = read_text("docs/plans/archive/deployment_readiness_plan.md")
+        container_plan = read_text("docs/plans/archive/containerization_plan.md")
         combined = f"{deployment_plan}\n{container_plan}"
         required = [
             "local/dev",
@@ -276,6 +304,63 @@ class ArchitecturePolicyTests(unittest.TestCase):
         ]
         missing = [phrase for phrase in required if phrase not in combined]
         self.assertEqual([], missing)
+
+    def test_harness_consolidation_routes_specs_and_archives_old_plans(self) -> None:
+        agents = read_text("AGENTS.md")
+        current_task = read_text("docs/CURRENT_TASK.md")
+        router = read_text("docs/SPEC_ROUTER.md")
+        build_log = read_text("docs/BUILD_LOG.md")
+
+        for required in (
+            "docs/PRODUCT.md",
+            "docs/ARCHITECTURE.md",
+            "docs/CURRENT_TASK.md",
+            "docs/SPEC_ROUTER.md",
+        ):
+            self.assertIn(required, agents)
+        self.assertIn("## Governing Specs", current_task)
+        self.assertIn("## Product Objective", current_task)
+        self.assertIn("## Definition Of Done", current_task)
+        self.assertIn("specs/0016-equity-intelligence-crawler.md", router)
+        self.assertIn("Duplicate content found", build_log)
+
+        self.assertFalse((ROOT / "docs" / "plans" / "deployment_harness.md").exists())
+        self.assertTrue(
+            (ROOT / "docs" / "plans" / "archive" / "deployment_harness.md").is_file()
+        )
+
+    def test_alpha_analyst_principles_keep_product_catalyst_driven(self) -> None:
+        principles = read_text("docs/ALPHA_ANALYST_PRINCIPLES.md")
+        product = read_text("docs/PRODUCT.md")
+
+        required = [
+            "Detect catalyst",
+            "second-order beneficiaries",
+            "typed `MarketEvent`",
+            "deterministic signals",
+            "advisory-only recommendation artifact",
+            "daily high-alpha AI infrastructure brief",
+            "catalyst detection",
+            "analyst brief usefulness",
+        ]
+        missing = [phrase for phrase in required if phrase not in principles]
+        self.assertEqual([], missing)
+        self.assertIn("docs/ALPHA_ANALYST_PRINCIPLES.md", product)
+
+    def test_market_events_require_provenance_before_signal_use(self) -> None:
+        contract = read_text("packages/core/src/ai_infra_fund_core/contracts/events.py")
+        data_contract = read_text("docs/specs/0003-data-contracts.md")
+
+        self.assertIn("source_evidence_ids", contract)
+        self.assertIn("require_non_empty_tuple", contract)
+        self.assertIn("Events without provenance cannot influence `SignalBundle`", data_contract)
+
+        offenders: list[str] = []
+        for path in existing_text_files("packages/core/src/ai_infra_fund_core/signals"):
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            if "MarketEvent" in text and "source_evidence_ids" not in text:
+                offenders.append(str(path.relative_to(ROOT)))
+        self.assertEqual([], offenders)
 
     def test_env_example_contains_no_real_secret_values(self) -> None:
         text = read_text(".env.example")

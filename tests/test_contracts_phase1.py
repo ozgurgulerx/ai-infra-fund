@@ -31,6 +31,12 @@ from ai_infra_fund_core.contracts.evidence import (  # noqa: E402
     EvidenceItem,
     FeatureSet,
 )
+from ai_infra_fund_core.contracts.events import (  # noqa: E402
+    MarketEvent,
+    MarketEventDirection,
+    MarketEventReviewStatus,
+    MarketEventType,
+)
 from ai_infra_fund_core.contracts.governance import (  # noqa: E402
     DataQualityCheck,
     IncidentRecord,
@@ -68,6 +74,7 @@ class Phase1ContractTests(unittest.TestCase):
             self.dataset_snapshot(),
             self.evidence_item(),
             self.evidence_claim(),
+            self.market_event(),
             self.feature_set(),
             self.model_run(),
             self.signal_bundle(),
@@ -97,11 +104,14 @@ class Phase1ContractTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.evidence_item(content_hash="")
         with self.assertRaises(ValueError):
+            self.market_event(content_hash="")
+        with self.assertRaises(ValueError):
             self.feature_set(input_snapshot_hash="")
 
     def test_point_in_time_records_include_audit_timestamps(self) -> None:
         records = [
             self.dataset_snapshot(),
+            self.market_event(),
             self.feature_set(),
             self.signal_bundle(),
             self.target_weights(),
@@ -176,6 +186,24 @@ class Phase1ContractTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.evidence_claim(quote_or_span_ref="")
 
+    def test_market_event_requires_evidence_and_valid_event_type(self) -> None:
+        event = self.market_event()
+
+        self.assertEqual(MarketEventType.CAPEX_SIGNAL, event.event_type)
+        self.assertEqual(("evidence-1",), event.source_evidence_ids)
+        self.assertEqual(("NVDA",), event.tickers)
+        self.assertEqual(MarketEventDirection.POSITIVE, event.direction)
+        self.assertEqual(MarketEventReviewStatus.USABLE, event.review_status)
+
+        with self.assertRaises(ValueError):
+            self.market_event(source_evidence_ids=())
+        with self.assertRaises(ValueError):
+            self.market_event(event_type="generic_web_mention")
+        with self.assertRaises(ValueError):
+            self.market_event(confidence=Decimal("1.1"))
+        with self.assertRaises(ValueError):
+            self.market_event(available_at=NOW, occurred_at=LATER)
+
     def test_enums_cover_phase1_contract_values(self) -> None:
         self.assertEqual("public_evidence", DataClass.PUBLIC_EVIDENCE.value)
         self.assertEqual("equity", AssetType.EQUITY.value)
@@ -186,6 +214,9 @@ class Phase1ContractTests(unittest.TestCase):
         self.assertEqual("success", ModelRunStatus.SUCCESS.value)
         self.assertEqual("high", IncidentSeverity.HIGH.value)
         self.assertEqual("pass", DataQualityStatus.PASS.value)
+        self.assertEqual("capex_signal", MarketEventType.CAPEX_SIGNAL.value)
+        self.assertEqual("positive", MarketEventDirection.POSITIVE.value)
+        self.assertEqual("usable", MarketEventReviewStatus.USABLE.value)
 
     def test_stable_hash_payload_is_order_independent(self) -> None:
         left = stable_hash_payload({"ticker": "NVDA", "weights": {"MSFT": 0.2, "NVDA": 0.3}})
@@ -342,6 +373,28 @@ class Phase1ContractTests(unittest.TestCase):
         }
         data.update(overrides)
         return EvidenceClaim(**data)
+
+    def market_event(self, **overrides: object) -> MarketEvent:
+        data = {
+            "event_id": "market-event-1",
+            "event_type": MarketEventType.CAPEX_SIGNAL,
+            "source_evidence_ids": ("evidence-1",),
+            "tickers": ("NVDA",),
+            "companies": ("NVIDIA",),
+            "themes": ("ai_infrastructure", "data_centers"),
+            "catalyst": "Hyperscaler capex guidance increased for AI data centers.",
+            "ai_relevance": "Higher AI capex can pull accelerator demand forward.",
+            "direction": MarketEventDirection.POSITIVE,
+            "time_horizon": "short_to_medium",
+            "confidence": Decimal("0.8"),
+            "occurred_at": NOW,
+            "available_at": LATER,
+            "content_hash": "hash-market-event",
+            "extracted_by_model_run_id": "model-run-1",
+            "review_status": MarketEventReviewStatus.USABLE,
+        }
+        data.update(overrides)
+        return MarketEvent(**data)
 
     def feature_set(self, **overrides: object) -> FeatureSet:
         data = {
