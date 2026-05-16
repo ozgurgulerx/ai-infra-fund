@@ -2,95 +2,93 @@
 
 ## Task
 
-Build the Daily Situational Awareness Brief screen from static mock data.
+Build the fixture-backed advisory workstation read model and API-backed Daily Brief path.
 
 ## Product Objective
 
-Make the AI Infrastructure Situational Awareness Analyst visible as a coherent product.
+Make the AI Infrastructure Trading Analyst Workstation visible as a real product loop instead of a static mock.
 
 This improves:
 
-- daily analyst brief usefulness
-- catalyst visibility
+- source monitoring
+- catalyst detection
 - segment impact mapping
-- equity thesis clarity
-- systemic risk awareness
+- equity thesis quality
+- risk regime awareness
+- advisory brief usefulness
 
 ## Governing Specs
 
-- `docs/UI_SCREEN_SPECS.md`
-- `docs/mock_data/situational_awareness_brief.example.json`
 - `docs/PRODUCT.md`
 - `docs/ARCHITECTURE.md`
 - `docs/ALPHA_ANALYST_PRINCIPLES.md`
+- `docs/UI_SCREEN_SPECS.md`
+- `docs/specs/0003-data-contracts.md`
+- `docs/specs/0016-equity-intelligence-crawler.md`
+- `docs/specs/0017-crawl-pipeline-runtime.md`
 
 ## Allowed Files
 
 - `apps/web/**`
+- `services/api/**`
+- `services/worker/**`
+- `scripts/**`
+- `tests/**`
+- `docs/CURRENT_TASK.md`
 - `docs/BUILD_LOG.md`
+- `docs/api/openapi.yaml`
 
 ## Forbidden Changes
 
-- no backend changes
-- no database changes
-- no crawler changes
-- no model-router changes
-- no scoring implementation
 - no broker integration
-- no order placement UI
-- no backtesting UI
-- no generic stock dashboard widgets
+- no live order placement
+- no execution endpoints
+- no execution UI
+- no arbitrary crawling
+- no private-document crawling
+- no paid-report scraping
+- no real model calls
+- no scoring ownership transfer to LLMs
 
 ## Input Contract
 
-Read static mock data from:
-
-- `docs/mock_data/situational_awareness_brief.example.json`
-
-The UI must treat the mock data as read-only. Do not create API calls or backend endpoints for this task.
+Use `docs/mock_data/situational_awareness_brief.example.json` as a deterministic fixture for the first API-backed product loop.
 
 ## Output Contract
 
-Render a Daily Situational Awareness Brief screen that follows `docs/UI_SCREEN_SPECS.md` section `1. Daily Situational Awareness Brief`.
+Persist and expose this read model:
 
-The screen must show:
-
-- executive summary
-- top `MarketEvent`s
-- segment impacts
-- equity impact assessments
-- risk regime updates
-- evidence references
-- risk flags
-- invalidation conditions
-- analyst actions: watch, accumulate, hold, trim, avoid
+- `SourceSignal`
+- `EvidenceItem`
+- `MarketEvent`
+- `SegmentImpact`
+- `EquityImpactAssessment`
+- `ValuationContext`
+- `MacroRegimeSnapshot`
+- `TradingAdvisory`
+- `AnalystBrief`
 
 ## Acceptance Criteria
 
-- Daily Brief screen renders from static mock JSON.
-- Shows executive summary.
-- Shows top `MarketEvent`s.
-- Shows segment impacts.
-- Shows equity impact assessments.
-- Shows risk regime updates.
-- Shows evidence references.
-- Shows risk flags and invalidation conditions.
-- Uses analyst actions: watch, accumulate, hold, trim, avoid.
-- No buy/sell execution controls.
-- No broker controls or broker integration.
-- No order placement UI.
-- No backtesting UI.
-- No generic stock dashboard widgets.
-- No marketing-page style; the screen must feel like an analyst control room.
+- fixture seed writes PostgreSQL read-model rows idempotently
+- read-only APIs expose source signals, market events, latest analyst brief, latest trading advisory, and per-ticker analyst summary
+- Daily Brief screen reads API-backed analyst brief data, not local JSON
+- every persisted advisory object carries evidence/provenance links where applicable
+- no mutation API, broker/order/execution surface, or arbitrary crawler behavior is added
+- architecture policy tests pass
 
 ## Tests To Add Or Run
 
+- `./.venv/bin/python -m unittest tests.test_advisory_workstation_read_model_migration tests.test_advisory_workstation_fixture_seed tests.test_advisory_workstation_read_model_repository tests.test_advisory_workstation_read_model_api tests.test_control_room_ui`
+- `./.venv/bin/python -m unittest tests.test_architecture_policy`
+- `npm run build --prefix apps/web`
 - `git diff --check`
-- frontend build command if configured, expected to be `npm run build --prefix apps/web`
-- existing UI tests if configured
 
 ## Definition Of Done
 
-- screen renders from mock data
-- no unrelated files changed
+- implementation complete
+- relevant unit/API/UI tests pass
+- architecture policy tests pass
+- OpenAPI export is synchronized
 - `docs/BUILD_LOG.md` updated
+- remaining gaps documented

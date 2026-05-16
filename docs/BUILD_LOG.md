@@ -1,5 +1,29 @@
 # Build Log
 
+## 2026-05-16 Fixture-Backed Advisory Workstation Read Model
+
+Implemented the first PostgreSQL-backed product loop for the advisory workstation, using fixture evidence instead of live crawling.
+
+- Added `analyst.*` read-model migration tables for source signals, market events, segment impacts, equity impact assessments, valuation contexts, macro regime snapshots, trading advisories, and analyst briefs.
+- Added read-only API endpoints for latest source signals, market events, analyst brief, trading advisories, and per-ticker analyst summaries.
+- Added a fixture advisory worker command and `scripts/run_fixture_advisory_once.sh` to seed the mocked situational-awareness brief into PostgreSQL with audit/run lineage.
+- Updated the Daily Trading Cockpit to load the brief through the backend proxy instead of reading static JSON directly.
+- Kept the boundary advisory-only: no broker integration, no live order placement, no execution endpoint, no execution UI, no model calls, and no scoring implementation.
+
+Verification:
+
+- `./.venv/bin/python -m unittest tests.test_advisory_workstation_read_model_migration tests.test_advisory_workstation_fixture_seed tests.test_advisory_workstation_read_model_repository tests.test_advisory_workstation_read_model_api tests.test_control_room_ui tests.test_architecture_policy tests.test_openapi_export_sync` passed, 59 tests.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 598 tests, 3 skipped.
+- `python3 -m compileall packages services tests` passed.
+- `npm run build --prefix apps/web` passed.
+- `npm audit --omit=dev --prefix apps/web` passed, 0 vulnerabilities.
+- `docker compose config` passed.
+- `scripts/compose_smoke.sh` passed.
+- `scripts/run_fixture_advisory_once.sh` passed and wrote `run-fixture-advisory-00b5b8e7f548033b`.
+- `GET /internal/analyst-brief/latest` returned `status=available` and `advisory_label=advisory_only`.
+- `GET /internal/trading-advisory/latest` returned advisory-only records with evidence IDs, model run IDs, signal bundle IDs, target weights IDs, and deterministic checks.
+- `git diff --check` passed.
+
 ## 2026-05-16 Advisory Workstation Contract And Policy Alignment
 
 Aligned the advisory workstation contract/spec layer and added regression tests for the reporting-only boundary.

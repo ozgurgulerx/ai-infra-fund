@@ -1,0 +1,45 @@
+from __future__ import annotations
+
+from pathlib import Path
+import unittest
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class AdvisoryWorkstationReadModelMigrationTests(unittest.TestCase):
+    def test_migration_defines_fixture_backed_read_model_tables(self) -> None:
+        migration_path = (
+            ROOT
+            / "services"
+            / "api"
+            / "migrations"
+            / "0010_advisory_workstation_read_models.sql"
+        )
+
+        self.assertTrue(migration_path.is_file())
+        sql = migration_path.read_text(encoding="utf-8")
+
+        required_snippets = [
+            "CREATE SCHEMA IF NOT EXISTS analyst",
+            "CREATE TABLE IF NOT EXISTS analyst.source_signals",
+            "CREATE TABLE IF NOT EXISTS analyst.market_events",
+            "CREATE TABLE IF NOT EXISTS analyst.segment_impacts",
+            "CREATE TABLE IF NOT EXISTS analyst.equity_impact_assessments",
+            "CREATE TABLE IF NOT EXISTS analyst.valuation_contexts",
+            "CREATE TABLE IF NOT EXISTS analyst.macro_regime_snapshots",
+            "CREATE TABLE IF NOT EXISTS analyst.trading_advisories",
+            "CREATE TABLE IF NOT EXISTS analyst.analyst_briefs",
+            "evidence_ids TEXT[] NOT NULL",
+            "model_run_ids TEXT[] NOT NULL DEFAULT '{}'",
+            "advisory_label TEXT NOT NULL DEFAULT 'advisory_only'",
+            "payload_json JSONB NOT NULL DEFAULT '{}'",
+            "CHECK (advisory_label = 'advisory_only')",
+        ]
+        missing = [snippet for snippet in required_snippets if snippet not in sql]
+
+        self.assertEqual([], missing)
+
+
+if __name__ == "__main__":
+    unittest.main()

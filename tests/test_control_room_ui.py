@@ -112,6 +112,11 @@ READ_ONLY_DASHBOARD_ENDPOINTS = [
     "/internal/dashboard/ticker-intelligence/NVDA",
     "/internal/advisory-chain/latest",
     "/internal/advisory-chain/demo",
+    "/internal/source-signals/latest",
+    "/internal/market-events/latest",
+    "/internal/analyst-brief/latest",
+    "/internal/trading-advisory/latest",
+    "/internal/ticker/NVDA/analyst-summary",
 ]
 
 FORBIDDEN_FETCH_METHODS = ["POST", "PUT", "PATCH", "DELETE"]
@@ -275,6 +280,16 @@ class ControlRoomUiTests(unittest.TestCase):
         ]
         self.assertEqual([], forbidden_methods)
 
+    def test_daily_brief_reads_api_backed_analyst_brief_not_static_json(
+        self,
+    ) -> None:
+        page = read_web("app/page.tsx")
+        self.assertIn("/internal/analyst-brief/latest", page)
+        self.assertIn("API-backed analyst brief", page)
+        self.assertNotIn("readFileSync", page)
+        self.assertNotIn("existsSync", page)
+        self.assertNotIn("situational_awareness_brief.example.json", page)
+
     def test_frontend_has_same_origin_read_only_backend_proxy_for_deployment(
         self,
     ) -> None:
@@ -289,6 +304,27 @@ class ControlRoomUiTests(unittest.TestCase):
         self.assertEqual([], [text for text in required if text not in proxy])
         self.assertNotIn("export async function POST", proxy)
         self.assertNotIn('method: "POST"', proxy)
+
+    def test_read_only_backend_proxy_returns_json_degraded_fallback(self) -> None:
+        proxy = read_web("app/api/backend/[...path]/route.ts")
+        required = [
+            "catch",
+            "NextResponse.json",
+            "backend_unavailable",
+            "Backend unavailable",
+            "status: 503",
+        ]
+        self.assertEqual([], [text for text in required if text not in proxy])
+
+    def test_daily_brief_handles_backend_unavailable_without_throwing(self) -> None:
+        page = read_web("app/page.tsx")
+        required = [
+            "readAnalystBriefPayload",
+            "degradedAnalystBrief",
+            "catch",
+            "API-backed analyst brief unavailable",
+        ]
+        self.assertEqual([], [text for text in required if text not in page])
 
     def test_dashboard_summary_fetches_have_degraded_backend_fallbacks(self) -> None:
         api = read_web("lib/api.ts")

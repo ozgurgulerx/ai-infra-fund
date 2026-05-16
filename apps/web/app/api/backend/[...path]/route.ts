@@ -29,11 +29,26 @@ async function forwardReadOnlyBackendRequest(request: Request, context: BackendR
   const backendPath = `/${path.map(encodeURIComponent).join("/")}`;
   const backendUrl = `${internalApiBaseUrl()}${backendPath}${sourceUrl.search}`;
 
-  const response = await fetch(backendUrl, {
-    cache: "no-store",
-    headers: internalHeaders(),
-    method: "GET"
-  });
+  let response: Response;
+  try {
+    response = await fetch(backendUrl, {
+      cache: "no-store",
+      headers: internalHeaders(),
+      method: "GET"
+    });
+  } catch {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "backend_unavailable",
+          message: "Backend unavailable"
+        }
+      },
+      { status: 503 }
+    );
+  }
+
   const body = await response.text();
 
   return new NextResponse(body, {

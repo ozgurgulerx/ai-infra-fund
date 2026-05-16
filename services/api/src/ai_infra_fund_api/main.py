@@ -13,6 +13,10 @@ from ai_infra_fund_api.routes.advisory_chain import (
     AdvisoryChainReadRepository,
     register_advisory_chain_routes,
 )
+from ai_infra_fund_api.routes.advisory_workstation import (
+    AdvisoryWorkstationReadRepository,
+    register_advisory_workstation_routes,
+)
 from ai_infra_fund_api.routes.agent_bootstrap import (
     register_agent_bootstrap_routes,
 )
@@ -147,6 +151,7 @@ def create_app(
     dashboard_repository: DashboardReadRepository | None = None,
     crawl_activity_repository: CrawlActivityRepository | None = None,
     advisory_chain_repository: AdvisoryChainReadRepository | None = None,
+    advisory_workstation_repository: AdvisoryWorkstationReadRepository | None = None,
     run_repository: RunReadRepository | None = None,
     trade_journal_repository: TradeJournalPersistenceRepository | None = None,
     events_repository: ExperimentEventsReadRepository | None = None,
@@ -229,6 +234,11 @@ def create_app(
     register_advisory_chain_routes(
         app,
         advisory_chain_repository=advisory_chain_repository,
+        settings_provider=settings_provider,
+    )
+    register_advisory_workstation_routes(
+        app,
+        advisory_workstation_repository=advisory_workstation_repository,
         settings_provider=settings_provider,
     )
     register_run_routes(

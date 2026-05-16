@@ -146,6 +146,16 @@ paths:
               schema: {}
           description: Successful Response
       summary: Agent Skill
+  /internal/analyst-brief/latest:
+    get:
+      operationId: latest_analyst_brief_internal_analyst_brief_latest_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Latest Analyst Brief
   /internal/backtests:
     post:
       operationId: create_backtest_internal_backtests_post
@@ -528,6 +538,16 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
           description: Validation Error
       summary: Submit Manual Evidence
+  /internal/market-events/latest:
+    get:
+      operationId: latest_market_events_internal_market_events_latest_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Latest Market Events
   /internal/recommendations:
     post:
       operationId: create_recommendation_internal_recommendations_post
@@ -667,6 +687,16 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
           description: Validation Error
       summary: Shadow Simulation
+  /internal/source-signals/latest:
+    get:
+      operationId: latest_source_signals_internal_source_signals_latest_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Latest Source Signals
   /internal/status/modules:
     get:
       operationId: status_modules_internal_status_modules_get
@@ -687,6 +717,29 @@ paths:
               schema: {}
           description: Successful Response
       summary: Status Overview
+  /internal/ticker/{ticker}/analyst-summary:
+    get:
+      operationId: ticker_analyst_summary_internal_ticker__ticker__analyst_summary_get
+      parameters:
+      - in: path
+        name: ticker
+        required: true
+        schema:
+          title: Ticker
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Ticker Analyst Summary
   /internal/trade-journal/entries:
     get:
       operationId: list_trade_entries_internal_trade_journal_entries_get
@@ -736,6 +789,16 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
           description: Validation Error
       summary: Create Trade Entry
+  /internal/trading-advisory/latest:
+    get:
+      operationId: latest_trading_advisory_internal_trading_advisory_latest_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Latest Trading Advisory
   /ready:
     get:
       operationId: ready_ready_get

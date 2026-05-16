@@ -32,7 +32,12 @@ type DashboardSummaryEndpoint =
   | "/internal/dashboard/latest-equity-events"
   | "/internal/dashboard/latest-signal-snapshots"
   | "/internal/dashboard/latest-advisory-run"
-  | "/internal/dashboard/ticker-intelligence/NVDA";
+  | "/internal/dashboard/ticker-intelligence/NVDA"
+  | "/internal/source-signals/latest"
+  | "/internal/market-events/latest"
+  | "/internal/analyst-brief/latest"
+  | "/internal/trading-advisory/latest"
+  | "/internal/ticker/NVDA/analyst-summary";
 
 const DEFAULT_TIMEOUT_MS = 2500;
 const DASHBOARD_MODULES_ENDPOINT = "/internal/status/modules";
@@ -366,6 +371,41 @@ export async function fetchTickerIntelligenceSummary(): Promise<TickerIntelligen
   return fetchReadOnlyDashboardSummary(
     "/internal/dashboard/ticker-intelligence/NVDA",
     "Ticker Intelligence",
+  );
+}
+
+export async function fetchLatestSourceSignals(): Promise<DashboardSummaryFeed> {
+  return fetchReadOnlyDashboardSummary(
+    "/internal/source-signals/latest",
+    "Source Signals",
+  );
+}
+
+export async function fetchLatestMarketEvents(): Promise<DashboardSummaryFeed> {
+  return fetchReadOnlyDashboardSummary(
+    "/internal/market-events/latest",
+    "Market Events",
+  );
+}
+
+export async function fetchLatestAnalystBrief(): Promise<DashboardSummaryFeed> {
+  return fetchReadOnlyDashboardSummary(
+    "/internal/analyst-brief/latest",
+    "Analyst Brief",
+  );
+}
+
+export async function fetchLatestTradingAdvisory(): Promise<DashboardSummaryFeed> {
+  return fetchReadOnlyDashboardSummary(
+    "/internal/trading-advisory/latest",
+    "Trading Advisory",
+  );
+}
+
+export async function fetchTickerAnalystSummary(): Promise<DashboardSummaryFeed> {
+  return fetchReadOnlyDashboardSummary(
+    "/internal/ticker/NVDA/analyst-summary",
+    "Ticker Analyst Summary",
   );
 }
 
