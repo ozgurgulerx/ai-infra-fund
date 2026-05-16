@@ -920,7 +920,7 @@ Verification:
 - `./.venv/bin/python -m unittest tests.test_crawl_fetcher tests.test_equity_intelligence_repository tests.test_crawl_worker_loop.CrawlProcessOneUnitTests tests.equity_intelligence.test_source_registry tests.worker.test_source_registry_seed` passed, 33 tests.
 - `docker compose config` passed.
 - `git diff --check` passed.
-- `./.venv/bin/python -m unittest discover -s tests` was blocked by unrelated shadow analyst files present in the working tree: `tests/advisory/test_shadow_analyst_pipeline.py` imports `ai_infra_fund_core.shadow_analyst` during discovery.
+- `./.venv/bin/python -m unittest discover -s tests` passed after the concurrent shadow analyst changes landed, 679 tests, 3 skipped.
 
 Cloud deployment validation:
 
