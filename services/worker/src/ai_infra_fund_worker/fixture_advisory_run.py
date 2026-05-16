@@ -290,6 +290,47 @@ INSERT INTO analyst.macro_regime_snapshots (
 """
 
 
+UPSERT_RISK_REGIME_UPDATE_SQL = """
+INSERT INTO analyst.risk_regime_updates (
+    regime_id,
+    risk_type,
+    status,
+    severity,
+    confidence,
+    linked_event_ids,
+    affected_segments,
+    affected_tickers,
+    evidence_ids,
+    summary,
+    portfolio_monitoring_note,
+    relief_condition,
+    invalidation_condition,
+    as_of,
+    available_at,
+    payload_json,
+    created_at
+) VALUES (
+    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s
+) ON CONFLICT (regime_id) DO UPDATE SET
+    risk_type = EXCLUDED.risk_type,
+    status = EXCLUDED.status,
+    severity = EXCLUDED.severity,
+    confidence = EXCLUDED.confidence,
+    linked_event_ids = EXCLUDED.linked_event_ids,
+    affected_segments = EXCLUDED.affected_segments,
+    affected_tickers = EXCLUDED.affected_tickers,
+    evidence_ids = EXCLUDED.evidence_ids,
+    summary = EXCLUDED.summary,
+    portfolio_monitoring_note = EXCLUDED.portfolio_monitoring_note,
+    relief_condition = EXCLUDED.relief_condition,
+    invalidation_condition = EXCLUDED.invalidation_condition,
+    as_of = EXCLUDED.as_of,
+    available_at = EXCLUDED.available_at,
+    payload_json = EXCLUDED.payload_json,
+    created_at = EXCLUDED.created_at;
+"""
+
+
 UPSERT_TRADING_ADVISORY_SQL = """
 INSERT INTO analyst.trading_advisories (
     advisory_id,
@@ -322,6 +363,123 @@ INSERT INTO analyst.trading_advisories (
     linked_trade_plan_id = EXCLUDED.linked_trade_plan_id,
     payload_json = EXCLUDED.payload_json,
     created_at = EXCLUDED.created_at;
+"""
+
+
+UPSERT_TRADE_PLAN_SQL = """
+INSERT INTO analyst.trade_plans (
+    trade_plan_id,
+    ticker,
+    company,
+    status,
+    advisory_action,
+    linked_event_ids,
+    linked_signal_bundle_id,
+    linked_recommendation_artifact_id,
+    entry_exit_levels_id,
+    price_target_scenario_id,
+    target_weights_id,
+    deterministic_check_ids,
+    readiness,
+    blocking_reasons,
+    manual_journal_only,
+    evidence_ids,
+    linked_advisory_id,
+    last_reviewed_at,
+    payload_json,
+    created_at
+) VALUES (
+    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s
+) ON CONFLICT (trade_plan_id) DO UPDATE SET
+    ticker = EXCLUDED.ticker,
+    company = EXCLUDED.company,
+    status = EXCLUDED.status,
+    advisory_action = EXCLUDED.advisory_action,
+    linked_event_ids = EXCLUDED.linked_event_ids,
+    linked_signal_bundle_id = EXCLUDED.linked_signal_bundle_id,
+    linked_recommendation_artifact_id = EXCLUDED.linked_recommendation_artifact_id,
+    entry_exit_levels_id = EXCLUDED.entry_exit_levels_id,
+    price_target_scenario_id = EXCLUDED.price_target_scenario_id,
+    target_weights_id = EXCLUDED.target_weights_id,
+    deterministic_check_ids = EXCLUDED.deterministic_check_ids,
+    readiness = EXCLUDED.readiness,
+    blocking_reasons = EXCLUDED.blocking_reasons,
+    manual_journal_only = EXCLUDED.manual_journal_only,
+    evidence_ids = EXCLUDED.evidence_ids,
+    linked_advisory_id = EXCLUDED.linked_advisory_id,
+    last_reviewed_at = EXCLUDED.last_reviewed_at,
+    payload_json = EXCLUDED.payload_json,
+    created_at = EXCLUDED.created_at;
+"""
+
+
+UPSERT_PORTFOLIO_EXPOSURE_SQL = """
+INSERT INTO analyst.portfolio_exposure_snapshots (
+    snapshot_id,
+    as_of,
+    currency,
+    source,
+    advisory_label,
+    total_market_value,
+    cash_placeholder,
+    gross_equity_exposure,
+    position_count,
+    positions_json,
+    correlation_exposure_ids,
+    pnl_summary_id,
+    target_weights_id,
+    concentration_flags,
+    stale_price_flags,
+    payload_json,
+    created_at
+) VALUES (
+    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s, %s::jsonb, %s
+) ON CONFLICT (snapshot_id) DO UPDATE SET
+    as_of = EXCLUDED.as_of,
+    currency = EXCLUDED.currency,
+    source = EXCLUDED.source,
+    advisory_label = EXCLUDED.advisory_label,
+    total_market_value = EXCLUDED.total_market_value,
+    cash_placeholder = EXCLUDED.cash_placeholder,
+    gross_equity_exposure = EXCLUDED.gross_equity_exposure,
+    position_count = EXCLUDED.position_count,
+    positions_json = EXCLUDED.positions_json,
+    correlation_exposure_ids = EXCLUDED.correlation_exposure_ids,
+    pnl_summary_id = EXCLUDED.pnl_summary_id,
+    target_weights_id = EXCLUDED.target_weights_id,
+    concentration_flags = EXCLUDED.concentration_flags,
+    stale_price_flags = EXCLUDED.stale_price_flags,
+    payload_json = EXCLUDED.payload_json,
+    created_at = EXCLUDED.created_at;
+"""
+
+
+UPSERT_LLM_ANALYST_NOTE_SQL = """
+INSERT INTO analyst.llm_analyst_notes (
+    note_id,
+    model_run_id,
+    scope,
+    allowed_role,
+    reviewed_object_ids,
+    evidence_ids,
+    note,
+    deterministic_fields_not_modified,
+    created_at,
+    review_status,
+    payload_json
+) VALUES (
+    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb
+) ON CONFLICT (note_id) DO UPDATE SET
+    model_run_id = EXCLUDED.model_run_id,
+    scope = EXCLUDED.scope,
+    allowed_role = EXCLUDED.allowed_role,
+    reviewed_object_ids = EXCLUDED.reviewed_object_ids,
+    evidence_ids = EXCLUDED.evidence_ids,
+    note = EXCLUDED.note,
+    deterministic_fields_not_modified = EXCLUDED.deterministic_fields_not_modified,
+    created_at = EXCLUDED.created_at,
+    review_status = EXCLUDED.review_status,
+    payload_json = EXCLUDED.payload_json;
 """
 
 
@@ -398,7 +556,11 @@ def seed_fixture_advisory_run(
         _persist_equity_assessments(cursor, fixture, as_of)
         _persist_valuation_contexts(cursor, fixture, as_of)
         _persist_macro_regime(cursor, fixture, as_of)
+        _persist_risk_regime_updates(cursor, fixture, as_of)
         _persist_trading_advisories(cursor, fixture, as_of)
+        _persist_trade_plans(cursor, fixture, as_of)
+        _persist_portfolio_exposure(cursor, fixture, as_of)
+        _persist_llm_analyst_notes(cursor, fixture, as_of)
         _persist_analyst_brief(cursor, fixture, as_of)
         cursor.execute(
             UPSERT_RUN_ARTIFACT_SQL,
@@ -424,6 +586,7 @@ def seed_fixture_advisory_run(
         "source_signal_count": len(fixture.get("source_signals", ())),
         "market_event_count": len(fixture.get("market_events", ())),
         "trading_advisory_count": len(fixture.get("trading_advisories", ())),
+        "trade_plan_count": len(fixture.get("open_trade_plans", ())),
     }
 
 
@@ -616,6 +779,34 @@ def _persist_macro_regime(cursor: Cursor, fixture: dict[str, object], as_of: dat
         )
 
 
+def _persist_risk_regime_updates(cursor: Cursor, fixture: dict[str, object], as_of: datetime) -> None:
+    for regime in _list(fixture.get("risk_regime_updates")):
+        linked_event_ids = _text_list(regime.get("linked_event_ids"))
+        affected_tickers = _event_tickers(fixture, linked_event_ids)
+        cursor.execute(
+            UPSERT_RISK_REGIME_UPDATE_SQL,
+            (
+                str(regime["regime_id"]),
+                str(regime.get("risk_type") or "macro_regime"),
+                str(regime.get("status") or "review"),
+                str(regime.get("severity") or "medium"),
+                str(regime.get("confidence") or "medium"),
+                linked_event_ids,
+                _text_list(regime.get("affected_segments")),
+                _text_list(regime.get("affected_tickers")) or affected_tickers,
+                _required_text_list(regime.get("evidence_ids"), "risk regime evidence_ids"),
+                str(regime.get("summary") or ""),
+                str(regime.get("portfolio_monitoring_note") or ""),
+                str(regime.get("relief_condition") or regime.get("relief_watch") or ""),
+                str(regime.get("invalidation_condition") or ""),
+                _parse_datetime(str(regime.get("as_of") or as_of.isoformat())),
+                _parse_datetime(str(regime.get("available_at") or as_of.isoformat())),
+                _json(regime),
+                as_of,
+            ),
+        )
+
+
 def _persist_trading_advisories(cursor: Cursor, fixture: dict[str, object], as_of: datetime) -> None:
     for advisory in _list(fixture.get("trading_advisories")):
         cursor.execute(
@@ -635,6 +826,87 @@ def _persist_trading_advisories(cursor: Cursor, fixture: dict[str, object], as_o
                 _optional_text(advisory.get("linked_trade_plan_id")),
                 _json(advisory),
                 as_of,
+            ),
+        )
+
+
+def _persist_trade_plans(cursor: Cursor, fixture: dict[str, object], as_of: datetime) -> None:
+    for plan in _list(fixture.get("open_trade_plans")):
+        advisory_id = _optional_text(plan.get("linked_advisory_id"))
+        linked_event_ids = _advisory_event_ids(fixture, advisory_id)
+        cursor.execute(
+            UPSERT_TRADE_PLAN_SQL,
+            (
+                str(plan["trade_plan_id"]),
+                str(plan["ticker"]).upper(),
+                str(plan.get("company") or plan["ticker"]),
+                str(plan.get("status") or "review"),
+                _normalize_action(str(plan.get("advisory_action") or plan.get("advisory_label") or "review")),
+                linked_event_ids,
+                _optional_text(plan.get("linked_signal_bundle_id")),
+                _optional_text(plan.get("linked_recommendation_artifact_id")),
+                _optional_text(plan.get("entry_exit_levels_id")),
+                _optional_text(plan.get("price_target_scenario_id")),
+                _optional_text(plan.get("target_weights_id")),
+                _text_list(plan.get("deterministic_check_ids")),
+                str(plan.get("readiness") or plan.get("status") or "review"),
+                _text_list(plan.get("blocking_reasons")),
+                bool(plan.get("manual_journal_only", True)),
+                _required_text_list(plan.get("evidence_ids"), "trade plan evidence_ids"),
+                advisory_id,
+                _parse_datetime(str(plan.get("last_reviewed_at") or as_of.isoformat())),
+                _json(plan),
+                as_of,
+            ),
+        )
+
+
+def _persist_portfolio_exposure(cursor: Cursor, fixture: dict[str, object], as_of: datetime) -> None:
+    snapshot = fixture.get("portfolio_exposure_snapshot") or fixture.get("portfolio_snapshot")
+    if not isinstance(snapshot, dict):
+        return
+    positions = snapshot.get("positions") or snapshot.get("top_positions") or []
+    position_count = int(snapshot.get("position_count") or len(_list(positions)))
+    cursor.execute(
+        UPSERT_PORTFOLIO_EXPOSURE_SQL,
+        (
+            str(snapshot["snapshot_id"]),
+            _parse_datetime(str(snapshot.get("as_of") or as_of.isoformat())),
+            str(snapshot.get("currency") or "USD"),
+            str(snapshot.get("source") or "fixture"),
+            ADVISORY_LABEL,
+            str(snapshot.get("total_market_value") or "0"),
+            str(snapshot.get("cash_placeholder") or "0"),
+            str(snapshot.get("gross_equity_exposure") or snapshot.get("gross_equity_exposure_pct") or "0"),
+            position_count,
+            _json(_normalize_positions(positions)),
+            _text_list(snapshot.get("correlation_exposure_ids")),
+            _optional_text(snapshot.get("pnl_summary_id")),
+            _optional_text(snapshot.get("target_weights_id")),
+            _text_list(snapshot.get("concentration_flags")),
+            _text_list(snapshot.get("stale_price_flags")),
+            _json(snapshot),
+            as_of,
+        ),
+    )
+
+
+def _persist_llm_analyst_notes(cursor: Cursor, fixture: dict[str, object], as_of: datetime) -> None:
+    for note in _list(fixture.get("llm_analyst_notes")):
+        cursor.execute(
+            UPSERT_LLM_ANALYST_NOTE_SQL,
+            (
+                str(note["note_id"]),
+                str(note["model_run_id"]),
+                str(note.get("scope") or "daily_brief"),
+                str(note.get("allowed_role") or "brief_synthesizer"),
+                _text_list(note.get("reviewed_object_ids")),
+                _text_list(note.get("evidence_ids")),
+                str(note.get("note") or ""),
+                _text_list(note.get("deterministic_fields_not_modified")),
+                _parse_datetime(str(note.get("created_at") or as_of.isoformat())),
+                str(note.get("review_status") or "reviewed"),
+                _json(note),
             ),
         )
 
@@ -728,6 +1000,37 @@ def _text_list(value: object) -> list[str]:
     if isinstance(value, list | tuple):
         return [str(item) for item in value if str(item)]
     return [str(value)]
+
+
+def _event_tickers(fixture: dict[str, object], event_ids: list[str]) -> list[str]:
+    tickers: list[str] = []
+    for event in _list(fixture.get("market_events")):
+        if str(event.get("event_id")) not in event_ids:
+            continue
+        for ticker in _text_list(event.get("tickers")):
+            if ticker not in tickers:
+                tickers.append(ticker)
+    return tickers
+
+
+def _advisory_event_ids(fixture: dict[str, object], advisory_id: str | None) -> list[str]:
+    if not advisory_id:
+        return []
+    for advisory in _list(fixture.get("trading_advisories")):
+        if str(advisory.get("advisory_id")) == advisory_id:
+            return _text_list(advisory.get("market_event_ids"))
+    return []
+
+
+def _normalize_positions(value: object) -> list[dict[str, object]]:
+    positions = _list(value)
+    normalized: list[dict[str, object]] = []
+    for position in positions:
+        copy = dict(position)
+        if "portfolio_weight" not in copy and "portfolio_weight_pct" in copy:
+            copy["portfolio_weight"] = copy["portfolio_weight_pct"]
+        normalized.append(copy)
+    return normalized
 
 
 def _required_text_list(value: object, field_name: str) -> list[str]:

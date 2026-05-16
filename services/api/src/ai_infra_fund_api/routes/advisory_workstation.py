@@ -25,6 +25,12 @@ class AdvisoryWorkstationReadRepository(Protocol):
 
     def get_ticker_analyst_summary(self, ticker: str) -> dict[str, object]: ...
 
+    def get_latest_segment_map(self) -> dict[str, object]: ...
+
+    def get_ticker_workbench(self, ticker: str) -> dict[str, object]: ...
+
+    def get_latest_portfolio_exposure(self) -> dict[str, object]: ...
+
 
 class AdvisoryWorkstationRepositoryUnavailable(RuntimeError):
     pass
@@ -51,6 +57,15 @@ class PostgresAdvisoryWorkstationReadRepository:
 
     def get_ticker_analyst_summary(self, ticker: str) -> dict[str, object]:
         return self._read_with_argument("get_ticker_analyst_summary", ticker.upper())
+
+    def get_latest_segment_map(self) -> dict[str, object]:
+        return self._read("get_latest_segment_map")
+
+    def get_ticker_workbench(self, ticker: str) -> dict[str, object]:
+        return self._read_with_argument("get_ticker_workbench", ticker.upper())
+
+    def get_latest_portfolio_exposure(self) -> dict[str, object]:
+        return self._read("get_latest_portfolio_exposure")
 
     def _read(self, method_name: str) -> dict[str, object]:
         try:
@@ -112,6 +127,10 @@ def register_advisory_workstation_routes(
     def market_events_for_ticker(ticker: str) -> JSONResponse:
         return _read(lambda: repository.get_market_events_for_ticker(ticker.upper()))
 
+    @router.get("/internal/segment-map/latest")
+    def latest_segment_map() -> JSONResponse:
+        return _read(repository.get_latest_segment_map)
+
     @router.get("/internal/analyst-brief/latest")
     def latest_analyst_brief() -> JSONResponse:
         return _read(repository.get_latest_analyst_brief)
@@ -123,6 +142,14 @@ def register_advisory_workstation_routes(
     @router.get("/internal/ticker/{ticker}/analyst-summary")
     def ticker_analyst_summary(ticker: str) -> JSONResponse:
         return _read(lambda: repository.get_ticker_analyst_summary(ticker.upper()))
+
+    @router.get("/internal/ticker/{ticker}/workbench")
+    def ticker_workbench(ticker: str) -> JSONResponse:
+        return _read(lambda: repository.get_ticker_workbench(ticker.upper()))
+
+    @router.get("/internal/portfolio/exposure/latest")
+    def latest_portfolio_exposure() -> JSONResponse:
+        return _read(repository.get_latest_portfolio_exposure)
 
     app.include_router(router)
 

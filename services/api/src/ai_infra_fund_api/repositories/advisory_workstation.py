@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 import json
 from typing import Protocol
@@ -108,13 +108,21 @@ SELECT
     regime_id,
     risk_type,
     status,
+    severity,
+    confidence,
     linked_event_ids,
+    affected_segments,
+    affected_tickers,
     evidence_ids,
     summary,
     portfolio_monitoring_note,
+    relief_condition,
+    invalidation_condition,
+    as_of,
+    available_at,
     payload_json
-FROM analyst.macro_regime_snapshots
-ORDER BY created_at DESC, regime_id ASC
+FROM analyst.risk_regime_updates
+ORDER BY available_at DESC, regime_id ASC
 LIMIT %s;
 """
 
@@ -179,8 +187,8 @@ EQUITY_ASSESSMENTS_BY_EVENT_IDS_SQL = LATEST_EQUITY_ASSESSMENTS_SQL.replace(
 
 
 RISK_REGIME_BY_EVENT_IDS_SQL = LATEST_RISK_REGIME_SQL.replace(
-    "ORDER BY created_at DESC, regime_id ASC",
-    "WHERE linked_event_ids && %s::text[] ORDER BY created_at DESC, regime_id ASC",
+    "ORDER BY available_at DESC, regime_id ASC",
+    "WHERE linked_event_ids && %s::text[] ORDER BY available_at DESC, regime_id ASC",
 )
 
 
@@ -227,6 +235,89 @@ TICKER_TRADING_ADVISORY_SQL = LATEST_TRADING_ADVISORY_SQL.replace(
     "ORDER BY created_at DESC, advisory_id ASC",
     "WHERE UPPER(ticker) = UPPER(%s) ORDER BY created_at DESC, advisory_id ASC",
 )
+
+TICKER_SEGMENT_IMPACTS_SQL = LATEST_SEGMENT_IMPACTS_SQL.replace(
+    "ORDER BY segment_id ASC",
+    "WHERE primary_tickers @> ARRAY[UPPER(%s)]::text[] "
+    "OR second_order_tickers @> ARRAY[UPPER(%s)]::text[] "
+    "ORDER BY segment_id ASC",
+)
+
+TICKER_RISK_REGIME_SQL = LATEST_RISK_REGIME_SQL.replace(
+    "ORDER BY available_at DESC, regime_id ASC",
+    "WHERE affected_tickers @> ARRAY[UPPER(%s)]::text[] "
+    "OR linked_event_ids && %s::text[] "
+    "ORDER BY available_at DESC, regime_id ASC",
+)
+
+TICKER_TRADE_PLAN_SQL = """
+SELECT
+    trade_plan_id,
+    ticker,
+    company,
+    status,
+    advisory_action,
+    linked_event_ids,
+    linked_signal_bundle_id,
+    linked_recommendation_artifact_id,
+    entry_exit_levels_id,
+    price_target_scenario_id,
+    target_weights_id,
+    deterministic_check_ids,
+    readiness,
+    blocking_reasons,
+    manual_journal_only,
+    evidence_ids,
+    linked_advisory_id,
+    last_reviewed_at,
+    payload_json
+FROM analyst.trade_plans
+WHERE UPPER(ticker) = UPPER(%s)
+ORDER BY last_reviewed_at DESC, trade_plan_id ASC
+LIMIT %s;
+"""
+
+TICKER_LLM_ANALYST_NOTES_SQL = """
+SELECT
+    note_id,
+    model_run_id,
+    scope,
+    allowed_role,
+    reviewed_object_ids,
+    evidence_ids,
+    note,
+    deterministic_fields_not_modified,
+    created_at,
+    review_status,
+    payload_json
+FROM analyst.llm_analyst_notes
+WHERE reviewed_object_ids && %s::text[] OR evidence_ids && %s::text[]
+ORDER BY created_at DESC, note_id ASC
+LIMIT %s;
+"""
+
+LATEST_PORTFOLIO_EXPOSURE_SQL = """
+SELECT
+    snapshot_id,
+    as_of,
+    currency,
+    source,
+    advisory_label,
+    total_market_value,
+    cash_placeholder,
+    gross_equity_exposure,
+    position_count,
+    positions_json,
+    correlation_exposure_ids,
+    pnl_summary_id,
+    target_weights_id,
+    concentration_flags,
+    stale_price_flags,
+    payload_json
+FROM analyst.portfolio_exposure_snapshots
+ORDER BY as_of DESC, created_at DESC
+LIMIT %s;
+"""
 
 
 class AdvisoryWorkstationRepository:
@@ -354,6 +445,40 @@ class AdvisoryWorkstationRepository:
             ],
         }
 
+    def get_latest_segment_map(self) -> dict[str, object]:
+        segment_impacts = self._fetch_many(LATEST_SEGMENT_IMPACTS_SQL, (50,))
+        linked_event_ids = _unique_texts(
+            event_id
+            for segment in segment_impacts
+            for event_id in _text_list(segment.get("linked_event_ids"))
+        )
+        market_events = (
+            self._fetch_many(
+                MARKET_EVENTS_BY_IDS_SQL,
+                (linked_event_ids, linked_event_ids, _limit(len(linked_event_ids))),
+            )
+            if linked_event_ids
+            else []
+        )
+        risk_regime_updates = (
+            self._fetch_many(RISK_REGIME_BY_EVENT_IDS_SQL, (linked_event_ids, 20))
+            if linked_event_ids
+            else []
+        )
+        return {
+            "status": _status(segment_impacts),
+            "advisory_label": "advisory_only",
+            "segment_impacts": [
+                _segment_impact_payload(row) for row in segment_impacts
+            ],
+            "market_events": [
+                _market_event_payload(row) for row in market_events
+            ],
+            "risk_regime_updates": [
+                _risk_regime_payload(row) for row in risk_regime_updates
+            ],
+        }
+
     def get_ticker_analyst_summary(self, ticker: str) -> dict[str, object]:
         normalized = str(ticker).upper()
         source_signals = self._fetch_many(
@@ -387,6 +512,97 @@ class AdvisoryWorkstationRepository:
             "trading_advisories": [
                 _trading_advisory_payload(row) for row in advisories
             ],
+        }
+
+    def get_ticker_workbench(self, ticker: str) -> dict[str, object]:
+        normalized = str(ticker).upper()
+        source_signals = self._fetch_many(
+            TICKER_SOURCE_SIGNALS_SQL, (normalized, 10)
+        )
+        market_events = self._fetch_many(
+            TICKER_MARKET_EVENTS_SQL, (normalized, 10)
+        )
+        event_ids = _unique_texts(
+            event_id for row in market_events for event_id in (row.get("event_id"),)
+        )
+        segment_impacts = self._fetch_many(
+            TICKER_SEGMENT_IMPACTS_SQL, (normalized, normalized, 10)
+        )
+        assessments = self._fetch_many(
+            TICKER_EQUITY_ASSESSMENTS_SQL, (normalized, 10)
+        )
+        valuation_contexts = self._fetch_many(
+            TICKER_VALUATION_CONTEXTS_SQL, (normalized, 10)
+        )
+        advisories = self._fetch_many(
+            TICKER_TRADING_ADVISORY_SQL, (normalized, 10)
+        )
+        trade_plans = self._fetch_many(TICKER_TRADE_PLAN_SQL, (normalized, 10))
+        risk_regime_updates = self._fetch_many(
+            TICKER_RISK_REGIME_SQL, (normalized, event_ids, 10)
+        )
+        reviewed_object_ids = _unique_texts(
+            item_id
+            for collection in (assessments, advisories, trade_plans)
+            for row in collection
+            for item_id in (
+                row.get("assessment_id"),
+                row.get("advisory_id"),
+                row.get("trade_plan_id"),
+            )
+        )
+        evidence_ids = _unique_texts(
+            evidence_id
+            for collection in (market_events, assessments, advisories, trade_plans)
+            for row in collection
+            for evidence_id in _text_list(row.get("evidence_ids"))
+        )
+        llm_notes = self._fetch_many(
+            TICKER_LLM_ANALYST_NOTES_SQL,
+            (reviewed_object_ids, evidence_ids, 10),
+        )
+        sections = (
+            source_signals
+            + market_events
+            + segment_impacts
+            + assessments
+            + valuation_contexts
+            + advisories
+            + trade_plans
+            + risk_regime_updates
+            + llm_notes
+        )
+        return {
+            "status": _status(sections),
+            "ticker": normalized,
+            "advisory_label": "advisory_only",
+            "source_signals": [_source_signal_payload(row) for row in source_signals],
+            "market_events": [_market_event_payload(row) for row in market_events],
+            "segment_impacts": [
+                _segment_impact_payload(row) for row in segment_impacts
+            ],
+            "equity_impact_assessments": [
+                _equity_assessment_payload(row) for row in assessments
+            ],
+            "valuation_contexts": [
+                _valuation_context_payload(row) for row in valuation_contexts
+            ],
+            "trading_advisories": [
+                _trading_advisory_payload(row) for row in advisories
+            ],
+            "trade_plans": [_trade_plan_payload(row) for row in trade_plans],
+            "risk_regime_updates": [
+                _risk_regime_payload(row) for row in risk_regime_updates
+            ],
+            "llm_analyst_notes": [_llm_note_payload(row) for row in llm_notes],
+        }
+
+    def get_latest_portfolio_exposure(self) -> dict[str, object]:
+        row = self._fetch_one(LATEST_PORTFOLIO_EXPOSURE_SQL, (1,))
+        return {
+            "status": "available" if row else "empty",
+            "advisory_label": "advisory_only",
+            "snapshot": _portfolio_exposure_payload(row) if row else None,
         }
 
     def _fetch_one(
@@ -500,10 +716,18 @@ def _risk_regime_payload(row: Mapping[str, object]) -> dict[str, object]:
         "regime_id": row.get("regime_id"),
         "risk_type": row.get("risk_type"),
         "status": row.get("status"),
+        "severity": row.get("severity"),
+        "confidence": row.get("confidence"),
         "linked_event_ids": _text_list(row.get("linked_event_ids")),
+        "affected_segments": _text_list(row.get("affected_segments")),
+        "affected_tickers": _text_list(row.get("affected_tickers")),
         "evidence_ids": _text_list(row.get("evidence_ids")),
         "summary": row.get("summary"),
         "portfolio_monitoring_note": row.get("portfolio_monitoring_note"),
+        "relief_condition": row.get("relief_condition"),
+        "invalidation_condition": row.get("invalidation_condition"),
+        "as_of": _iso_or_none(row.get("as_of")),
+        "available_at": _iso_or_none(row.get("available_at")),
         "payload": _json_value(row.get("payload_json")),
     }
 
@@ -537,6 +761,69 @@ def _brief_payload(row: Mapping[str, object]) -> dict[str, object]:
         "segment_impact_ids": _text_list(row.get("segment_impact_ids")),
         "trading_advisory_ids": _text_list(row.get("trading_advisory_ids")),
         "model_run_ids": _text_list(row.get("model_run_ids")),
+        "payload": _json_value(row.get("payload_json")),
+    }
+
+
+def _trade_plan_payload(row: Mapping[str, object]) -> dict[str, object]:
+    return {
+        "trade_plan_id": row.get("trade_plan_id"),
+        "ticker": row.get("ticker"),
+        "company": row.get("company"),
+        "status": row.get("status"),
+        "advisory_action": row.get("advisory_action"),
+        "linked_event_ids": _text_list(row.get("linked_event_ids")),
+        "linked_signal_bundle_id": row.get("linked_signal_bundle_id"),
+        "linked_recommendation_artifact_id": row.get("linked_recommendation_artifact_id"),
+        "entry_exit_levels_id": row.get("entry_exit_levels_id"),
+        "price_target_scenario_id": row.get("price_target_scenario_id"),
+        "target_weights_id": row.get("target_weights_id"),
+        "deterministic_check_ids": _text_list(row.get("deterministic_check_ids")),
+        "readiness": row.get("readiness"),
+        "blocking_reasons": _text_list(row.get("blocking_reasons")),
+        "manual_journal_only": _bool(row.get("manual_journal_only")),
+        "evidence_ids": _text_list(row.get("evidence_ids")),
+        "linked_advisory_id": row.get("linked_advisory_id"),
+        "last_reviewed_at": _iso_or_none(row.get("last_reviewed_at")),
+        "payload": _json_value(row.get("payload_json")),
+    }
+
+
+def _portfolio_exposure_payload(row: Mapping[str, object]) -> dict[str, object]:
+    return {
+        "snapshot_id": row.get("snapshot_id"),
+        "as_of": _iso_or_none(row.get("as_of")),
+        "currency": row.get("currency"),
+        "source": row.get("source"),
+        "advisory_label": row.get("advisory_label"),
+        "total_market_value": row.get("total_market_value"),
+        "cash_placeholder": row.get("cash_placeholder"),
+        "gross_equity_exposure": row.get("gross_equity_exposure"),
+        "position_count": row.get("position_count"),
+        "positions": _json_value(row.get("positions_json")) or [],
+        "correlation_exposure_ids": _text_list(row.get("correlation_exposure_ids")),
+        "pnl_summary_id": row.get("pnl_summary_id"),
+        "target_weights_id": row.get("target_weights_id"),
+        "concentration_flags": _text_list(row.get("concentration_flags")),
+        "stale_price_flags": _text_list(row.get("stale_price_flags")),
+        "payload": _json_value(row.get("payload_json")),
+    }
+
+
+def _llm_note_payload(row: Mapping[str, object]) -> dict[str, object]:
+    return {
+        "note_id": row.get("note_id"),
+        "model_run_id": row.get("model_run_id"),
+        "scope": row.get("scope"),
+        "allowed_role": row.get("allowed_role"),
+        "reviewed_object_ids": _text_list(row.get("reviewed_object_ids")),
+        "evidence_ids": _text_list(row.get("evidence_ids")),
+        "note": row.get("note"),
+        "deterministic_fields_not_modified": _text_list(
+            row.get("deterministic_fields_not_modified")
+        ),
+        "created_at": _iso_or_none(row.get("created_at")),
+        "review_status": row.get("review_status"),
         "payload": _json_value(row.get("payload_json")),
     }
 
@@ -594,6 +881,33 @@ def _text_list(value: object) -> list[str]:
     if isinstance(value, Sequence):
         return [str(item) for item in value]
     return [str(value)]
+
+
+def _unique_texts(values: Iterable[object] | object) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    iterable = (
+        (values,)
+        if isinstance(values, str) or not isinstance(values, Iterable)
+        else values
+    )
+    for value in iterable:
+        if value is None:
+            continue
+        text = str(value)
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result
+
+
+def _bool(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes"}
+    return bool(value)
 
 
 def _iso_or_none(value: object) -> str | None:

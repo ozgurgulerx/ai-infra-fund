@@ -9,16 +9,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class AdvisoryWorkstationReadModelMigrationTests(unittest.TestCase):
     def test_migration_defines_fixture_backed_read_model_tables(self) -> None:
-        migration_path = (
-            ROOT
-            / "services"
-            / "api"
-            / "migrations"
-            / "0010_advisory_workstation_read_models.sql"
+        migration_dir = ROOT / "services" / "api" / "migrations"
+        sql = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in sorted(migration_dir.glob("*.sql"))
         )
-
-        self.assertTrue(migration_path.is_file())
-        sql = migration_path.read_text(encoding="utf-8")
 
         required_snippets = [
             "CREATE SCHEMA IF NOT EXISTS analyst",

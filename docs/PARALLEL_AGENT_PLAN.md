@@ -29,7 +29,7 @@ The repository is already implemented and verified through the API-backed cockpi
 | Wave 2 | Complete | Fixture-backed PostgreSQL analyst loop persists SourceSignal, EvidenceItem, MarketEvent, SegmentImpact, EquityImpactAssessment, ValuationContext, risk regime, TradingAdvisory, AnalystBrief, ModelRun, and RunArtifact read models. |
 | Wave 3 | Complete | Read-only advisory workstation APIs exist for latest source signals, market events, analyst brief, trading advisory, and ticker analyst summaries. |
 | Wave 4 | Complete | Daily cockpit uses API-backed read models with degraded-state handling. |
-| Wave 5 | Next bounded gate | Expand governed public-source and LLM analyst extraction/review only after a dedicated current task defines ownership and tests. |
+| Wave 5 | In progress | First slice promotes risk-regime updates, trade plans, portfolio exposure snapshots, and LLM analyst notes into first-class read models and read-only workstation APIs. |
 
 ## Agent Ownership
 
@@ -47,9 +47,10 @@ These Wave 1 ownership rows are historical and should not be relaunched unless a
 
 Wave 5 should be split into smaller tasks before implementation:
 
-1. Real configured public-source coverage: expand source coverage only inside the watchlist/source-registry boundary.
-2. Governed LLM analyst extraction/review: use `config/model_profiles.yaml`, create `ModelRun` records, and emit only draft evidence claims, source signals, market events, segment-impact narratives, equity thesis notes, risk critiques, and advisory explanations.
-3. Deterministic publication gates: keep scores, risk math, constraints, target weights, entry/exit levels, scenario math, PnL, readiness checks, and publication/suppression decisions deterministic.
+1. Daily brief builder/read-model enrichment: first slice covers open trade plans, LLM analyst notes, portfolio exposure, and risk-regime updates; remaining future enrichment includes readiness checks, advisory updates, financial snapshots, PnL summaries, and suggested actions.
+2. Real configured public-source coverage: expand source coverage only inside the watchlist/source-registry boundary.
+3. Governed LLM analyst extraction/review: use `config/model_profiles.yaml`, create `ModelRun` records, and emit only draft evidence claims, source signals, market events, segment-impact narratives, equity thesis notes, risk critiques, and advisory explanations.
+4. Deterministic publication gates: keep scores, risk math, constraints, target weights, entry/exit levels, scenario math, PnL, readiness checks, and publication/suppression decisions deterministic.
 
 ## Merge Order
 

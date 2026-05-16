@@ -4,7 +4,7 @@
 
 The latest visible shared-thread plan has been reconciled against the repository. The codebase already contains the first product spine the plan requested: contracts, fixture-backed PostgreSQL read models, read-only APIs, API-backed cockpit UI, deterministic configured crawler runtime, LLM extraction/review stubs, outcome-journal foundations, and cloud runtime hardening.
 
-The current coordination pass is harness-only. It updates `docs/CURRENT_TASK.md` and this active plan so future agents do not repeat completed Wave 1 work. The next implementation gate should be scoped separately around governed public-source and LLM analyst extraction/review work.
+The current implementation pass covers the first Wave 5 read-model enrichment slice. It promotes richer workstation feeds into first-class fixture-backed PostgreSQL read models and read-only API surfaces before governed public-source and LLM analyst extraction/review work expands.
 
 Specs remain canonical. This plan is temporary coordination state. If this plan conflicts with a spec, the spec wins.
 
@@ -17,9 +17,10 @@ Specs remain canonical. This plan is temporary coordination state. If this plan 
 | Phase 2 | Read-only APIs | Complete | Advisory read models are exposed through read-only API surfaces with no broker/order/execution capabilities. |
 | Phase 3 | API-backed cockpit UI | Complete | Daily Trading Cockpit renders API-backed readiness checks with advisory labels, evidence, model-run refs, and deterministic status. |
 | Phase 4 | Real public source crawler | Partial | Deterministic configured-public-source crawler runtime exists; broader source coverage remains a future bounded task. |
-| Phase 5 | LLM analyst extraction/review | Partial | Protocol, payload guards, data-class policy, and stubs exist; real model-routed extraction/review remains a future bounded task. |
-| Phase 6 | Outcome journal/evaluation | Partial | Outcome journal foundation exists; richer analyst-quality evaluation can expand later. |
-| Phase 7 | Cloud runtime hardening | Complete | Runtime configuration, secrets, deployment checks, and cloud readiness validation are hardened. |
+| Phase 5 | Daily brief/read-model enrichment | In progress | First slice promotes risk-regime updates, trade plans, portfolio exposure snapshots, and LLM analyst notes into first-class read models and read-only workstation APIs. |
+| Phase 6 | LLM analyst extraction/review | Partial | Protocol, payload guards, data-class policy, and stubs exist; real model-routed extraction/review remains a future bounded task. |
+| Phase 7 | Outcome journal/evaluation | Partial | Outcome journal foundation exists; richer analyst-quality evaluation can expand later. |
+| Phase 8 | Cloud runtime hardening | Complete | Runtime configuration, secrets, deployment checks, and cloud readiness validation are hardened. |
 
 ## Streams
 
@@ -38,7 +39,7 @@ Specs remain canonical. This plan is temporary coordination state. If this plan 
 3. Agent 5 normalizes mock data if object-model changes require fixture updates.
 4. Agent 3 completes LLM analyst prompt-pack coverage.
 5. Agent 4 completes architecture policy coverage.
-6. Final integration updates `docs/BUILD_LOG.md`, runs verification, commits, and pushes. Cloud deployment is only required when runtime, deployment, API, or frontend behavior changes.
+6. Final integration updates `docs/BUILD_LOG.md`, regenerates OpenAPI when routes change, runs verification, commits, and pushes. Cloud deployment is only required when explicitly requested.
 
 ## Forbidden Changes
 
@@ -96,12 +97,12 @@ git diff --check
 git status --short
 ```
 
-Frontend checks are required when frontend files change. Cloud deployment validation is required when runtime, deployment, API, or frontend behavior changes and credentials are available.
+Frontend checks are required when frontend files change. Cloud deployment validation is required only when a deployment rollout is explicitly requested.
 
 ## Definition Of Done
 
-- `docs/CURRENT_TASK.md` names one bounded task and does not reopen completed Wave 1 work.
-- `docs/PARALLEL_AGENT_PLAN.md` records completed waves and the next candidate gate.
+- `docs/CURRENT_TASK.md` names one bounded Wave 5 read-model enrichment slice.
+- `docs/PARALLEL_AGENT_PLAN.md` records completed waves and the current Wave 5 first slice.
 - File ownership conflicts are resolved without reverting unrelated work.
 - Object model, contract docs, read-only APIs, cockpit UI, crawler, prompt pack, model-routing audit, outcome evaluation, and cloud runtime agree on the same advisory vocabulary.
 - Architecture policy tests pass.

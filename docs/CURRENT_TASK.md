@@ -2,24 +2,13 @@
 
 ## Task
 
-Reconcile the latest visible six-agent shared-thread guidance with the current codebase and prepare the next bounded wave.
+Implement the first Wave 5 read-model enrichment slice for the AI Infrastructure Trading Advisory Workstation.
 
-The latest guidance says to build the product spine in this order:
-
-1. Contract and read-model freeze.
-2. Fixture-backed PostgreSQL analyst loop.
-3. Read-only APIs.
-4. API-backed cockpit UI.
-5. Real configured public-source coverage.
-6. Governed LLM analyst extraction/review.
-7. Outcome journal/evaluation.
-8. Cloud runtime and ops hardening.
-
-The repository already contains implemented and tested support for waves 0-4 plus outcome-journal and cloud hardening foundations. This task prevents future agents from repeating completed Wave 1 work and makes the next implementation gate explicit.
+The previous reconciliation pass found that richer workstation feeds were still mostly preserved inside fixture payloads rather than first-class PostgreSQL read-model outputs. This pass promotes a bounded subset into durable read models and read-only advisory APIs.
 
 ## Product Objective
 
-Improve analyst brief usefulness, evidence quality, catalyst detection, and advisory implementation discipline by keeping the active harness aligned with the actual repository state.
+Make the Segment Map, Ticker Workbench, and Portfolio Exposure views addressable through the same advisory-only read-model spine as the Daily Trading Cockpit.
 
 ## Governing Docs And Specs
 
@@ -37,19 +26,18 @@ Specs are canonical. If this task conflicts with a spec, the spec wins.
 
 ## Allowed Files
 
-- `docs/CURRENT_TASK.md`
-- `docs/PARALLEL_AGENT_PLAN.md`
-- `docs/plans/active/current-plan.md`
-- `docs/BUILD_LOG.md`
+- additive migrations under `services/api/migrations/`
+- advisory workstation repository and route code under `services/api/src/ai_infra_fund_api/`
+- fixture persistence under `services/worker/src/ai_infra_fund_worker/fixture_advisory_run.py`
+- OpenAPI docs under `docs/api/openapi.yaml`
+- active task, plan, and build-log docs
+- focused tests under `tests/`
 
 ## Forbidden Changes
 
-- no product code
 - no dependency changes
-- no database migrations
 - no frontend changes
-- no backend runtime changes
-- no deployment rollout
+- no deployment rollout unless explicitly requested after verification
 - no broker integration
 - no live order placement
 - no execution endpoints
@@ -64,23 +52,35 @@ Specs are canonical. If this task conflicts with a spec, the spec wins.
 
 ## Acceptance Criteria
 
-- Active plan documents state that the fixture-backed DB loop, read-only APIs, API-backed cockpit, deterministic configured crawler runtime, outcome-journal foundation, and cloud runtime hardening already exist.
-- Active plan documents identify remaining gaps without starting them implicitly.
-- Next recommended implementation gate is bounded to governed public-source and LLM analyst extraction/review work.
-- Advisory-only, no broker/order/execution, deterministic math, model routing, PostgreSQL/pgvector, and private-research guardrails remain preserved.
+- Additive PostgreSQL migrations define first-class read models for `RiskRegimeUpdate`, `TradePlan`, `PortfolioExposureSnapshot`, and `LLMAnalystNote`.
+- Fixture advisory seeding persists those read models while preserving the existing analyst brief loop.
+- Read-only API routes exist for:
+  - `/internal/segment-map/latest`
+  - `/internal/ticker/{ticker}/workbench`
+  - `/internal/portfolio/exposure/latest`
+- Routes return advisory-only envelopes and reject mutation methods.
+- No broker/order/execution route or UI surface is introduced.
+- OpenAPI docs are regenerated.
 
 ## Tests To Run
 
 ```bash
 ./.venv/bin/python -m unittest tests.test_advisory_workstation_read_model_migration tests.test_advisory_workstation_fixture_seed tests.test_advisory_workstation_read_model_repository tests.test_advisory_workstation_read_model_api
-./.venv/bin/python -m unittest tests.test_research_extractor_stub tests.test_crawl_worker_loop
-./.venv/bin/python -m unittest tests.test_architecture_policy
+./.venv/bin/python -m unittest tests.test_openapi_export_sync tests.test_architecture_policy
+python3 -m compileall services/api/src/ai_infra_fund_api services/worker/src/ai_infra_fund_worker tests
 git diff --check
+```
+
+Final integration may additionally run:
+
+```bash
+./.venv/bin/python -m unittest discover -s tests
 ```
 
 ## Definition Of Done
 
-- Current task and active plan no longer point future agents at completed Wave 1 work.
-- Verification commands pass.
-- `docs/BUILD_LOG.md` records the reconciliation.
-- Remaining implementation gaps are documented.
+- RED tests were committed before implementation.
+- Targeted verification passes.
+- Full Python verification passes unless explicitly deferred with reason.
+- `docs/BUILD_LOG.md` records the read-model enrichment pass.
+- Changes are committed and pushed.

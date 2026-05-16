@@ -581,6 +581,16 @@ paths:
               schema: {}
           description: Successful Response
       summary: Latest Outcome Journal
+  /internal/portfolio/exposure/latest:
+    get:
+      operationId: latest_portfolio_exposure_internal_portfolio_exposure_latest_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Latest Portfolio Exposure
   /internal/recommendations:
     post:
       operationId: create_recommendation_internal_recommendations_post
@@ -659,6 +669,16 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
           description: Validation Error
       summary: Get Run
+  /internal/segment-map/latest:
+    get:
+      operationId: latest_segment_map_internal_segment_map_latest_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Latest Segment Map
   /internal/shadow-portfolio/drift:
     get:
       operationId: shadow_drift_internal_shadow_portfolio_drift_get
@@ -773,6 +793,29 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
           description: Validation Error
       summary: Ticker Analyst Summary
+  /internal/ticker/{ticker}/workbench:
+    get:
+      operationId: ticker_workbench_internal_ticker__ticker__workbench_get
+      parameters:
+      - in: path
+        name: ticker
+        required: true
+        schema:
+          title: Ticker
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Ticker Workbench
   /internal/trade-journal/entries:
     get:
       operationId: list_trade_entries_internal_trade_journal_entries_get

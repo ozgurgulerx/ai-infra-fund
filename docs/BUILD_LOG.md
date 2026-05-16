@@ -1,5 +1,38 @@
 # Build Log
 
+## 2026-05-16 Wave 5 Read-Model Enrichment Slice
+
+Implemented the first bounded Wave 5 enrichment pass after the shared-thread reconciliation.
+
+- Added an additive PostgreSQL migration for first-class `RiskRegimeUpdate`, `TradePlan`, `PortfolioExposureSnapshot`, and `LLMAnalystNote` read models.
+- Extended fixture advisory persistence so `risk_regime_updates`, `open_trade_plans`, `portfolio_exposure_snapshot`, and `llm_analyst_notes` are durable read-model rows instead of payload-only fixture data.
+- Added read-only advisory repository methods and API routes for:
+  - `/internal/segment-map/latest`
+  - `/internal/ticker/{ticker}/workbench`
+  - `/internal/portfolio/exposure/latest`
+- Regenerated `docs/api/openapi.yaml`.
+- Updated `docs/CURRENT_TASK.md`, `docs/PARALLEL_AGENT_PLAN.md`, and `docs/plans/active/current-plan.md` to reflect the current implementation slice.
+- Preserved hard boundaries: advisory/reporting only, no broker integration, no live order placement, no execution endpoint, no execution UI, no automated trading behavior, no unmanaged model calls, no frontend changes, and no dependency changes.
+
+Verification:
+
+- RED checkpoint: `./.venv/bin/python -m unittest tests.test_advisory_workstation_read_model_migration tests.test_advisory_workstation_fixture_seed` failed on missing Wave 5 tables and fixture persistence; `./.venv/bin/python -m unittest tests.test_advisory_workstation_read_model_repository tests.test_advisory_workstation_read_model_api` failed on missing repository methods and routes.
+- GREEN checkpoint: `./.venv/bin/python -m unittest tests.test_advisory_workstation_read_model_migration tests.test_advisory_workstation_fixture_seed` passed, 4 tests.
+- GREEN checkpoint: `./.venv/bin/python -m unittest tests.test_advisory_workstation_read_model_repository tests.test_advisory_workstation_read_model_api` passed, 11 tests.
+- `./.venv/bin/python -m unittest tests.test_advisory_workstation_read_model_migration tests.test_advisory_workstation_fixture_seed tests.test_advisory_workstation_read_model_repository tests.test_advisory_workstation_read_model_api` passed, 15 tests.
+- `./.venv/bin/python -m unittest tests.test_openapi_export_sync tests.test_architecture_policy tests.test_migration_prefix_uniqueness` passed, 44 tests.
+- `python3 -m compileall services/api/src/ai_infra_fund_api services/worker/src/ai_infra_fund_worker tests` passed.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 664 tests, 3 skipped.
+- `git diff --check` passed.
+- `./.venv/bin/python -m unittest tests.test_advisory_workstation_read_model_migration tests.test_advisory_workstation_fixture_seed tests.test_advisory_workstation_read_model_repository tests.test_advisory_workstation_read_model_api tests.test_openapi_export_sync` passed, 17 tests.
+- `./.venv/bin/python -m unittest tests.test_migration_prefix_uniqueness tests.test_architecture_policy` passed, 42 tests.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 664 tests, 3 skipped.
+- `python3 -m compileall packages services tests` passed.
+- `docker compose config` passed.
+- `scripts/compose_smoke.sh` passed and applied `0012_wave2_workstation_read_models.sql` in the smoke database.
+- `scripts/run_fixture_advisory_once.sh` passed with run `run-fixture-advisory-249080a9469ca0ab`, writing 9 source signals, 9 market events, 8 trade plans, and 8 advisory records.
+- `git diff --check` passed.
+
 ## 2026-05-16 Six-Agent Plan Reconciliation
 
 Reconciled the latest visible shared-thread six-agent guidance against the current repository state.
@@ -8,7 +41,8 @@ Reconciled the latest visible shared-thread six-agent guidance against the curre
 - Confirmed read-only APIs already expose source signals, market events, latest analyst brief, latest trading advisory, and ticker analyst summaries.
 - Confirmed the deterministic configured-public-source crawler runtime and guarded LLM extraction/review stub boundary exist.
 - Updated `docs/CURRENT_TASK.md`, `docs/PARALLEL_AGENT_PLAN.md`, and `docs/plans/active/current-plan.md` so future agents do not repeat completed Wave 1 work.
-- Identified the next bounded implementation gate as governed public-source and LLM analyst extraction/review expansion, not another fixture/API/cockpit rebuild.
+- Identified the next bounded implementation gate as richer daily brief builder/read-model enrichment before governed public-source and LLM analyst extraction/review expansion.
+- Recorded the remaining read-model gap: open trade plans, readiness checks, LLM analyst notes, advisory updates, financial snapshots, portfolio exposure, PnL summaries, and suggested actions are still mostly preserved inside fixture payloads rather than first-class builder/read-model outputs.
 - No product code, dependencies, migrations, frontend code, backend runtime behavior, broker paths, execution paths, or deployment files were changed.
 
 Verification:
