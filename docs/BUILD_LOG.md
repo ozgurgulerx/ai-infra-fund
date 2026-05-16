@@ -7,6 +7,7 @@ Implemented the governed LLM shadow analyst foundation for review-required analy
 - Added `AnalystContextBundle` builders for daily brief and ticker scopes that collect live analyst context from source signals, evidence items, market events, segment impacts, equity impact assessments, valuation context, risk regime updates, portfolio exposure, prior advisories, and outcome journal entries.
 - Added non-publishable draft contracts for `SegmentImpactDraft`, `EquityImpactAssessmentDraft`, `ValuationContextDraft`, `RiskRegimeUpdateDraft`, `TradingAdvisoryDraft`, and `AnalystBriefDraft`.
 - Added `GovernedShadowAnalystPipeline` that routes through `config/model_profiles.yaml`, records a `ModelRun` for successful, failed, and denied attempts, validates structured output, rejects invalid draft output, denies private-research shadow routing by default, and falls back deterministically when the model client is unavailable.
+- Added an optional draft recorder hook so review-required and rejected draft outputs can be stored by worker/API adapters without allowing raw LLM output to publish directly.
 - Preserved hard boundaries: no broker integration, no live order placement, no execution behavior, no UI changes, no database migrations, no LLM-owned PnL/accounting/target weights, no unmanaged model calls, and no raw LLM publication path.
 
 Verification:
@@ -898,3 +899,58 @@ Cloud deployment validation:
   - `/internal/ticker/NVDA/workbench` returned `200`.
   - `/internal/portfolio/exposure/latest` returned `200`.
 - Verified the hosted cockpit at `https://ai-infra-fund-frontend.azurewebsites.net` rendered brief `brief-daily-ai-infra-20260516T201354Z-d098433a`, 25 MarketEvents, 21 suggested advisory actions, evidence-linked labels, and advisory-only/no transaction surface labels.
+
+## 2026-05-16 Remaining Source Pressure Fix
+
+Finished the remaining v1.1 source cleanup items for the configured public crawler.
+
+- Replaced the Data Center Dynamics ticker search source with the public RSS feed `https://www.datacenterdynamics.com/en/rss/`.
+- Changed GDELT from per-ticker burst fanout to one static AI-infrastructure query with `maxrecords=25`, `sort=datedesc`, and a 720-minute refresh interval.
+- Added deterministic crawler handling for HTTP `429` so the first retry backs off for one hour instead of the generic five-minute failure backoff.
+- Added `EIA_API_KEY` to `.env.example` so all optional public-data source secrets are documented with FRED and Finnhub.
+- Confirmed the cloud runtime still has no `EIA_API_KEY`, `FRED_API_KEY`, or `FINNHUB_API_KEY` configured; no placeholder secrets were added.
+
+Verification:
+
+- RED checkpoint: `./.venv/bin/python -m unittest tests.equity_intelligence.test_source_registry` failed on the blocked DCD search configuration, per-ticker GDELT fanout, and missing `EIA_API_KEY` env example entry.
+- RED checkpoint: `./.venv/bin/python -m unittest tests.test_crawl_worker_loop.CrawlProcessOneUnitTests` failed because HTTP `429` still retried after five minutes.
+- `./.venv/bin/python -m unittest tests.test_crawl_worker_loop.CrawlProcessOneUnitTests tests.equity_intelligence.test_source_registry tests.worker.test_source_registry_seed` passed, 15 tests.
+- `python3 -m compileall packages/core/src/ai_infra_fund_core/equity_intelligence services/worker/src/ai_infra_fund_worker/crawl tests` passed.
+- `./.venv/bin/python -m unittest tests.test_architecture_policy tests.test_crawl_scheduler_config tests.test_crawl_advisory_materialization` passed, 49 tests.
+- `./.venv/bin/python -m unittest tests.test_crawl_fetcher tests.test_equity_intelligence_repository tests.test_crawl_worker_loop.CrawlProcessOneUnitTests tests.equity_intelligence.test_source_registry tests.worker.test_source_registry_seed` passed, 33 tests.
+- `docker compose config` passed.
+- `git diff --check` passed.
+- `./.venv/bin/python -m unittest discover -s tests` was blocked by unrelated shadow analyst files present in the working tree: `tests/advisory/test_shadow_analyst_pipeline.py` imports `ai_infra_fund_core.shadow_analyst` during discovery.
+
+Cloud deployment validation:
+
+- Pushed runtime commit `e0a7c30` to `origin/main`.
+- Built and pushed ACR images:
+  - `aistartuptr.azurecr.io/ai-infra-fund-api:e0a7c30` with digest `sha256:3feb38fc64a772b6384a667001846ef583faa06f8d5ef9762ef90e9b479c098f`.
+  - `aistartuptr.azurecr.io/ai-infra-fund-worker:e0a7c30` with digest `sha256:52c3ef2b933b43a19f5fd8c5c3711619ac601c6693a10fb82da89e19f0e82536`.
+- Rolled AKS deployments `ai-infra-fund-api` and `ai-infra-fund-worker` to image tag `e0a7c30`; both reported `1/1` ready.
+- Did not run migrations; this pass added no migration files.
+- Ran cloud source registry seed through the deployed worker:
+  - seeded 34 equities, 18 active sources, 246 frontier URLs, and 246 queue items,
+  - skipped `source_eia_electricity` because `EIA_API_KEY` is not configured,
+  - skipped `source_fred_macro` because `FRED_API_KEY` is not configured,
+  - skipped `source_finnhub_company_news` because `FINNHUB_API_KEY` is not configured.
+- Verified cloud crawler behavior after seed:
+  - Data Center Dynamics RSS returned `200` and captured one frontier.
+  - GDELT made one low-volume request and returned `429`; the frontier moved to retry at `2026-05-16T21:32:39Z`, confirming the one-hour rate-limit backoff.
+- Ran cloud daily brief generation through the deployed worker.
+  - Run ID: `run-daily-ai-infra-brief-268cb5ec85c9a575`.
+  - Brief ID: `brief-daily-ai-infra-20260516T203319Z-268cb5ec`.
+  - Published 22 advisory-only trading advisories.
+  - Suppressed 0 candidates through deterministic gates.
+- Verified cloud endpoints through `https://ai-infra-fund-frontend.azurewebsites.net/api/backend`:
+  - `/health` returned `200`.
+  - `/ready` returned `200`.
+  - `/internal/source-signals/latest` returned `200` with 10 latest items.
+  - `/internal/market-events/latest` returned `200` with 10 latest items.
+  - `/internal/analyst-brief/latest` returned `200`, `status=available`, brief `brief-daily-ai-infra-20260516T203319Z-268cb5ec`, 25 MarketEvents, 22 trading advisories, and `advisory_only`.
+  - `/internal/trading-advisory/latest` returned `200` with 10 latest items.
+  - `/internal/segment-map/latest` returned `200`, `status=available`, 8 segment impacts, 9 linked market events, and 5 risk regime updates.
+  - `/internal/ticker/NVDA/workbench` returned `200`, `status=available`, 10 source signals, 10 market events, and 3 trading advisories.
+  - `/internal/portfolio/exposure/latest` returned `200`, `status=available`, snapshot `pexp_20260516_ai_infra_core`, 22 positions, and `advisory_only`.
+- Verified the hosted cockpit HTML rendered brief `brief-daily-ai-infra-20260516T203319Z-268cb5ec`, 25 MarketEvents, 22 suggested advisory actions, evidence-linked labels, and advisory-only/no transaction surface labels.
