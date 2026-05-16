@@ -13,6 +13,9 @@ from ai_infra_fund_api.repositories.crawl_logs import (
 from ai_infra_fund_api.repositories.equity_intelligence import (
     EquityIntelligenceRepository,
 )
+from ai_infra_fund_core.equity_intelligence.advisory_materializer import (
+    materialize_crawl_advisory_records,
+)
 from ai_infra_fund_core.equity_intelligence.capture import LocalCaptureStore
 from ai_infra_fund_core.equity_intelligence.event_extractor import extract_events
 from ai_infra_fund_core.equity_intelligence.extraction import extract
@@ -258,6 +261,11 @@ def _process_one(
         },
         created_at=now,
     )
+    materialized = materialize_crawl_advisory_records(
+        capture=capture_record,
+        equity_events=event_records,
+        frontier_metadata=_merged_frontier_metadata(row=row, metadata=metadata),
+    )
     run_record = SimpleNamespace(
         run_id=f"run-crawl-{attempt_id.removeprefix('attempt-')[:16]}",
         ticker=ticker_value,
@@ -276,15 +284,25 @@ def _process_one(
             "latency_ms": result.latency_ms,
             "byte_size": stored.byte_size,
             "events_emitted": len(event_records),
+            "source_signals_emitted": len(materialized.source_signals),
+            "market_events_emitted": len(materialized.market_events),
+            "source_signal_ids": [
+                record.signal_id for record in materialized.source_signals
+            ],
+            "market_event_ids": [
+                record.event_id for record in materialized.market_events
+            ],
         },
         model_run_ids=[],
         error_summary=None,
         created_at=now,
     )
 
-    repo.save_crawl_capture_events_and_run(
+    repo.save_crawl_capture_advisory_materials_and_run(
         source_raw_capture=capture_record,
         equity_events=event_records,
+        source_signals=materialized.source_signals,
+        market_events=materialized.market_events,
         intelligence_run=run_record,
     )
 
@@ -323,6 +341,19 @@ def _maybe_str(value: object) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _merged_frontier_metadata(
+    *,
+    row: dict,
+    metadata: dict[str, object],
+) -> dict[str, object]:
+    row_metadata = row.get("metadata")
+    merged: dict[str, object] = {}
+    if isinstance(row_metadata, dict):
+        merged.update(row_metadata)
+    merged.update(metadata)
+    return merged
 
 
 def _record_failed_attempt(

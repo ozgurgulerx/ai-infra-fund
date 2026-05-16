@@ -19,6 +19,12 @@ from .connectors import (
 )
 from .events import EquityEvent, EquityEventType
 from .freshness import FreshnessAssessment, FreshnessPolicy, FreshnessStatus, assess_freshness
+from .advisory_materializer import (
+    CanonicalMarketEventRecord,
+    CanonicalSourceSignalRecord,
+    CrawlAdvisoryMaterialization,
+    materialize_crawl_advisory_records,
+)
 from .frontier import (
     ClaimResult,
     CrawlQueueItem,
@@ -51,11 +57,14 @@ from .urls import CanonicalUrl, canonicalize_url
 
 __all__ = [
     "CanonicalUrl",
+    "CanonicalMarketEventRecord",
+    "CanonicalSourceSignalRecord",
     "ClaimResult",
     "CompanyIrPressConnector",
     "ConnectorFetchResult",
     "CrawlQueueItem",
     "CrawlTarget",
+    "CrawlAdvisoryMaterialization",
     "DeepResearchTask",
     "DynamicRatingInput",
     "DynamicRatingLabel",
@@ -92,6 +101,7 @@ __all__ = [
     "canonicalize_url",
     "claim_due_targets",
     "derive_dynamic_rating",
+    "materialize_crawl_advisory_records",
     "record_crawl_failure",
     "record_crawl_success",
     "seed_crawl_target",

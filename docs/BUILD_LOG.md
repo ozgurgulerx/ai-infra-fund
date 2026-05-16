@@ -1,5 +1,26 @@
 # Build Log
 
+## 2026-05-16 Advisory Product Sessions From Shared Plan
+
+Implemented the next feasible sessions from the shared completion plan after the fixture-backed read model.
+
+- Added deterministic crawler materialization from public crawl captures and legacy `signals.equity_events` into canonical `analyst.source_signals` and `analyst.market_events`.
+- Added a governed LLM extraction/review boundary with explicit draft object buckets for `EvidenceClaim`, `SourceSignal`, and `MarketEvent`; the v1 implementation remains a no-op stub and rejects scores, weights, constraints, orders, executions, broker concepts, and trade instructions in model-produced draft payloads.
+- Added a first-class read-only outcome journal foundation under `analyst.outcome_journal_entries` with advisory links, market-event/evidence lineage, invalidation/risk flags, and deterministic PnL attribution fields.
+- Added `GET /internal/outcome-journal/latest` and regenerated `docs/api/openapi.yaml`.
+- Extended the Compose smoke gate to verify `analyst.outcome_journal_entries`.
+- Preserved hard boundaries: advisory/reporting only, no broker integration, no live order placement, no execution endpoint, no execution UI, no model calls enabled, no LLM-owned scoring, no target-weight generation, and no recommendation-generation changes.
+
+Verification:
+
+- `./.venv/bin/python -m unittest tests.test_crawl_advisory_materialization tests.test_research_extractor_stub tests.test_outcome_journal_migration tests.test_outcome_journal_repository tests.test_outcome_journal_api tests.test_architecture_policy` passed, 46 tests.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 615 tests, 3 skipped.
+- `python3 -m compileall packages services tests` passed.
+- `npm run build --prefix apps/web` passed.
+- `npm audit --omit=dev --prefix apps/web` passed, 0 vulnerabilities.
+- `docker compose config` passed.
+- `scripts/compose_smoke.sh` passed after fixing the outcome-journal migration foreign-key type from `TEXT` to `UUID`.
+
 ## 2026-05-16 App Diagrams
 
 Added a Mermaid-only visual source map for the AI Infrastructure Trading Advisory Workstation.

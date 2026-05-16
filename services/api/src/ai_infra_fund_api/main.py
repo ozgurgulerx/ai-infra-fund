@@ -44,6 +44,10 @@ from ai_infra_fund_api.routes.evaluation import (
     EvaluationPersistenceRepository,
     register_evaluation_routes,
 )
+from ai_infra_fund_api.routes.outcome_journal import (
+    OutcomeJournalReadRepository,
+    register_outcome_journal_routes,
+)
 from ai_infra_fund_api.routes.recommendations import (
     RecommendationService,
     register_recommendation_routes,
@@ -152,6 +156,7 @@ def create_app(
     crawl_activity_repository: CrawlActivityRepository | None = None,
     advisory_chain_repository: AdvisoryChainReadRepository | None = None,
     advisory_workstation_repository: AdvisoryWorkstationReadRepository | None = None,
+    outcome_journal_repository: OutcomeJournalReadRepository | None = None,
     run_repository: RunReadRepository | None = None,
     trade_journal_repository: TradeJournalPersistenceRepository | None = None,
     events_repository: ExperimentEventsReadRepository | None = None,
@@ -239,6 +244,11 @@ def create_app(
     register_advisory_workstation_routes(
         app,
         advisory_workstation_repository=advisory_workstation_repository,
+        settings_provider=settings_provider,
+    )
+    register_outcome_journal_routes(
+        app,
+        outcome_journal_repository=outcome_journal_repository,
         settings_provider=settings_provider,
     )
     register_run_routes(

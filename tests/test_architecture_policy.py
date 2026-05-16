@@ -1,4 +1,5 @@
 from pathlib import Path
+import dataclasses
 import re
 import stat
 import subprocess
@@ -166,6 +167,15 @@ DETERMINISTIC_OWNERSHIP_PHRASES = [
     "Deterministic code owns scores, risk, constraints, target weights, correlation exposure, concentration checks, entry/exit levels, scenario values, PnL, exposure, risk-limit checks, and accounting",
     "UI consumers must render fields as provided. They must not compute scores, weights, PnL, target prices, entry/exit levels, or constraints",
     "Deterministic code owns PnL, exposure, risk-limit checks, and accounting",
+]
+
+LLM_EXTRACTION_FORBIDDEN_OUTPUT_NAME_TERMS = [
+    "score",
+    "scoring",
+    "weight",
+    "constraint",
+    "order",
+    "execution",
 ]
 
 
@@ -558,6 +568,37 @@ class ArchitecturePolicyTests(unittest.TestCase):
             phrase for phrase in DETERMINISTIC_OWNERSHIP_PHRASES if phrase not in combined
         ]
         self.assertEqual([], missing)
+
+    def test_research_extractor_result_names_exclude_deterministic_and_execution_outputs(self) -> None:
+        import sys
+
+        core_src = ROOT / "packages" / "core" / "src"
+        sys.path.insert(0, str(core_src))
+
+        from ai_infra_fund_core.equity_intelligence import research_extractor
+
+        output_classes = [
+            research_extractor.EvidenceClaimDraft,
+            research_extractor.SourceSignalDraft,
+            research_extractor.MarketEventDraft,
+            research_extractor.ModelRunRecord,
+            research_extractor.ResearchExtractionResult,
+            research_extractor.SuppressedModelOutput,
+        ]
+        output_names = {
+            class_.__name__
+            for class_ in output_classes
+        }
+        for class_ in output_classes:
+            output_names.update(field.name for field in dataclasses.fields(class_))
+
+        offenders = [
+            name
+            for name in sorted(output_names)
+            for forbidden in LLM_EXTRACTION_FORBIDDEN_OUTPUT_NAME_TERMS
+            if forbidden in name.lower()
+        ]
+        self.assertEqual([], offenders)
 
 
 if __name__ == "__main__":

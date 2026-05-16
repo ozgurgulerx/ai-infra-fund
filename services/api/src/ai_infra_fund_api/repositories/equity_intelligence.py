@@ -397,6 +397,88 @@ INSERT INTO signals.equity_events (
 """
 
 
+UPSERT_SOURCE_SIGNAL_SQL = """
+INSERT INTO analyst.source_signals (
+    signal_id,
+    source_type,
+    signal_category,
+    title,
+    observed_at,
+    available_at,
+    tickers,
+    themes,
+    evidence_ids,
+    derived_market_event_ids,
+    confidence,
+    review_status,
+    content_hash,
+    payload_json,
+    created_at
+) VALUES (
+    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s
+) ON CONFLICT (signal_id) DO UPDATE SET
+    source_type = EXCLUDED.source_type,
+    signal_category = EXCLUDED.signal_category,
+    title = EXCLUDED.title,
+    observed_at = EXCLUDED.observed_at,
+    available_at = EXCLUDED.available_at,
+    tickers = EXCLUDED.tickers,
+    themes = EXCLUDED.themes,
+    evidence_ids = EXCLUDED.evidence_ids,
+    derived_market_event_ids = EXCLUDED.derived_market_event_ids,
+    confidence = EXCLUDED.confidence,
+    review_status = EXCLUDED.review_status,
+    content_hash = EXCLUDED.content_hash,
+    payload_json = EXCLUDED.payload_json,
+    created_at = EXCLUDED.created_at;
+"""
+
+
+UPSERT_MARKET_EVENT_SQL = """
+INSERT INTO analyst.market_events (
+    event_id,
+    event_type,
+    source_signal_ids,
+    evidence_ids,
+    tickers,
+    companies,
+    themes,
+    catalyst,
+    ai_relevance,
+    direction,
+    time_horizon,
+    confidence,
+    occurred_at,
+    available_at,
+    content_hash,
+    extracted_by_model_run_id,
+    review_status,
+    payload_json,
+    created_at
+) VALUES (
+    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s
+) ON CONFLICT (event_id) DO UPDATE SET
+    event_type = EXCLUDED.event_type,
+    source_signal_ids = EXCLUDED.source_signal_ids,
+    evidence_ids = EXCLUDED.evidence_ids,
+    tickers = EXCLUDED.tickers,
+    companies = EXCLUDED.companies,
+    themes = EXCLUDED.themes,
+    catalyst = EXCLUDED.catalyst,
+    ai_relevance = EXCLUDED.ai_relevance,
+    direction = EXCLUDED.direction,
+    time_horizon = EXCLUDED.time_horizon,
+    confidence = EXCLUDED.confidence,
+    occurred_at = EXCLUDED.occurred_at,
+    available_at = EXCLUDED.available_at,
+    content_hash = EXCLUDED.content_hash,
+    extracted_by_model_run_id = EXCLUDED.extracted_by_model_run_id,
+    review_status = EXCLUDED.review_status,
+    payload_json = EXCLUDED.payload_json,
+    created_at = EXCLUDED.created_at;
+"""
+
+
 UPSERT_SENTIMENT_SNAPSHOT_SQL = """
 INSERT INTO signals.sentiment_snapshots (
     snapshot_id,
@@ -721,6 +803,36 @@ class EquityIntelligenceRepository:
             "intelligence_run": intelligence_run,
         }
 
+    def save_crawl_capture_advisory_materials_and_run(
+        self,
+        *,
+        source_raw_capture: object,
+        equity_events: tuple[object, ...] | list[object],
+        source_signals: tuple[object, ...] | list[object],
+        market_events: tuple[object, ...] | list[object],
+        intelligence_run: object,
+    ) -> dict[str, object]:
+        """Atomic write for crawl capture, legacy events, canonical rows, and run."""
+        with self._connection.cursor() as cursor:
+            cursor.execute(UPSERT_CAPTURE_SQL, _capture_params(source_raw_capture))
+            for event in equity_events:
+                cursor.execute(UPSERT_EQUITY_EVENT_SQL, _event_params(event))
+            for signal in source_signals:
+                cursor.execute(UPSERT_SOURCE_SIGNAL_SQL, _source_signal_params(signal))
+            for market_event in market_events:
+                cursor.execute(
+                    UPSERT_MARKET_EVENT_SQL, _market_event_params(market_event)
+                )
+            cursor.execute(UPSERT_INTELLIGENCE_RUN_SQL, _run_params(intelligence_run))
+        self._connection.commit()
+        return {
+            "source_raw_capture": source_raw_capture,
+            "equity_events": tuple(equity_events),
+            "source_signals": tuple(source_signals),
+            "market_events": tuple(market_events),
+            "intelligence_run": intelligence_run,
+        }
+
     def save_capture_event_snapshots_and_run(
         self,
         *,
@@ -923,6 +1035,53 @@ def _event_params(event: object) -> tuple[object, ...]:
         _required_text_attr(event, "review_status"),
         _json_param(getattr(event, "metadata", {})),
         require_content_hash(getattr(event, "content_hash", None)),
+        _required_aware_datetime_attr(event, "created_at"),
+    )
+
+
+def _source_signal_params(signal: object) -> tuple[object, ...]:
+    return (
+        _required_text_attr(signal, "signal_id"),
+        _required_text_attr(signal, "source_type"),
+        _required_text_attr(signal, "signal_category"),
+        _required_text_attr(signal, "title"),
+        _required_aware_datetime_attr(signal, "observed_at"),
+        _required_aware_datetime_attr(signal, "available_at"),
+        _text_array(getattr(signal, "tickers", ()), "tickers"),
+        _text_array(getattr(signal, "themes", ()), "themes"),
+        _text_array(getattr(signal, "evidence_ids", ()), "evidence_ids"),
+        _text_array(
+            getattr(signal, "derived_market_event_ids", ()),
+            "derived_market_event_ids",
+        ),
+        _required_text_attr(signal, "confidence"),
+        _required_text_attr(signal, "review_status"),
+        require_content_hash(getattr(signal, "content_hash", None)),
+        _json_param(getattr(signal, "payload", {})),
+        _required_aware_datetime_attr(signal, "created_at"),
+    )
+
+
+def _market_event_params(event: object) -> tuple[object, ...]:
+    return (
+        _required_text_attr(event, "event_id"),
+        _required_text_attr(event, "event_type"),
+        _text_array(getattr(event, "source_signal_ids", ()), "source_signal_ids"),
+        _text_array(getattr(event, "evidence_ids", ()), "evidence_ids"),
+        _text_array(getattr(event, "tickers", ()), "tickers"),
+        _text_array(getattr(event, "companies", ()), "companies"),
+        _text_array(getattr(event, "themes", ()), "themes"),
+        _required_text_attr(event, "catalyst"),
+        _required_text_attr(event, "ai_relevance"),
+        _required_text_attr(event, "direction"),
+        _required_text_attr(event, "time_horizon"),
+        _required_text_attr(event, "confidence"),
+        _required_aware_datetime_attr(event, "occurred_at"),
+        _required_aware_datetime_attr(event, "available_at"),
+        require_content_hash(getattr(event, "content_hash", None)),
+        _optional_text_attr(event, "extracted_by_model_run_id"),
+        _required_text_attr(event, "review_status"),
+        _json_param(getattr(event, "payload", {})),
         _required_aware_datetime_attr(event, "created_at"),
     )
 
