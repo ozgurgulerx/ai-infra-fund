@@ -14,6 +14,7 @@ ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 
 COPY --from=deps /app/node_modules /app/node_modules
 COPY apps/web /app
+COPY docs/mock_data /app/docs/mock_data
 RUN npm run build
 
 FROM node:22-alpine AS runtime

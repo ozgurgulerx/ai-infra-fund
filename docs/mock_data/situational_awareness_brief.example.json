@@ -965,6 +965,240 @@
       "manual_journal_only": true
     },
     {
+      "trade_plan_id": "tpln_20260516_amd_watch_mi300",
+      "ticker": "AMD",
+      "company": "Advanced Micro Devices",
+      "status": "draft",
+      "advisory_action": "watch_for_accelerator_share_gain",
+      "linked_event_ids": [
+        "mevt_20260516_hyperscaler_capex_raise_msft_az_ai",
+        "mevt_20260516_hbm_supply_bottleneck_sk hynix_micron"
+      ],
+      "linked_signal_bundle_id": "sig_20260516_amd_mi300_001",
+      "linked_recommendation_artifact_id": "rec_20260516_amd_watch_001",
+      "readiness": "blocked_until_customer_win_evidence",
+      "blocking_reasons": [
+        "Accelerator demand is positive, but share-gain evidence remains less direct than NVDA",
+        "HBM allocation may limit near-term unit upside"
+      ],
+      "manual_journal_only": true
+    },
+    {
+      "trade_plan_id": "tpln_20260516_avgo_hold_custom_silicon",
+      "ticker": "AVGO",
+      "company": "Broadcom",
+      "status": "active",
+      "advisory_action": "hold_custom_silicon_core",
+      "linked_event_ids": [
+        "mevt_20260516_hyperscaler_capex_raise_msft_az_ai",
+        "mevt_20260516_export_control_update_ai_accelerators"
+      ],
+      "linked_signal_bundle_id": "sig_20260516_avgo_custom_silicon_001",
+      "linked_recommendation_artifact_id": "rec_20260516_avgo_hold_001",
+      "readiness": "review_ready",
+      "blocking_reasons": [],
+      "manual_journal_only": true
+    },
+    {
+      "trade_plan_id": "tpln_20260516_asml_hold_policy_watch",
+      "ticker": "ASML",
+      "company": "ASML",
+      "status": "active",
+      "advisory_action": "hold_with_export_control_watch",
+      "linked_event_ids": [
+        "mevt_20260516_cowos_expansion_tsm_capacity",
+        "mevt_20260516_export_control_update_ai_accelerators"
+      ],
+      "linked_signal_bundle_id": "sig_20260516_asml_semicap_001",
+      "linked_recommendation_artifact_id": "rec_20260516_asml_hold_001",
+      "readiness": "review_ready_but_policy_sensitive",
+      "blocking_reasons": [
+        "China-related semicap demand timing needs updated policy review"
+      ],
+      "manual_journal_only": true
+    },
+    {
+      "trade_plan_id": "tpln_20260516_anet_hold_ai_ethernet",
+      "ticker": "ANET",
+      "company": "Arista Networks",
+      "status": "active",
+      "advisory_action": "hold_ai_ethernet_derivative",
+      "linked_event_ids": [
+        "mevt_20260516_hyperscaler_capex_raise_msft_az_ai",
+        "mevt_20260516_datacenter_lease_hyperscale_campus"
+      ],
+      "linked_signal_bundle_id": "sig_20260516_anet_ethernet_001",
+      "linked_recommendation_artifact_id": "rec_20260516_anet_hold_001",
+      "readiness": "review_ready",
+      "blocking_reasons": [],
+      "manual_journal_only": true
+    },
+    {
+      "trade_plan_id": "tpln_20260516_mrvl_watch_custom_asic",
+      "ticker": "MRVL",
+      "company": "Marvell Technology",
+      "status": "draft",
+      "advisory_action": "watch_for_custom_asic_timing",
+      "linked_event_ids": [
+        "mevt_20260516_hyperscaler_capex_raise_msft_az_ai"
+      ],
+      "linked_signal_bundle_id": "sig_20260516_mrvl_custom_asic_001",
+      "linked_recommendation_artifact_id": "rec_20260516_mrvl_watch_001",
+      "readiness": "blocked_until_customer_timing_evidence",
+      "blocking_reasons": [
+        "Custom ASIC revenue timing needs customer-specific confirmation"
+      ],
+      "manual_journal_only": true
+    },
+    {
+      "trade_plan_id": "tpln_20260516_etn_hold_power_backlog",
+      "ticker": "ETN",
+      "company": "Eaton",
+      "status": "active",
+      "advisory_action": "hold_power_backlog",
+      "linked_event_ids": [
+        "mevt_20260516_hyperscaler_capex_raise_msft_az_ai",
+        "mevt_20260516_nuclear_ppa_datacenter_power"
+      ],
+      "linked_signal_bundle_id": "sig_20260516_etn_power_001",
+      "linked_recommendation_artifact_id": "rec_20260516_etn_hold_001",
+      "readiness": "review_ready",
+      "blocking_reasons": [],
+      "manual_journal_only": true
+    },
+    {
+      "trade_plan_id": "tpln_20260516_pwr_add_grid_queue",
+      "ticker": "PWR",
+      "company": "Quanta Services",
+      "status": "active",
+      "advisory_action": "add_on_grid_interconnection_visibility",
+      "linked_event_ids": [
+        "mevt_20260516_nuclear_ppa_datacenter_power",
+        "mevt_20260516_datacenter_lease_hyperscale_campus"
+      ],
+      "linked_signal_bundle_id": "sig_20260516_pwr_grid_001",
+      "linked_recommendation_artifact_id": "rec_20260516_pwr_accumulate_001",
+      "readiness": "review_ready",
+      "blocking_reasons": [],
+      "manual_journal_only": true
+    },
+    {
+      "trade_plan_id": "tpln_20260516_ceg_hold_ppa_optional",
+      "ticker": "CEG",
+      "company": "Constellation Energy",
+      "status": "active",
+      "advisory_action": "hold_power_scarcity_optional",
+      "linked_event_ids": [
+        "mevt_20260516_nuclear_ppa_datacenter_power"
+      ],
+      "linked_signal_bundle_id": "sig_20260516_ceg_nuclear_001",
+      "linked_recommendation_artifact_id": "rec_20260516_ceg_hold_001",
+      "readiness": "review_ready_but_regulatory_sensitive",
+      "blocking_reasons": [
+        "PPA economics and regulatory approvals need monitoring"
+      ],
+      "manual_journal_only": true
+    },
+    {
+      "trade_plan_id": "tpln_20260516_dlr_watch_power_leases",
+      "ticker": "DLR",
+      "company": "Digital Realty",
+      "status": "draft",
+      "advisory_action": "watch_for_power_backed_leasing",
+      "linked_event_ids": [
+        "mevt_20260516_datacenter_lease_hyperscale_campus"
+      ],
+      "linked_signal_bundle_id": "sig_20260516_dlr_datacenter_001",
+      "linked_recommendation_artifact_id": "rec_20260516_dlr_watch_001",
+      "readiness": "blocked_until_power_commitment_evidence",
+      "blocking_reasons": [
+        "Lease announcements need committed power and interconnection evidence"
+      ],
+      "manual_journal_only": true
+    },
+    {
+      "trade_plan_id": "tpln_20260516_eqix_hold_interconnection",
+      "ticker": "EQIX",
+      "company": "Equinix",
+      "status": "active",
+      "advisory_action": "hold_interconnection_quality",
+      "linked_event_ids": [
+        "mevt_20260516_datacenter_lease_hyperscale_campus"
+      ],
+      "linked_signal_bundle_id": "sig_20260516_eqix_interconnection_001",
+      "linked_recommendation_artifact_id": "rec_20260516_eqix_hold_001",
+      "readiness": "review_ready",
+      "blocking_reasons": [],
+      "manual_journal_only": true
+    },
+    {
+      "trade_plan_id": "tpln_20260516_orcl_watch_capacity_backlog",
+      "ticker": "ORCL",
+      "company": "Oracle",
+      "status": "draft",
+      "advisory_action": "watch_gpu_capacity_backlog_quality",
+      "linked_event_ids": [
+        "mevt_20260516_datacenter_lease_hyperscale_campus"
+      ],
+      "linked_signal_bundle_id": "sig_20260516_orcl_gpu_capacity_001",
+      "linked_recommendation_artifact_id": "rec_20260516_orcl_watch_001",
+      "readiness": "blocked_until_backlog_delivery_evidence",
+      "blocking_reasons": [
+        "OCI AI backlog needs delivery cadence and customer concentration review"
+      ],
+      "manual_journal_only": true
+    },
+    {
+      "trade_plan_id": "tpln_20260516_msft_hold_capex_monitor",
+      "ticker": "MSFT",
+      "company": "Microsoft",
+      "status": "active",
+      "advisory_action": "hold_capex_monetization_monitor",
+      "linked_event_ids": [
+        "mevt_20260516_hyperscaler_capex_raise_msft_az_ai"
+      ],
+      "linked_signal_bundle_id": "sig_20260516_msft_capex_001",
+      "linked_recommendation_artifact_id": "rec_20260516_msft_hold_001",
+      "readiness": "review_ready_but_utilization_sensitive",
+      "blocking_reasons": [
+        "AI revenue conversion and depreciation pressure need ongoing review"
+      ],
+      "manual_journal_only": true
+    },
+    {
+      "trade_plan_id": "tpln_20260516_googl_hold_power_tpu",
+      "ticker": "GOOGL",
+      "company": "Alphabet",
+      "status": "active",
+      "advisory_action": "hold_power_and_tpu_optional",
+      "linked_event_ids": [
+        "mevt_20260516_nuclear_ppa_datacenter_power"
+      ],
+      "linked_signal_bundle_id": "sig_20260516_googl_power_tpu_001",
+      "linked_recommendation_artifact_id": "rec_20260516_googl_hold_001",
+      "readiness": "review_ready",
+      "blocking_reasons": [],
+      "manual_journal_only": true
+    },
+    {
+      "trade_plan_id": "tpln_20260516_amzn_hold_aws_ai",
+      "ticker": "AMZN",
+      "company": "Amazon",
+      "status": "active",
+      "advisory_action": "hold_aws_ai_capacity",
+      "linked_event_ids": [
+        "mevt_20260516_datacenter_lease_hyperscale_campus",
+        "mevt_20260516_hyperscaler_capex_raise_msft_az_ai"
+      ],
+      "linked_signal_bundle_id": "sig_20260516_amzn_aws_ai_001",
+      "linked_recommendation_artifact_id": "rec_20260516_amzn_hold_001",
+      "readiness": "review_ready_but_margin_sensitive",
+      "blocking_reasons": [
+        "Retail margin offset and AWS utilization should be separated in review"
+      ],
+      "manual_journal_only": true
+    },
+    {
       "trade_plan_id": "tpln_20260516_meta_trim_capex_debate",
       "ticker": "META",
       "company": "Meta Platforms",
@@ -1032,6 +1266,46 @@
       "linked_event_id": "mevt_20260516_export_control_update_ai_accelerators",
       "suggested_workbench": "AI Infrastructure Ecosystem Map",
       "created_at": "2026-05-16T07:44:00Z"
+    },
+    {
+      "alert_id": "walert_20260516_anet_ethernet",
+      "ticker": "ANET",
+      "alert_type": "ai_networking_demand",
+      "severity": "medium_high",
+      "summary": "Hyperscaler capex and high-density campus leasing support AI ethernet fabric demand; review cloud customer concentration.",
+      "linked_event_id": "mevt_20260516_hyperscaler_capex_raise_msft_az_ai",
+      "suggested_workbench": "Ticker Analyst Workbench",
+      "created_at": "2026-05-16T07:49:00Z"
+    },
+    {
+      "alert_id": "walert_20260516_pwr_grid_queue",
+      "ticker": "PWR",
+      "alert_type": "grid_interconnection",
+      "severity": "medium_high",
+      "summary": "Power-constrained AI campuses increase relevance of grid interconnection and utility construction backlog.",
+      "linked_event_id": "mevt_20260516_nuclear_ppa_datacenter_power",
+      "suggested_workbench": "Portfolio + Exposure Balancer",
+      "created_at": "2026-05-16T07:52:00Z"
+    },
+    {
+      "alert_id": "walert_20260516_avgo_custom_silicon",
+      "ticker": "AVGO",
+      "alert_type": "custom_silicon",
+      "severity": "medium",
+      "summary": "Higher AI capex supports custom silicon demand, but customer concentration and export-control exposure need separation.",
+      "linked_event_id": "mevt_20260516_hyperscaler_capex_raise_msft_az_ai",
+      "suggested_workbench": "Ticker Analyst Workbench",
+      "created_at": "2026-05-16T07:55:00Z"
+    },
+    {
+      "alert_id": "walert_20260516_cloud_capex_cluster",
+      "ticker": "MSFT",
+      "alert_type": "cluster_exposure",
+      "severity": "medium",
+      "summary": "MSFT, GOOGL, AMZN, META, and ORCL remain tied to the same AI capex duration debate despite different monetization paths.",
+      "linked_event_id": "mevt_20260516_hyperscaler_capex_raise_msft_az_ai",
+      "suggested_workbench": "Portfolio + Exposure Balancer",
+      "created_at": "2026-05-16T07:58:00Z"
     }
   ],
   "suggested_actions": [
@@ -1090,6 +1364,48 @@
       ],
       "allowed_user_action": "record_local_journal_note",
       "forbidden_user_action": "trade_execution"
+    },
+    {
+      "action_id": "act_20260516_review_cloud_capex_cluster",
+      "priority": "medium_high",
+      "action_type": "portfolio_exposure_review",
+      "ticker": "MSFT",
+      "label": "Review cloud AI capex cluster before adding platform exposure",
+      "rationale": "MSFT, GOOGL, AMZN, META, and ORCL share capex-duration risk even when their AI monetization paths differ.",
+      "required_objects": [
+        "corr_20260516_cloud_capex_cluster",
+        "pnl_20260516_ai_infra"
+      ],
+      "allowed_user_action": "open_portfolio_exposure_balancer",
+      "forbidden_user_action": "automated_rebalance"
+    },
+    {
+      "action_id": "act_20260516_compare_avgo_mrvl_custom_silicon",
+      "priority": "medium",
+      "action_type": "ticker_pair_review",
+      "ticker": "AVGO",
+      "label": "Compare AVGO and MRVL custom silicon timing",
+      "rationale": "Both benefit from hyperscaler custom silicon demand, but AVGO has stronger current evidence while MRVL remains timing-sensitive.",
+      "required_objects": [
+        "tpln_20260516_avgo_hold_custom_silicon",
+        "tpln_20260516_mrvl_watch_custom_asic"
+      ],
+      "allowed_user_action": "open_ticker_workbench",
+      "forbidden_user_action": "pair_trade_execution"
+    },
+    {
+      "action_id": "act_20260516_review_hbm_memory_cluster",
+      "priority": "medium",
+      "action_type": "thesis_validation",
+      "ticker": "MU",
+      "label": "Validate MU HBM thesis against qualification evidence",
+      "rationale": "HBM scarcity supports the thesis, but the watch label should not change until customer qualification evidence is stronger.",
+      "required_objects": [
+        "corr_20260516_hbm_memory_cluster",
+        "tpln_20260516_mu_hbm_breakout"
+      ],
+      "allowed_user_action": "open_ticker_workbench_or_record_local_note",
+      "forbidden_user_action": "submit_or_route_order"
     }
   ],
   "trade_journal_summary": {
@@ -1303,6 +1619,411 @@
           "Customer concentration improves"
         ]
       }
+    },
+    {
+      "scenario_id": "pts_20260516_amd",
+      "ticker": "AMD",
+      "as_of": "2026-05-16T08:00:00Z",
+      "calculation_owner": "deterministic_scenario_engine",
+      "bear_case": {
+        "target_price": 118.0,
+        "assumptions": [
+          "MI-series share gains lag expectations",
+          "HBM allocation remains tight"
+        ]
+      },
+      "base_case": {
+        "target_price": 158.0,
+        "assumptions": [
+          "Hyperscaler qualification expands",
+          "CPU and GPU platform attach stabilizes margins"
+        ]
+      },
+      "bull_case": {
+        "target_price": 195.0,
+        "assumptions": [
+          "AI accelerator design wins broaden",
+          "Software stack objections ease"
+        ]
+      }
+    },
+    {
+      "scenario_id": "pts_20260516_avgo",
+      "ticker": "AVGO",
+      "as_of": "2026-05-16T08:00:00Z",
+      "calculation_owner": "deterministic_scenario_engine",
+      "bear_case": {
+        "target_price": 1180.0,
+        "assumptions": [
+          "Custom silicon ramps are pushed out",
+          "Networking mix normalizes"
+        ]
+      },
+      "base_case": {
+        "target_price": 1480.0,
+        "assumptions": [
+          "Custom ASIC demand stays tied to hyperscaler capex",
+          "Networking silicon remains AI-cluster exposed"
+        ]
+      },
+      "bull_case": {
+        "target_price": 1760.0,
+        "assumptions": [
+          "Multiple hyperscaler custom silicon programs accelerate",
+          "AI networking content per cluster expands"
+        ]
+      }
+    },
+    {
+      "scenario_id": "pts_20260516_asml",
+      "ticker": "ASML",
+      "as_of": "2026-05-16T08:00:00Z",
+      "calculation_owner": "deterministic_scenario_engine",
+      "bear_case": {
+        "target_price": 690.0,
+        "assumptions": [
+          "Export-control restrictions weigh on backlog",
+          "Memory and logic orders slow"
+        ]
+      },
+      "base_case": {
+        "target_price": 850.0,
+        "assumptions": [
+          "AI wafer demand supports leading-edge tool demand",
+          "China weakness is partly offset by foundry capex"
+        ]
+      },
+      "bull_case": {
+        "target_price": 1040.0,
+        "assumptions": [
+          "High-NA and leading-edge capacity demand accelerates",
+          "AI foundry capex visibility improves"
+        ]
+      }
+    },
+    {
+      "scenario_id": "pts_20260516_anet",
+      "ticker": "ANET",
+      "as_of": "2026-05-16T08:00:00Z",
+      "calculation_owner": "deterministic_scenario_engine",
+      "bear_case": {
+        "target_price": 76.0,
+        "assumptions": [
+          "Cloud customer concentration weighs on multiple",
+          "AI ethernet order conversion slows"
+        ]
+      },
+      "base_case": {
+        "target_price": 98.0,
+        "assumptions": [
+          "Ethernet AI fabric demand remains durable",
+          "Cloud mix supports margin"
+        ]
+      },
+      "bull_case": {
+        "target_price": 122.0,
+        "assumptions": [
+          "Ethernet wins larger share of AI cluster networking",
+          "Campus-scale AI network refreshes pull forward"
+        ]
+      }
+    },
+    {
+      "scenario_id": "pts_20260516_mrvl",
+      "ticker": "MRVL",
+      "as_of": "2026-05-16T08:00:00Z",
+      "calculation_owner": "deterministic_scenario_engine",
+      "bear_case": {
+        "target_price": 58.0,
+        "assumptions": [
+          "Custom ASIC revenue timing slips",
+          "Optical DSP recovery is slower than expected"
+        ]
+      },
+      "base_case": {
+        "target_price": 82.0,
+        "assumptions": [
+          "AI custom silicon programs ramp gradually",
+          "Connectivity demand improves with larger clusters"
+        ]
+      },
+      "bull_case": {
+        "target_price": 106.0,
+        "assumptions": [
+          "Customer-specific ASIC ramps accelerate",
+          "Optical connectivity attach improves"
+        ]
+      }
+    },
+    {
+      "scenario_id": "pts_20260516_etn",
+      "ticker": "ETN",
+      "as_of": "2026-05-16T08:00:00Z",
+      "calculation_owner": "deterministic_scenario_engine",
+      "bear_case": {
+        "target_price": 290.0,
+        "assumptions": [
+          "Industrial multiple compresses",
+          "Datacenter electrical backlog growth slows"
+        ]
+      },
+      "base_case": {
+        "target_price": 365.0,
+        "assumptions": [
+          "AI datacenter power demand supports backlog",
+          "Grid and electrical equipment orders remain firm"
+        ]
+      },
+      "bull_case": {
+        "target_price": 430.0,
+        "assumptions": [
+          "Power bottlenecks expand electrical content per campus",
+          "Margin mix improves on datacenter demand"
+        ]
+      }
+    },
+    {
+      "scenario_id": "pts_20260516_pwr",
+      "ticker": "PWR",
+      "as_of": "2026-05-16T08:00:00Z",
+      "calculation_owner": "deterministic_scenario_engine",
+      "bear_case": {
+        "target_price": 245.0,
+        "assumptions": [
+          "Grid project timing slips",
+          "Labor and permitting costs pressure margins"
+        ]
+      },
+      "base_case": {
+        "target_price": 320.0,
+        "assumptions": [
+          "Interconnection queues drive utility and datacenter work",
+          "Backlog converts steadily"
+        ]
+      },
+      "bull_case": {
+        "target_price": 385.0,
+        "assumptions": [
+          "AI campus grid work accelerates",
+          "Power delivery constraints increase project urgency"
+        ]
+      }
+    },
+    {
+      "scenario_id": "pts_20260516_ceg",
+      "ticker": "CEG",
+      "as_of": "2026-05-16T08:00:00Z",
+      "calculation_owner": "deterministic_scenario_engine",
+      "bear_case": {
+        "target_price": 178.0,
+        "assumptions": [
+          "PPA economics disappoint",
+          "Regulatory approvals slow datacenter power thesis"
+        ]
+      },
+      "base_case": {
+        "target_price": 232.0,
+        "assumptions": [
+          "Nuclear baseload scarcity supports contracted demand",
+          "Datacenter PPAs improve revenue visibility"
+        ]
+      },
+      "bull_case": {
+        "target_price": 285.0,
+        "assumptions": [
+          "Additional hyperscaler PPAs emerge",
+          "Power scarcity premium expands"
+        ]
+      }
+    },
+    {
+      "scenario_id": "pts_20260516_dlr",
+      "ticker": "DLR",
+      "as_of": "2026-05-16T08:00:00Z",
+      "calculation_owner": "deterministic_scenario_engine",
+      "bear_case": {
+        "target_price": 126.0,
+        "assumptions": [
+          "Rate sensitivity offsets leasing demand",
+          "Power availability delays new campus monetization"
+        ]
+      },
+      "base_case": {
+        "target_price": 162.0,
+        "assumptions": [
+          "Hyperscale leasing remains firm",
+          "High-density demand supports pricing"
+        ]
+      },
+      "bull_case": {
+        "target_price": 195.0,
+        "assumptions": [
+          "AI lease demand accelerates absorption",
+          "Power-backed capacity commands premium pricing"
+        ]
+      }
+    },
+    {
+      "scenario_id": "pts_20260516_eqix",
+      "ticker": "EQIX",
+      "as_of": "2026-05-16T08:00:00Z",
+      "calculation_owner": "deterministic_scenario_engine",
+      "bear_case": {
+        "target_price": 690.0,
+        "assumptions": [
+          "Rate sensitivity compresses REIT multiple",
+          "AI capacity growth is less direct than hyperscale campuses"
+        ]
+      },
+      "base_case": {
+        "target_price": 825.0,
+        "assumptions": [
+          "Interconnection demand remains durable",
+          "AI workloads increase network-dense colocation needs"
+        ]
+      },
+      "bull_case": {
+        "target_price": 970.0,
+        "assumptions": [
+          "Enterprise AI deployments lift interconnection demand",
+          "Premium locations retain pricing power"
+        ]
+      }
+    },
+    {
+      "scenario_id": "pts_20260516_orcl",
+      "ticker": "ORCL",
+      "as_of": "2026-05-16T08:00:00Z",
+      "calculation_owner": "deterministic_scenario_engine",
+      "bear_case": {
+        "target_price": 112.0,
+        "assumptions": [
+          "GPU capacity delivery lags backlog",
+          "Customer concentration and capex funding weigh on thesis"
+        ]
+      },
+      "base_case": {
+        "target_price": 148.0,
+        "assumptions": [
+          "OCI AI capacity backlog converts",
+          "Database cloud transition supports margins"
+        ]
+      },
+      "bull_case": {
+        "target_price": 182.0,
+        "assumptions": [
+          "GPU resale and AI cloud contracts accelerate",
+          "Backlog quality improves"
+        ]
+      }
+    },
+    {
+      "scenario_id": "pts_20260516_msft",
+      "ticker": "MSFT",
+      "as_of": "2026-05-16T08:00:00Z",
+      "calculation_owner": "deterministic_scenario_engine",
+      "bear_case": {
+        "target_price": 390.0,
+        "assumptions": [
+          "AI capex depreciation pressure outpaces monetization",
+          "Azure growth decelerates"
+        ]
+      },
+      "base_case": {
+        "target_price": 475.0,
+        "assumptions": [
+          "Azure AI demand stays durable",
+          "Copilot and enterprise AI monetization improves"
+        ]
+      },
+      "bull_case": {
+        "target_price": 560.0,
+        "assumptions": [
+          "AI revenue conversion improves faster than capex burden",
+          "Platform bundling expands enterprise wallet share"
+        ]
+      }
+    },
+    {
+      "scenario_id": "pts_20260516_googl",
+      "ticker": "GOOGL",
+      "as_of": "2026-05-16T08:00:00Z",
+      "calculation_owner": "deterministic_scenario_engine",
+      "bear_case": {
+        "target_price": 145.0,
+        "assumptions": [
+          "AI monetization lags capex",
+          "Search margin pressure intensifies"
+        ]
+      },
+      "base_case": {
+        "target_price": 185.0,
+        "assumptions": [
+          "TPU and cloud AI capacity improve differentiation",
+          "Core ads remain resilient"
+        ]
+      },
+      "bull_case": {
+        "target_price": 225.0,
+        "assumptions": [
+          "Gemini monetization and cloud AI adoption accelerate",
+          "Power procurement improves capacity visibility"
+        ]
+      }
+    },
+    {
+      "scenario_id": "pts_20260516_amzn",
+      "ticker": "AMZN",
+      "as_of": "2026-05-16T08:00:00Z",
+      "calculation_owner": "deterministic_scenario_engine",
+      "bear_case": {
+        "target_price": 155.0,
+        "assumptions": [
+          "AWS AI capacity utilization disappoints",
+          "Retail margin offsets cloud upside"
+        ]
+      },
+      "base_case": {
+        "target_price": 205.0,
+        "assumptions": [
+          "AWS AI workloads absorb new capacity",
+          "Retail and advertising margins remain supportive"
+        ]
+      },
+      "bull_case": {
+        "target_price": 250.0,
+        "assumptions": [
+          "AWS AI capacity scarcity improves pricing",
+          "Trainium and Bedrock adoption strengthen platform economics"
+        ]
+      }
+    },
+    {
+      "scenario_id": "pts_20260516_meta",
+      "ticker": "META",
+      "as_of": "2026-05-16T08:00:00Z",
+      "calculation_owner": "deterministic_scenario_engine",
+      "bear_case": {
+        "target_price": 430.0,
+        "assumptions": [
+          "AI capex rises without clear engagement or ad lift",
+          "Reality Labs losses remain elevated"
+        ]
+      },
+      "base_case": {
+        "target_price": 560.0,
+        "assumptions": [
+          "AI ranking and ad tools support revenue growth",
+          "Capex remains explainable against engagement gains"
+        ]
+      },
+      "bull_case": {
+        "target_price": 680.0,
+        "assumptions": [
+          "AI engagement and advertiser tooling accelerate",
+          "Open model strategy improves infrastructure leverage"
+        ]
+      }
     }
   ],
   "entry_exit_levels": [
@@ -1348,6 +2069,171 @@
       "trim_zone": "248_to_260",
       "exit_candidate_below": 176.0,
       "invalidation_condition": "Nuclear PPA economics or regulatory approvals fail to support datacenter-power thesis.",
+      "stale_after": "2026-05-23T08:00:00Z"
+    },
+    {
+      "levels_id": "levels_20260516_amd",
+      "ticker": "AMD",
+      "calculation_owner": "deterministic_levels_engine",
+      "entry_zone": "134_to_142",
+      "add_zone": "121_to_128",
+      "trim_zone": "172_to_182",
+      "exit_candidate_below": 112.0,
+      "invalidation_condition": "Accelerator customer wins fail to broaden or HBM allocation prevents credible AI revenue acceleration.",
+      "stale_after": "2026-05-23T08:00:00Z"
+    },
+    {
+      "levels_id": "levels_20260516_avgo",
+      "ticker": "AVGO",
+      "calculation_owner": "deterministic_levels_engine",
+      "entry_zone": "1360_to_1410",
+      "add_zone": "1260_to_1310",
+      "trim_zone": "1630_to_1700",
+      "exit_candidate_below": 1160.0,
+      "invalidation_condition": "Custom silicon program timing weakens or hyperscaler concentration risk rises without offsetting evidence.",
+      "stale_after": "2026-05-23T08:00:00Z"
+    },
+    {
+      "levels_id": "levels_20260516_asml",
+      "ticker": "ASML",
+      "calculation_owner": "deterministic_levels_engine",
+      "entry_zone": "755_to_785",
+      "add_zone": "700_to_725",
+      "trim_zone": "930_to_965",
+      "exit_candidate_below": 670.0,
+      "invalidation_condition": "Export controls or foundry capex delays materially reduce leading-edge equipment demand.",
+      "stale_after": "2026-05-23T08:00:00Z"
+    },
+    {
+      "levels_id": "levels_20260516_mu",
+      "ticker": "MU",
+      "calculation_owner": "deterministic_levels_engine",
+      "entry_zone": "108_to_114",
+      "add_zone": "98_to_103",
+      "trim_zone": "138_to_146",
+      "exit_candidate_below": 91.0,
+      "invalidation_condition": "HBM qualification evidence weakens or commodity memory pricing overwhelms AI memory mix improvement.",
+      "stale_after": "2026-05-23T08:00:00Z"
+    },
+    {
+      "levels_id": "levels_20260516_anet",
+      "ticker": "ANET",
+      "calculation_owner": "deterministic_levels_engine",
+      "entry_zone": "86_to_90",
+      "add_zone": "78_to_82",
+      "trim_zone": "108_to_114",
+      "exit_candidate_below": 72.0,
+      "invalidation_condition": "Cloud AI ethernet orders slow or customer concentration increases without backlog confirmation.",
+      "stale_after": "2026-05-23T08:00:00Z"
+    },
+    {
+      "levels_id": "levels_20260516_mrvl",
+      "ticker": "MRVL",
+      "calculation_owner": "deterministic_levels_engine",
+      "entry_zone": "68_to_72",
+      "add_zone": "60_to_64",
+      "trim_zone": "92_to_98",
+      "exit_candidate_below": 55.0,
+      "invalidation_condition": "Custom ASIC customer ramps slip or optical connectivity demand remains below AI cluster expectations.",
+      "stale_after": "2026-05-23T08:00:00Z"
+    },
+    {
+      "levels_id": "levels_20260516_etn",
+      "ticker": "ETN",
+      "calculation_owner": "deterministic_levels_engine",
+      "entry_zone": "330_to_342",
+      "add_zone": "304_to_315",
+      "trim_zone": "398_to_414",
+      "exit_candidate_below": 284.0,
+      "invalidation_condition": "Datacenter electrical backlog deteriorates or industrial multiple compression overwhelms AI power demand.",
+      "stale_after": "2026-05-23T08:00:00Z"
+    },
+    {
+      "levels_id": "levels_20260516_pwr",
+      "ticker": "PWR",
+      "calculation_owner": "deterministic_levels_engine",
+      "entry_zone": "288_to_300",
+      "add_zone": "263_to_274",
+      "trim_zone": "352_to_368",
+      "exit_candidate_below": 238.0,
+      "invalidation_condition": "Grid interconnection work is delayed or project margins deteriorate materially.",
+      "stale_after": "2026-05-23T08:00:00Z"
+    },
+    {
+      "levels_id": "levels_20260516_dlr",
+      "ticker": "DLR",
+      "calculation_owner": "deterministic_levels_engine",
+      "entry_zone": "145_to_152",
+      "add_zone": "132_to_138",
+      "trim_zone": "178_to_186",
+      "exit_candidate_below": 122.0,
+      "invalidation_condition": "High-density leases lack power commitments or rate sensitivity outweighs AI leasing demand.",
+      "stale_after": "2026-05-23T08:00:00Z"
+    },
+    {
+      "levels_id": "levels_20260516_eqix",
+      "ticker": "EQIX",
+      "calculation_owner": "deterministic_levels_engine",
+      "entry_zone": "760_to_790",
+      "add_zone": "710_to_735",
+      "trim_zone": "900_to_940",
+      "exit_candidate_below": 665.0,
+      "invalidation_condition": "Interconnection demand fails to translate into AI-related pricing power or rate pressure dominates.",
+      "stale_after": "2026-05-23T08:00:00Z"
+    },
+    {
+      "levels_id": "levels_20260516_orcl",
+      "ticker": "ORCL",
+      "calculation_owner": "deterministic_levels_engine",
+      "entry_zone": "132_to_138",
+      "add_zone": "120_to_126",
+      "trim_zone": "166_to_174",
+      "exit_candidate_below": 108.0,
+      "invalidation_condition": "OCI AI backlog fails to convert into delivered GPU capacity or customer concentration risk increases.",
+      "stale_after": "2026-05-23T08:00:00Z"
+    },
+    {
+      "levels_id": "levels_20260516_msft",
+      "ticker": "MSFT",
+      "calculation_owner": "deterministic_levels_engine",
+      "entry_zone": "430_to_445",
+      "add_zone": "398_to_412",
+      "trim_zone": "515_to_535",
+      "exit_candidate_below": 378.0,
+      "invalidation_condition": "Azure AI utilization or monetization fails to justify the elevated capex and depreciation run rate.",
+      "stale_after": "2026-05-23T08:00:00Z"
+    },
+    {
+      "levels_id": "levels_20260516_googl",
+      "ticker": "GOOGL",
+      "calculation_owner": "deterministic_levels_engine",
+      "entry_zone": "166_to_173",
+      "add_zone": "152_to_158",
+      "trim_zone": "205_to_214",
+      "exit_candidate_below": 140.0,
+      "invalidation_condition": "AI monetization evidence weakens while capex and search margin pressure increase.",
+      "stale_after": "2026-05-23T08:00:00Z"
+    },
+    {
+      "levels_id": "levels_20260516_amzn",
+      "ticker": "AMZN",
+      "calculation_owner": "deterministic_levels_engine",
+      "entry_zone": "184_to_192",
+      "add_zone": "168_to_176",
+      "trim_zone": "226_to_238",
+      "exit_candidate_below": 150.0,
+      "invalidation_condition": "AWS AI capacity utilization disappoints or retail margin pressure offsets cloud AI upside.",
+      "stale_after": "2026-05-23T08:00:00Z"
+    },
+    {
+      "levels_id": "levels_20260516_meta",
+      "ticker": "META",
+      "calculation_owner": "deterministic_levels_engine",
+      "entry_zone": "500_to_520",
+      "add_zone": "462_to_480",
+      "trim_zone": "620_to_650",
+      "exit_candidate_below": 420.0,
+      "invalidation_condition": "AI capex continues to rise without matching engagement, ad, or model-distribution evidence.",
       "stale_after": "2026-05-23T08:00:00Z"
     }
   ],
@@ -1409,6 +2295,22 @@
       ],
       "risk_state": "watch",
       "suggested_review": "Cloud exposure is broad but still tied to the same AI capex duration debate."
+    },
+    {
+      "correlation_id": "corr_20260516_hbm_memory_cluster",
+      "cluster_name": "HBM and AI memory scarcity",
+      "tickers": [
+        "MU"
+      ],
+      "portfolio_weight": 5.0,
+      "primary_driver": "hbm_capacity_and_pricing",
+      "secondary_drivers": [
+        "customer qualification",
+        "capacity prepayments",
+        "commodity memory cycle"
+      ],
+      "risk_state": "watch",
+      "suggested_review": "MU is the direct listed HBM memory exposure in the cockpit; do not upgrade the plan without customer qualification evidence."
     },
     {
       "correlation_id": "corr_20260516_datacenter_reit_cluster",
@@ -1482,6 +2384,33 @@
         "advisory_label",
         "target_weight",
         "trade_plan_readiness"
+      ]
+    },
+    {
+      "note_id": "llmnote_20260516_trade_plan_guardrail",
+      "model_run_id": "mrun_20260516_sabrief_extract_010",
+      "scope": "trade_plan_entry_exit_workbench",
+      "allowed_role": "critique_and_explain",
+      "note": "The entry, add, trim, and invalidation levels are advisory plan conditions produced by deterministic logic. They should be used to decide whether to record a local journal note, not to place or transmit an order.",
+      "deterministic_fields_not_modified": [
+        "entry_zone",
+        "add_zone",
+        "trim_zone",
+        "exit_candidate_below",
+        "invalidation_condition"
+      ]
+    },
+    {
+      "note_id": "llmnote_20260516_hbm_review",
+      "model_run_id": "mrun_20260516_sabrief_extract_011",
+      "scope": "live_market_sentiment_radar",
+      "allowed_role": "summarize_and_prioritize",
+      "note": "HBM tightness is a positive thesis input for MU and a constraint for accelerator volume. The cockpit should keep these effects separate so scarcity does not automatically become a blanket accumulate signal.",
+      "deterministic_fields_not_modified": [
+        "signal_score",
+        "advisory_label",
+        "target_weight",
+        "pnl_summary"
       ]
     }
   ]

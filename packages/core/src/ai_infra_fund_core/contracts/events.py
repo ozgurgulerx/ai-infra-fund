@@ -14,6 +14,7 @@ from .common import (
     require_non_empty_tuple,
     require_text,
 )
+from .segments import Segment, normalize_segment, segments_from_themes
 
 
 class MarketEventType(str, Enum):
@@ -75,6 +76,7 @@ class MarketEvent:
         object.__setattr__(self, "tickers", _required_text_tuple(self.tickers, "tickers", uppercase=True))
         object.__setattr__(self, "companies", _required_text_tuple(self.companies, "companies"))
         object.__setattr__(self, "themes", _required_text_tuple(self.themes, "themes"))
+        segments_from_themes(self.themes)
         object.__setattr__(self, "catalyst", require_text(self.catalyst, "catalyst").strip())
         object.__setattr__(self, "ai_relevance", require_text(self.ai_relevance, "ai_relevance").strip())
         object.__setattr__(self, "direction", coerce_enum(self.direction, MarketEventDirection, "direction"))
@@ -100,6 +102,66 @@ class MarketEvent:
         )
         object.__setattr__(self, "review_status", coerce_enum(self.review_status, MarketEventReviewStatus, "review_status"))
 
+    @property
+    def segments(self) -> tuple[Segment, ...]:
+        return segments_from_themes(self.themes)
+
+
+@dataclass(frozen=True, slots=True)
+class SegmentImpact:
+    event_id: str
+    segment: Segment
+    direction: MarketEventDirection
+    impact_summary: str
+    first_order_tickers: tuple[str, ...]
+    second_order_tickers: tuple[str, ...]
+    source_evidence_ids: tuple[str, ...]
+    confidence: Decimal
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "event_id", require_text(self.event_id, "event_id").strip())
+        object.__setattr__(self, "segment", normalize_segment(self.segment))
+        object.__setattr__(self, "direction", coerce_enum(self.direction, MarketEventDirection, "direction"))
+        object.__setattr__(self, "impact_summary", require_text(self.impact_summary, "impact_summary").strip())
+        object.__setattr__(self, "first_order_tickers", _required_text_tuple(self.first_order_tickers, "first_order_tickers", uppercase=True))
+        object.__setattr__(self, "second_order_tickers", _required_text_tuple(self.second_order_tickers, "second_order_tickers", uppercase=True))
+        object.__setattr__(self, "source_evidence_ids", _required_text_tuple(self.source_evidence_ids, "source_evidence_ids"))
+        object.__setattr__(
+            self,
+            "confidence",
+            require_decimal_range(self.confidence, "confidence", Decimal("0"), Decimal("1")),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class EquityImpactAssessment:
+    assessment_id: str
+    event_id: str
+    ticker: str
+    relevant_segments: tuple[Segment, ...]
+    bull_case: str
+    bear_case: str
+    risk_flags: tuple[str, ...]
+    invalidation: str
+    source_evidence_ids: tuple[str, ...]
+    confidence: Decimal
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "assessment_id", require_text(self.assessment_id, "assessment_id").strip())
+        object.__setattr__(self, "event_id", require_text(self.event_id, "event_id").strip())
+        object.__setattr__(self, "ticker", require_text(self.ticker, "ticker").strip().upper())
+        object.__setattr__(self, "relevant_segments", _required_segment_tuple(self.relevant_segments, "relevant_segments"))
+        object.__setattr__(self, "bull_case", require_text(self.bull_case, "bull_case").strip())
+        object.__setattr__(self, "bear_case", require_text(self.bear_case, "bear_case").strip())
+        object.__setattr__(self, "risk_flags", _required_text_tuple(self.risk_flags, "risk_flags"))
+        object.__setattr__(self, "invalidation", require_text(self.invalidation, "invalidation").strip())
+        object.__setattr__(self, "source_evidence_ids", _required_text_tuple(self.source_evidence_ids, "source_evidence_ids"))
+        object.__setattr__(
+            self,
+            "confidence",
+            require_decimal_range(self.confidence, "confidence", Decimal("0"), Decimal("1")),
+        )
+
 
 def _required_text_tuple(values: object, field_name: str, *, uppercase: bool = False) -> tuple[str, ...]:
     normalized = require_non_empty_tuple(normalize_tuple(values, field_name), field_name)
@@ -107,6 +169,11 @@ def _required_text_tuple(values: object, field_name: str, *, uppercase: bool = F
     if uppercase:
         return tuple(value.upper() for value in text_values)
     return text_values
+
+
+def _required_segment_tuple(values: object, field_name: str) -> tuple[Segment, ...]:
+    normalized = require_non_empty_tuple(normalize_tuple(values, field_name), field_name)
+    return tuple(normalize_segment(value) for value in normalized)
 
 
 def _optional_text(value: object, field_name: str) -> str | None:

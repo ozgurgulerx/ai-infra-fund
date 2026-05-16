@@ -1,0 +1,768 @@
+# Analyst Object Model
+
+## Purpose
+
+This document defines the shared analyst object model implied by `docs/UI_SCREEN_SPECS.md` and `docs/mock_data/situational_awareness_brief.example.json`.
+
+The model supports an AI Infrastructure Trading Analyst Workstation. It is advisory-only, evidence-backed, portfolio-aware, and local-journal-oriented. It is not a broker model, execution model, order model, or backtesting-first quant model.
+
+## Boundary Rules
+
+- No broker integration.
+- No live order placement.
+- No execution UI.
+- No order tickets, route controls, submit buttons, fill states, or broker account views.
+- Manual trade entry is local journal only.
+- LLMs may classify, extract, summarize, review, critique, and explain.
+- LLMs must not own final scores, risk, constraints, target weights, portfolio exposure, entry/exit levels, or PnL calculations.
+- Deterministic code owns scores, risk, constraints, target weights, correlation exposure, concentration checks, entry/exit levels, scenario values, and PnL calculations.
+- Every recommendation-like label must link to evidence and audit records where available.
+
+## Consumed Screens
+
+- Daily Trading Cockpit
+- AI Infrastructure Ecosystem Map
+- Live Market / Sentiment Radar
+- Ticker Analyst Workbench
+- Trade Plan + Entry/Exit Workbench
+- Portfolio + Exposure Balancer
+- Trade Journal + PnL Review
+
+## LLM Analyst Roles
+
+- `market_event_extractor`: creates draft `MarketEvent` objects from evidence.
+- `market_event_reviewer`: reviews extracted events for provenance, clarity, and advisory wording.
+- `segment_mapper`: creates or reviews draft `SegmentImpact` summaries from validated events.
+- `equity_thesis_analyst`: creates or reviews narrative parts of `EquityImpactAssessment`.
+- `risk_regime_reviewer`: reviews `RiskRegimeUpdate` explanations and relief conditions.
+- `trade_plan_critic`: reviews `TradePlan` consistency and drafts local journal notes.
+- `portfolio_exposure_explainer`: explains `PortfolioExposureSnapshot` outputs without changing deterministic values.
+- `brief_synthesizer`: creates narrative `AnalystBrief` summaries from validated upstream objects.
+- `outcome_reviewer`: reviews `OutcomeJournalEntry` outcomes and drafts lessons learned.
+- `llm_note_reviewer`: reviews `LLMAnalystNote` compliance and advisory-only language.
+
+## Shared Validation Rules
+
+- IDs must be stable, unique within object type, and audit-friendly.
+- Timestamps must be ISO 8601 with timezone.
+- Any object that influences a recommendation, trade plan, or risk state must link to evidence directly or through validated upstream objects.
+- Referenced IDs must resolve to objects in the same run, persisted store, or audit ledger.
+- Objects with stale evidence must remain renderable but cannot be marked review-ready.
+- Any missing evidence, missing deterministic check, stale level, or unresolved contradiction must block action readiness.
+- UI consumers must render fields as provided. They must not compute scores, weights, PnL, target prices, entry/exit levels, or constraints.
+
+## MarketEvent
+
+### Purpose
+
+Represents a source-backed catalyst relevant to AI infrastructure equities.
+
+### Fields
+
+- `event_id`
+- `event_type`
+- `source_evidence_ids`
+- `tickers`
+- `companies`
+- `themes`
+- `segments`
+- `catalyst`
+- `ai_relevance`
+- `direction`
+- `time_horizon`
+- `confidence`
+- `occurred_at`
+- `available_at`
+- `content_hash`
+- `extracted_by_model_run_id`
+- `review_status`
+
+### Required Fields
+
+- `event_id`
+- `event_type`
+- `source_evidence_ids`
+- `tickers`
+- `companies`
+- `themes`
+- `catalyst`
+- `ai_relevance`
+- `direction`
+- `time_horizon`
+- `confidence`
+- `occurred_at`
+- `available_at`
+- `content_hash`
+- `review_status`
+
+### Evidence Requirements
+
+- Must include at least one `source_evidence_id`.
+- Must include `content_hash` for source-derived records.
+- Any catalyst, ticker linkage, or AI relevance claim must be traceable to evidence.
+
+### Validation Rules
+
+- `available_at` must not be earlier than `occurred_at`.
+- `event_type`, `direction`, `time_horizon`, and `review_status` must be controlled values.
+- `review_status` must separate usable events from pending, rejected, quarantined, or stale events.
+- Events without provenance cannot influence segment impact, signal bundles, trade plans, or recommendation artifacts.
+
+### Consumed By Screens
+
+- Daily Trading Cockpit
+- AI Infrastructure Ecosystem Map
+- Live Market / Sentiment Radar
+- Ticker Analyst Workbench
+- Trade Journal + PnL Review
+
+### LLM Analyst Role
+
+- Create: `market_event_extractor`
+- Review: `market_event_reviewer`
+
+### Deterministic Fields
+
+- `event_id`
+- `content_hash`
+- `occurred_at`
+- `available_at`
+- schema validity
+- source evidence link integrity
+- review gating after validation
+
+## SegmentImpact
+
+### Purpose
+
+Maps validated MarketEvents into AI infrastructure stack segments and identifies first-order or second-order ticker implications.
+
+### Fields
+
+- `segment_id`
+- `segment_name`
+- `linked_event_ids`
+- `primary_tickers`
+- `first_order_tickers`
+- `second_order_tickers`
+- `impact_direction`
+- `impact_summary`
+- `confidence`
+- `time_horizon`
+- `risk_flags`
+- `invalidation_condition`
+- `latest_evidence_at`
+- `signal_bundle_id`
+
+### Required Fields
+
+- `segment_id`
+- `segment_name`
+- `linked_event_ids`
+- `impact_direction`
+- `impact_summary`
+- `primary_tickers`
+
+### Evidence Requirements
+
+- Must link to at least one validated `MarketEvent`.
+- Segment state, ticker implication, and risk claims must inherit evidence through linked events.
+
+### Validation Rules
+
+- `segment_id` must be a canonical AI infrastructure segment.
+- Every `linked_event_id` must resolve to a validated MarketEvent or be marked review-needed.
+- First-order and second-order tickers must be distinguishable.
+- Segment impact cannot be marked complete without evidence freshness.
+
+### Consumed By Screens
+
+- Daily Trading Cockpit
+- AI Infrastructure Ecosystem Map
+- Ticker Analyst Workbench
+- Portfolio + Exposure Balancer
+
+### LLM Analyst Role
+
+- Create: `segment_mapper` for narrative summaries and draft mappings.
+- Review: `segment_mapper` or `market_event_reviewer`.
+
+### Deterministic Fields
+
+- `segment_id`
+- canonical segment membership
+- event counts
+- first-order and second-order classification when supplied by rules
+- `signal_bundle_id`
+- evidence freshness status
+- downstream segment score or state
+
+## EquityImpactAssessment
+
+### Purpose
+
+Defines the current evidence-backed thesis state for one equity.
+
+### Fields
+
+- `assessment_id`
+- `ticker`
+- `company`
+- `linked_event_ids`
+- `segment_ids`
+- `assessment`
+- `bull_case`
+- `base_case`
+- `bear_case`
+- `risk_flags`
+- `invalidation_condition`
+- `watch_items`
+- `advisory_implication`
+- `confidence`
+- `as_of`
+- `source_evidence_ids`
+- `linked_signal_bundle_id`
+- `linked_recommendation_artifact_id`
+- `model_run_ids`
+
+### Required Fields
+
+- `assessment_id`
+- `ticker`
+- `company`
+- `linked_event_ids`
+- `assessment`
+- `risk_flags`
+- `invalidation_condition`
+- `watch_items`
+- `advisory_implication`
+- `as_of`
+
+### Evidence Requirements
+
+- Must link to validated MarketEvents or direct evidence.
+- Bull, base, bear, risk, and invalidation claims must be evidence-backed.
+- Any advisory implication must link to deterministic signal and recommendation artifacts before publication.
+
+### Validation Rules
+
+- `ticker` must be in the AI infrastructure universe or explicit watchlist.
+- Assessment is incomplete if risk flags or invalidation are missing.
+- Advisory labels must remain advisory-only.
+- LLM narrative cannot override deterministic scores, suppressions, or recommendation gating.
+
+### Consumed By Screens
+
+- Daily Trading Cockpit
+- AI Infrastructure Ecosystem Map
+- Ticker Analyst Workbench
+- Trade Plan + Entry/Exit Workbench
+- Portfolio + Exposure Balancer
+
+### LLM Analyst Role
+
+- Create: `equity_thesis_analyst` for thesis narrative and critique.
+- Review: `equity_thesis_analyst` and `risk_regime_reviewer`.
+
+### Deterministic Fields
+
+- `assessment_id`
+- `ticker`
+- universe membership
+- signal bundle linkage
+- recommendation artifact linkage
+- advisory label after deterministic publication checks
+- risk suppressions
+- confidence score if numeric or thresholded
+
+## RiskRegimeUpdate
+
+### Purpose
+
+Captures changes in market, policy, supply-chain, power, capex, or portfolio risk regimes that affect interpretation of events and trade plans.
+
+### Fields
+
+- `regime_id`
+- `risk_type`
+- `status`
+- `severity`
+- `confidence`
+- `linked_event_ids`
+- `affected_segments`
+- `affected_tickers`
+- `summary`
+- `portfolio_monitoring_note`
+- `relief_condition`
+- `invalidation_condition`
+- `as_of`
+- `available_at`
+- `source_evidence_ids`
+
+### Required Fields
+
+- `regime_id`
+- `risk_type`
+- `status`
+- `linked_event_ids`
+- `summary`
+- `portfolio_monitoring_note`
+
+### Evidence Requirements
+
+- Must link to validated MarketEvents or direct evidence.
+- Any affected segment or ticker must be explainable through those evidence links.
+
+### Validation Rules
+
+- `risk_type` and `status` must be controlled values.
+- Risk changes must not become trade instructions.
+- Every elevated risk must have either a relief condition, invalidation condition, or monitoring note.
+- Risk regime updates cannot change deterministic risk constraints; they can only explain or trigger review.
+
+### Consumed By Screens
+
+- Daily Trading Cockpit
+- AI Infrastructure Ecosystem Map
+- Live Market / Sentiment Radar
+- Ticker Analyst Workbench
+- Trade Plan + Entry/Exit Workbench
+- Portfolio + Exposure Balancer
+
+### LLM Analyst Role
+
+- Create: `risk_regime_reviewer` for explanatory summaries.
+- Review: `risk_regime_reviewer`.
+
+### Deterministic Fields
+
+- `regime_id`
+- `risk_type`
+- `status`
+- `severity` when mapped from policy thresholds
+- affected ticker and segment sets when rule-derived
+- portfolio block flags
+- constraint effects
+
+## TradePlan
+
+### Purpose
+
+Represents an advisory, local-journal-oriented plan for reviewing possible manual action in one ticker.
+
+### Fields
+
+- `trade_plan_id`
+- `ticker`
+- `company`
+- `status`
+- `advisory_action`
+- `linked_event_ids`
+- `linked_signal_bundle_id`
+- `linked_recommendation_artifact_id`
+- `entry_exit_levels_id`
+- `price_target_scenario_id`
+- `target_weights_id`
+- `deterministic_check_ids`
+- `readiness`
+- `blocking_reasons`
+- `manual_journal_only`
+- `last_reviewed_at`
+
+### Required Fields
+
+- `trade_plan_id`
+- `ticker`
+- `company`
+- `status`
+- `advisory_action`
+- `linked_event_ids`
+- `linked_signal_bundle_id`
+- `linked_recommendation_artifact_id`
+- `readiness`
+- `manual_journal_only`
+
+### Evidence Requirements
+
+- Must link to a recommendation artifact, signal bundle, and evidence-backed events.
+- Entry, add, trim, exit, and invalidation levels must link to deterministic `EntryExitLevels`.
+- Journal readiness must link to deterministic checks and stale-data status.
+
+### Validation Rules
+
+- `manual_journal_only` must be true.
+- `status` must be one of draft, active, paused, invalidated, or retired.
+- Any blocked plan must include `blocking_reasons`.
+- No field may encode broker, order routing, execution, fill, or transmission state.
+- A plan is not review-ready without evidence, risk checks, levels, and recommendation audit linkage.
+
+### Consumed By Screens
+
+- Daily Trading Cockpit
+- Ticker Analyst Workbench
+- Trade Plan + Entry/Exit Workbench
+- Portfolio + Exposure Balancer
+- Trade Journal + PnL Review
+
+### LLM Analyst Role
+
+- Create: `trade_plan_critic` may draft plan narrative and local journal wording only.
+- Review: `trade_plan_critic`.
+
+### Deterministic Fields
+
+- `status` when derived from readiness checks
+- `advisory_action` after recommendation publication rules
+- `linked_signal_bundle_id`
+- `linked_recommendation_artifact_id`
+- `entry_exit_levels_id`
+- `price_target_scenario_id`
+- `target_weights_id`
+- `deterministic_check_ids`
+- `readiness`
+- `blocking_reasons` derived from missing checks
+
+## PortfolioExposureSnapshot
+
+### Purpose
+
+Represents the deterministic portfolio state used by the workstation to show positions, segment exposure, correlation exposure, concentration, and PnL context.
+
+### Fields
+
+- `snapshot_id`
+- `as_of`
+- `currency`
+- `source`
+- `advisory_label`
+- `total_market_value`
+- `cash_placeholder`
+- `gross_equity_exposure`
+- `position_count`
+- `positions`
+- `correlation_exposure_ids`
+- `pnl_summary_id`
+- `target_weights_id`
+- `concentration_flags`
+- `stale_price_flags`
+
+Position fields:
+
+- `ticker`
+- `company`
+- `segment_tags`
+- `market_value`
+- `portfolio_weight`
+- `cost_basis`
+- `unrealized_pnl`
+- `open_trade_plan_id`
+- `risk_flags`
+- `last_price_timestamp`
+
+### Required Fields
+
+- `snapshot_id`
+- `as_of`
+- `currency`
+- `advisory_label`
+- `total_market_value`
+- `gross_equity_exposure`
+- `position_count`
+- `positions`
+
+### Evidence Requirements
+
+- Positions must come from portfolio facts or local journal-derived records.
+- Prices, market values, weights, and PnL must link to market snapshots or deterministic portfolio calculations.
+- Open trade plan links must resolve or be marked missing.
+
+### Validation Rules
+
+- `position_count` must equal the number of positions.
+- Position weights must be deterministic and reconcile to the snapshot.
+- PnL fields must be produced by deterministic calculation.
+- Missing prices or stale prices must block balancing suggestions.
+- Snapshot must not include broker account, order, routing, or execution fields.
+
+### Consumed By Screens
+
+- Daily Trading Cockpit
+- AI Infrastructure Ecosystem Map
+- Ticker Analyst Workbench
+- Trade Plan + Entry/Exit Workbench
+- Portfolio + Exposure Balancer
+- Trade Journal + PnL Review
+
+### LLM Analyst Role
+
+- Create: none for numeric exposure values.
+- Review: `portfolio_exposure_explainer` may explain or critique supplied values.
+
+### Deterministic Fields
+
+- `total_market_value`
+- `cash_placeholder`
+- `gross_equity_exposure`
+- `position_count`
+- all position values
+- `portfolio_weight`
+- `unrealized_pnl`
+- `correlation_exposure_ids`
+- `pnl_summary_id`
+- `target_weights_id`
+- `concentration_flags`
+- `stale_price_flags`
+
+## AnalystBrief
+
+### Purpose
+
+Synthesizes the current daily analyst state into a cockpit-readable narrative and review queue.
+
+### Fields
+
+- `brief_id`
+- `as_of`
+- `generated_at`
+- `title`
+- `advisory_label`
+- `executive_summary`
+- `highest_conviction_theme_updates`
+- `ticker_focus_list`
+- `open_questions`
+- `next_review_triggers`
+- `market_event_ids`
+- `segment_impact_ids`
+- `risk_regime_update_ids`
+- `suggested_action_ids`
+- `model_run_ids`
+- `freshness_status`
+
+### Required Fields
+
+- `brief_id`
+- `as_of`
+- `title`
+- `advisory_label`
+- `executive_summary`
+- `highest_conviction_theme_updates`
+- `ticker_focus_list`
+- `open_questions`
+- `next_review_triggers`
+
+### Evidence Requirements
+
+- Theme updates and ticker focus items must link to evidence-backed MarketEvents or downstream objects.
+- Any suggested action must link to evidence, deterministic checks, or a trade plan.
+- Brief must show stale or partial-data state if dependencies are incomplete.
+
+### Validation Rules
+
+- Advisory label must be visible.
+- Brief cannot include execution language.
+- Missing evidence or failed deterministic checks must reduce action readiness.
+- LLM summary cannot modify deterministic rankings, scores, exposure, target weights, or PnL.
+
+### Consumed By Screens
+
+- Daily Trading Cockpit
+- Live Market / Sentiment Radar
+- Ticker Analyst Workbench
+- Trade Journal + PnL Review
+
+### LLM Analyst Role
+
+- Create: `brief_synthesizer`
+- Review: `llm_note_reviewer`
+
+### Deterministic Fields
+
+- `brief_id`
+- `as_of`
+- `generated_at`
+- `advisory_label`
+- dependency object IDs
+- freshness status
+- blocked action flags
+- ordering if generated from deterministic priority scores
+
+## OutcomeJournalEntry
+
+### Purpose
+
+Captures local-only manual analyst records and outcome review for intended or completed manual trades.
+
+### Fields
+
+- `outcome_entry_id`
+- `trade_entry_id`
+- `ticker`
+- `entry_type`
+- `local_only`
+- `linked_trade_plan_id`
+- `advisory_label_at_time`
+- `recorded_price`
+- `recorded_quantity`
+- `recorded_at`
+- `evidence_available_ids`
+- `market_event_ids_available_at_decision`
+- `pnl_id`
+- `realized_pnl`
+- `unrealized_pnl`
+- `plan_adherence_status`
+- `outcome_label`
+- `analyst_note`
+- `llm_review_note_id`
+
+### Required Fields
+
+- `outcome_entry_id`
+- `trade_entry_id`
+- `ticker`
+- `entry_type`
+- `local_only`
+- `linked_trade_plan_id`
+- `recorded_at`
+- `outcome_label`
+
+### Evidence Requirements
+
+- Must preserve evidence available at decision time.
+- Completed manual trades should link to a trade plan or be marked unplanned.
+- Outcome review must reference PnL summaries and relevant MarketEvents where available.
+
+### Validation Rules
+
+- `local_only` must be true.
+- Journal entries must not transmit to any broker or external trading system.
+- PnL fields must come from deterministic `PnLSummary`.
+- Plan adherence must come from deterministic comparison against the trade plan and entry/exit levels.
+- Missing linked plan must be visible as an unplanned/manual exception.
+
+### Consumed By Screens
+
+- Daily Trading Cockpit
+- Ticker Analyst Workbench
+- Trade Plan + Entry/Exit Workbench
+- Trade Journal + PnL Review
+
+### LLM Analyst Role
+
+- Create: `outcome_reviewer` may draft lessons and critique text.
+- Review: `outcome_reviewer`.
+
+### Deterministic Fields
+
+- `pnl_id`
+- `realized_pnl`
+- `unrealized_pnl`
+- `plan_adherence_status`
+- evidence availability window
+- position reconstruction linkage
+- any outcome metric
+
+## LLMAnalystNote
+
+### Purpose
+
+Stores a bounded LLM explanation, critique, summary, or review note tied to specific analyst objects.
+
+### Fields
+
+- `note_id`
+- `model_run_id`
+- `scope`
+- `allowed_role`
+- `reviewed_object_ids`
+- `evidence_ids`
+- `note`
+- `deterministic_fields_not_modified`
+- `created_at`
+- `review_status`
+
+### Required Fields
+
+- `note_id`
+- `model_run_id`
+- `scope`
+- `allowed_role`
+- `note`
+- `deterministic_fields_not_modified`
+
+### Evidence Requirements
+
+- Notes that summarize claims must link to reviewed objects or evidence.
+- Notes that critique trade plans must link to the relevant TradePlan and evidence-backed upstream objects.
+
+### Validation Rules
+
+- `allowed_role` must be controlled.
+- Note text must not contain execution instructions.
+- `deterministic_fields_not_modified` must list protected fields when the note discusses scores, risk, target weights, levels, exposure, or PnL.
+- Every note must link to a `ModelRun`.
+
+### Consumed By Screens
+
+- Daily Trading Cockpit
+- Live Market / Sentiment Radar
+- Ticker Analyst Workbench
+- Trade Plan + Entry/Exit Workbench
+- Portfolio + Exposure Balancer
+- Trade Journal + PnL Review
+
+### LLM Analyst Role
+
+- Create: role named in `allowed_role`.
+- Review: `llm_note_reviewer`.
+
+### Deterministic Fields
+
+- `note_id`
+- `model_run_id`
+- `created_at`
+- `allowed_role`
+- `review_status`
+- protected-field audit list
+
+## Manual Validation Against Current Mock Data
+
+Validated file: `docs/mock_data/situational_awareness_brief.example.json`
+
+### Observed Shape
+
+- `MarketEvents`: 6 records.
+- `SegmentImpacts`: 6 records.
+- `EquityImpactAssessments`: 7 records.
+- `RiskRegimeUpdates`: 4 records.
+- `AnalystBrief`: 1 object.
+- `portfolio_snapshot`: 19 positions.
+- `open_trade_plans`: 19 plans.
+- `price_target_scenarios`: 19 scenarios.
+- `entry_exit_levels`: 19 level sets.
+- `correlation_exposures`: 6 clusters.
+- `llm_analyst_notes`: 5 notes.
+
+The fixture covers these portfolio and plan tickers: `AMD`, `AMZN`, `ANET`, `ASML`, `AVGO`, `CEG`, `DLR`, `EQIX`, `ETN`, `GOOGL`, `META`, `MRVL`, `MSFT`, `MU`, `NVDA`, `ORCL`, `PWR`, `TSM`, `VRT`.
+
+### Manual Validation Results
+
+- JSON parses successfully.
+- Segment, equity, risk, and trade-plan `linked_event_ids` resolve to existing `MarketEvents`.
+- Every portfolio position has an `open_trade_plan_id` that resolves to `open_trade_plans`.
+- Every open trade plan ticker has matching `entry_exit_levels` and `price_target_scenarios`.
+- Every `open_trade_plans[].manual_journal_only` value is `true`.
+- Current fixture uses advisory wording and does not contain broker, order-routing, or execution-state objects.
+
+### Mismatches And Hardening Gaps
+
+- The fixture does not include first-class `EvidenceItem`, `EvidenceClaim`, `ModelRun`, `SignalBundle`, `RecommendationArtifact`, `TargetWeights`, or deterministic check objects. It uses ID strings for several of those references.
+- `SegmentImpact` records lack explicit `first_order_tickers`, `second_order_tickers`, `confidence`, `time_horizon`, `risk_flags`, `invalidation_condition`, and `latest_evidence_at`.
+- `EquityImpactAssessment` records lack `assessment_id`, `as_of`, `confidence`, `risk_flags`, `invalidation_condition`, `segment_ids`, direct `source_evidence_ids`, `model_run_ids`, and signal/recommendation artifact links.
+- `RiskRegimeUpdate` records lack `severity`, `confidence`, `affected_segments`, `affected_tickers`, `relief_condition`, `invalidation_condition`, `as_of`, `available_at`, and direct `source_evidence_ids`.
+- `TradePlan` records are local-journal-safe, but they lack explicit `entry_exit_levels_id`, `price_target_scenario_id`, `target_weights_id`, `deterministic_check_ids`, and `last_reviewed_at`. The current fixture joins levels and scenarios by ticker instead.
+- `portfolio_snapshot` is the fixture name for `PortfolioExposureSnapshot`. It lacks `correlation_exposure_ids`, `pnl_summary_id`, `target_weights_id`, `concentration_flags`, `stale_price_flags`, and per-position `last_price_timestamp`.
+- `AnalystBrief` lacks `generated_at`, `market_event_ids`, `segment_impact_ids`, `risk_regime_update_ids`, `suggested_action_ids`, `model_run_ids`, and `freshness_status`.
+- `OutcomeJournalEntry` is not first-class in the fixture. The closest representation is `trade_journal_summary.latest_entries`, which lacks `local_only`, `recorded_price`, `recorded_quantity`, `recorded_at`, `evidence_available_ids`, `pnl_id`, `plan_adherence_status`, and `llm_review_note_id`.
+- `LLMAnalystNote` records include `model_run_id`, `scope`, `allowed_role`, `note`, and protected deterministic fields, but lack `reviewed_object_ids`, `evidence_ids`, `created_at`, and `review_status`.
+
+These gaps are acceptable for the current mock fixture as a rich UI prototype, but they should be resolved before the fixture is treated as a canonical schema contract or persistence payload.

@@ -10,6 +10,24 @@ Primary workflow:
 Evidence -> MarketEvent -> SegmentImpact -> EquityImpactAssessment -> RiskRegimeUpdate -> SignalBundle -> RecommendationArtifact -> TradePlan -> ManualTradeJournal -> PnLReview
 ```
 
+Daily workstation loop:
+
+```text
+Open Cockpit -> Check Radar -> Inspect Ecosystem Map -> Work Ticker -> Review Trade Plan -> Balance Exposure -> Journal Outcome
+```
+
+Primary screens:
+
+| Screen | Workflow Role | Primary Output |
+| --- | --- | --- |
+| Daily Trading Cockpit | Daily triage and action queue | Review priorities and blocked actions |
+| AI Infrastructure Ecosystem Map | Segment and theme propagation | First-order and second-order ticker implications |
+| Live Market / Sentiment Radar | Intraday catalyst and sentiment monitoring | Validated alerts for analyst review |
+| Ticker Analyst Workbench | Single-name thesis and setup analysis | Evidence-backed ticker assessment |
+| Trade Plan + Entry/Exit Workbench | Advisory plan readiness | Local-only trade plan and journal readiness |
+| Portfolio + Exposure Balancer | Portfolio context and constraint review | Advisory balancing review list |
+| Trade Journal + PnL Review | Outcome learning loop | Deterministic PnL review and analyst lessons |
+
 Global rules:
 
 - Advisory-only.
@@ -24,6 +42,8 @@ Global rules:
 - Deterministic code owns scores, risk, constraints, target weights, concentration checks, correlation checks, exposure calculations, and PnL calculations.
 - Every recommendation-like label must link to evidence, signal bundles, deterministic checks, and audit records where available.
 - UI must render API/domain objects only; it must not compute portfolio weights, scores, risk limits, PnL, or target weights.
+- Entry, exit, add, trim, and invalidation language describes advisory plan conditions only; it must never become an order ticket, routing instruction, or execution workflow.
+- Trade journal writes are local analyst records for intended or completed manual trades; they must not transmit anything to external trading systems.
 
 ## 1. Daily Trading Cockpit
 
