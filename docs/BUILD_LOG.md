@@ -929,6 +929,7 @@ Cloud deployment validation:
   - `aistartuptr.azurecr.io/ai-infra-fund-api:e0a7c30` with digest `sha256:3feb38fc64a772b6384a667001846ef583faa06f8d5ef9762ef90e9b479c098f`.
   - `aistartuptr.azurecr.io/ai-infra-fund-worker:e0a7c30` with digest `sha256:52c3ef2b933b43a19f5fd8c5c3711619ac601c6693a10fb82da89e19f0e82536`.
 - Rolled AKS deployments `ai-infra-fund-api` and `ai-infra-fund-worker` to image tag `e0a7c30`; both reported `1/1` ready.
+- During final validation, a separate shadow-analyst runtime commit `c8c273e` landed and AKS moved both deployments to image tag `c8c273e`; verified that `c8c273e` contains the DCD RSS, low-pressure GDELT, and HTTP `429` backoff fixes from `e0a7c30`.
 - Did not run migrations; this pass added no migration files.
 - Ran cloud source registry seed through the deployed worker:
   - seeded 34 equities, 18 active sources, 246 frontier URLs, and 246 queue items,
