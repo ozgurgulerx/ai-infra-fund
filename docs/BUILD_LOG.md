@@ -36,7 +36,7 @@ Cloud deployment validation:
   - `aistartuptr.azurecr.io/ai-infra-fund-web:22bd91b`
 - Updated `deploy/aks-ai-infra-fund.yaml` to API/worker tag `22bd91b`.
 - Applied AKS rollout in namespace `ai-infra-fund`.
-- Recreated and completed `job/ai-infra-fund-migrate`; migration output applied `0010_advisory_workstation_read_models.sql`.
+- Recreated and completed release-scoped `job/ai-infra-fund-migrate-22bd91b`; migration output applied `0010_advisory_workstation_read_models.sql`.
 - Rolled out `deployment/ai-infra-fund-api` and `deployment/ai-infra-fund-worker`.
 - Updated Azure App Service `ai-infra-fund-frontend` to web image tag `22bd91b`, then to `20260516advisoryreadmodel-web` for the server-rendered brief fetch hardening.
 - Added and ran `deploy/fixture-advisory-job.yaml` with a temporary fixture ConfigMap; the cloud fixture job wrote `run-fixture-advisory-00b5b8e7f548033b`.
