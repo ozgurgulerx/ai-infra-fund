@@ -91,16 +91,21 @@ class SegmentMarketEventContractTests(unittest.TestCase):
     def test_segment_impact_identifies_first_and_second_order_tickers(self) -> None:
         impact = self.segment_impact()
 
-        self.assertEqual(Segment.ADVANCED_PACKAGING_COWOS, impact.segment)
+        self.assertEqual(Segment.ADVANCED_PACKAGING_COWOS, impact.segment_id)
+        self.assertEqual(("TSM", "ASML"), impact.primary_tickers)
         self.assertEqual(("TSM", "ASML"), impact.first_order_tickers)
         self.assertEqual(("NVDA", "AMD"), impact.second_order_tickers)
         self.assertEqual(("evidence-1",), impact.source_evidence_ids)
 
         invalid = [
+            {"linked_event_ids": ()},
+            {"primary_tickers": ()},
             {"first_order_tickers": ()},
             {"second_order_tickers": ()},
             {"source_evidence_ids": ()},
             {"confidence": Decimal("1.1")},
+            {"risk_flags": ()},
+            {"invalidation_condition": ""},
         ]
         for overrides in invalid:
             with self.subTest(overrides=overrides):
@@ -111,19 +116,26 @@ class SegmentMarketEventContractTests(unittest.TestCase):
         assessment = self.equity_assessment()
 
         self.assertEqual("NVDA", assessment.ticker)
-        self.assertEqual((Segment.ADVANCED_PACKAGING_COWOS,), assessment.relevant_segments)
+        self.assertEqual("NVIDIA", assessment.company)
+        self.assertEqual((Segment.ADVANCED_PACKAGING_COWOS,), assessment.segment_ids)
         self.assertIn("bull", assessment.bull_case.lower())
+        self.assertIn("base", assessment.base_case.lower())
         self.assertIn("bear", assessment.bear_case.lower())
         self.assertEqual(("cowos_capacity_delay",), assessment.risk_flags)
-        self.assertTrue(assessment.invalidation)
+        self.assertTrue(assessment.invalidation_condition)
 
         invalid = [
+            {"linked_event_ids": ()},
+            {"assessment": ""},
             {"bull_case": ""},
+            {"base_case": ""},
             {"bear_case": ""},
             {"risk_flags": ()},
-            {"invalidation": ""},
-            {"relevant_segments": ()},
+            {"invalidation_condition": ""},
+            {"segment_ids": ()},
+            {"watch_items": ()},
             {"source_evidence_ids": ()},
+            {"model_run_ids": ()},
             {"confidence": Decimal("-0.1")},
         ]
         for overrides in invalid:
@@ -155,14 +167,22 @@ class SegmentMarketEventContractTests(unittest.TestCase):
 
     def segment_impact(self, **overrides: object) -> SegmentImpact:
         data = {
-            "event_id": "market-event-1",
-            "segment": Segment.ADVANCED_PACKAGING_COWOS,
-            "direction": MarketEventDirection.POSITIVE,
-            "impact_summary": "CoWoS capacity tightness benefits suppliers and constrains accelerator shipments.",
+            "segment_id": Segment.ADVANCED_PACKAGING_COWOS,
+            "segment_name": "Advanced Packaging / CoWoS",
+            "linked_event_ids": ("market-event-1",),
+            "primary_tickers": ("tsm", "asml"),
             "first_order_tickers": ("tsm", "asml"),
             "second_order_tickers": ("nvda", "amd"),
-            "source_evidence_ids": ("evidence-1",),
+            "impact_direction": MarketEventDirection.POSITIVE,
+            "impact_summary": "CoWoS capacity tightness benefits suppliers and constrains accelerator shipments.",
             "confidence": Decimal("0.75"),
+            "time_horizon": "short_to_medium",
+            "risk_flags": ("cowos_capacity_delay",),
+            "invalidation_condition": "Invalidate if CoWoS lead times normalize while accelerator demand weakens.",
+            "latest_evidence_at": AVAILABLE_AT,
+            "signal_bundle_id": "signal-bundle-1",
+            "source_evidence_ids": ("evidence-1",),
+            "model_run_ids": ("model-run-1",),
         }
         data.update(overrides)
         return SegmentImpact(**data)
@@ -170,15 +190,24 @@ class SegmentMarketEventContractTests(unittest.TestCase):
     def equity_assessment(self, **overrides: object) -> EquityImpactAssessment:
         data = {
             "assessment_id": "equity-impact-nvda-1",
-            "event_id": "market-event-1",
             "ticker": "nvda",
-            "relevant_segments": (Segment.ADVANCED_PACKAGING_COWOS,),
+            "company": "NVIDIA",
+            "linked_event_ids": ("market-event-1",),
+            "segment_ids": (Segment.ADVANCED_PACKAGING_COWOS,),
+            "assessment": "Packaging capacity is a direct swing factor for recognized accelerator revenue.",
             "bull_case": "Bull case: constrained CoWoS supply keeps accelerator pricing power elevated.",
+            "base_case": "Base case: capacity additions support shipment growth but keep allocation tight.",
             "bear_case": "Bear case: packaging capacity delays defer recognized revenue.",
             "risk_flags": ("cowos_capacity_delay",),
-            "invalidation": "Invalidate if CoWoS lead times normalize while accelerator demand indicators weaken.",
-            "source_evidence_ids": ("evidence-1",),
+            "invalidation_condition": "Invalidate if CoWoS lead times normalize while accelerator demand indicators weaken.",
+            "watch_items": ("CoWoS lead times", "hyperscaler capex revisions"),
+            "advisory_implication": "watch",
             "confidence": Decimal("0.7"),
+            "as_of": AVAILABLE_AT,
+            "source_evidence_ids": ("evidence-1",),
+            "linked_signal_bundle_id": "signal-bundle-1",
+            "linked_recommendation_artifact_id": "recommendation-1",
+            "model_run_ids": ("model-run-1",),
         }
         data.update(overrides)
         return EquityImpactAssessment(**data)

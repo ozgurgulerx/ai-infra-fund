@@ -1,8 +1,10 @@
 from pathlib import Path
 import dataclasses
+from datetime import datetime, timezone
 import re
 import stat
 import subprocess
+import sys
 import unittest
 
 
@@ -178,6 +180,114 @@ LLM_EXTRACTION_FORBIDDEN_OUTPUT_NAME_TERMS = [
     "execution",
 ]
 
+FORBIDDEN_ROUTE_PATH_TERMS = [
+    "broker",
+    "place-order",
+    "submit-order",
+    "execute-order",
+    "order-execution",
+    "execution",
+    "fill",
+    "fills",
+    "route-order",
+    "live-trading",
+    "automated-trading",
+]
+
+ALLOWED_ROUTE_PATHS = {
+    "/internal/trade-journal/entries",
+}
+
+FORBIDDEN_ROUTE_MODULE_STEMS = {
+    "broker",
+    "brokers",
+    "order",
+    "orders",
+    "execution",
+    "executions",
+    "fills",
+    "order_execution",
+    "brokerage",
+}
+
+ALLOWED_ROUTE_MODULE_STEMS = {
+    "trade_journal",
+}
+
+DETERMINISTIC_MODULE_ROOTS = [
+    "packages/core/src/ai_infra_fund_core/signals",
+    "packages/core/src/ai_infra_fund_core/portfolio",
+    "packages/core/src/ai_infra_fund_core/evaluation",
+    "packages/core/src/ai_infra_fund_core/recommendations",
+]
+
+FORBIDDEN_MODEL_CLIENT_IMPORT_PATTERNS = [
+    r"^\s*(?:from|import)\s+ai_infra_fund_core\.model_routing\b",
+    r"^\s*(?:from|import)\s+openai\b",
+    r"^\s*(?:from|import)\s+anthropic\b",
+    r"^\s*(?:from|import)\s+azure\.ai\b",
+    r"^\s*(?:from|import)\s+google\.generativeai\b",
+    r"^\s*(?:from|import)\s+ollama\b",
+    r"^\s*(?:from|import)\s+litellm\b",
+    r"^\s*(?:from|import)\s+langchain\b",
+]
+
+FRONTEND_PUBLIC_ENV_ALLOWLIST = {
+    "NEXT_PUBLIC_API_BASE_URL",
+}
+
+FORBIDDEN_V1_STORAGE_DEPENDENCIES = [
+    "duckdb",
+    "pyarrow",
+    "polars",
+    "parquetjs",
+    "lancedb",
+    "sqlite-vec",
+]
+
+FORBIDDEN_V1_STORAGE_IMPORT_PATTERNS = [
+    r"^\s*(?:from|import)\s+duckdb\b",
+    r"^\s*(?:from|import)\s+pyarrow\b",
+    r"^\s*(?:from|import)\s+polars\b",
+    r"^\s*(?:from|import)\s+lancedb\b",
+    r"^\s*(?:from|import)\s+sqlite_vec\b",
+]
+
+TRACKED_SECRET_OR_PRIVATE_PATTERNS = [
+    r"(^|/)\.env($|\.)",
+    r"(^|/)private_research/",
+    r"(^|/)raw_private/",
+    r"(^|/)Downloads/",
+    r"(?i)schwab.*\.pdf$",
+    r"(?i)routing.*\.pdf$",
+]
+
+TRACKED_SECRET_ALLOWLIST = {
+    ".env.example",
+}
+
+LLM_PROMPT_PACK_REQUIRED_BOUNDARY_PHRASES = [
+    "config/model_profiles.yaml",
+    "ModelRun",
+    "private research is local-only by default",
+    "data-class policy",
+    "advisory-only",
+    "LLMs must not generate final deterministic scores",
+    "target weights",
+    "constraints",
+    "PnL",
+    "executable trade instructions",
+]
+
+LLM_PROMPT_PACK_FORBIDDEN_TERMS = [
+    "place an order",
+    "submit an order",
+    "execute a trade",
+    "route to broker",
+    "broker credentials",
+    "order ticket",
+]
+
 
 def read_text(relative_path: str) -> str:
     return (ROOT / relative_path).read_text(encoding="utf-8")
@@ -205,6 +315,10 @@ def existing_text_files(*roots: str) -> list[Path]:
     return files
 
 
+def existing_python_files(*roots: str) -> list[Path]:
+    return [path for path in existing_text_files(*roots) if path.suffix == ".py"]
+
+
 def markdown_section(text: str, heading: str) -> str:
     match = re.search(
         rf"^## {re.escape(heading)}\n(?P<body>.*?)(?=^## |\Z)",
@@ -228,6 +342,20 @@ def contract_field_names(section_body: str) -> set[str]:
             continue
         names.add(stripped.removeprefix("- `").split("`", 1)[0])
     return names
+
+
+def model_profile_terms() -> set[str]:
+    text = read_text("config/model_profiles.yaml")
+    terms = set(re.findall(r"^  ([A-Za-z0-9_]+):\s*$", text, re.MULTILINE))
+    terms.update(
+        value.strip().strip('"').strip("'")
+        for value in re.findall(
+            r"^\s+(?:model_id|deployment):\s+(.+?)\s*$",
+            text,
+            re.MULTILINE,
+        )
+    )
+    return {term for term in terms if term}
 
 
 class ArchitecturePolicyTests(unittest.TestCase):
@@ -415,7 +543,7 @@ class ArchitecturePolicyTests(unittest.TestCase):
             "docs/SPEC_ROUTER.md",
         ):
             self.assertIn(required, agents)
-        self.assertIn("## Governing Specs", current_task)
+        self.assertRegex(current_task, r"## Governing (Specs|Docs)")
         self.assertIn("## Product Objective", current_task)
         self.assertIn("## Definition Of Done", current_task)
         self.assertIn("specs/0016-equity-intelligence-crawler.md", router)
@@ -473,6 +601,33 @@ class ArchitecturePolicyTests(unittest.TestCase):
                     offenders.append(f"{path.relative_to(ROOT)} matches {pattern}")
         self.assertEqual([], offenders)
 
+    def test_no_broker_order_execution_routes_or_modules_exist(self) -> None:
+        route_offenders: list[str] = []
+        route_pattern = re.compile(
+            r"@router\.(?:get|post|put|patch|delete)\(\s*['\"](?P<path>[^'\"]+)['\"]"
+        )
+
+        for path in existing_python_files("services/api/src/ai_infra_fund_api/routes"):
+            stem = path.stem.lower()
+            if stem not in ALLOWED_ROUTE_MODULE_STEMS:
+                for forbidden in FORBIDDEN_ROUTE_MODULE_STEMS:
+                    if forbidden == stem or forbidden in stem.split("_"):
+                        route_offenders.append(
+                            f"{path.relative_to(ROOT)} module name contains {forbidden}"
+                        )
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for match in route_pattern.finditer(text):
+                route_path = match.group("path").lower()
+                if route_path in ALLOWED_ROUTE_PATHS:
+                    continue
+                for forbidden in FORBIDDEN_ROUTE_PATH_TERMS:
+                    if forbidden in route_path:
+                        route_offenders.append(
+                            f"{path.relative_to(ROOT)} exposes {match.group('path')}"
+                        )
+
+        self.assertEqual([], route_offenders)
+
     def test_frontend_does_not_import_database_or_backend_internals(self) -> None:
         forbidden_patterns = [
             r"AI_INFRA_FUND_DATABASE_URL",
@@ -513,6 +668,32 @@ class ArchitecturePolicyTests(unittest.TestCase):
                     offenders.append(f"{path.relative_to(ROOT)} matches {pattern}")
         self.assertEqual([], offenders)
 
+    def test_frontend_public_env_surface_exposes_no_database_or_model_secrets(self) -> None:
+        public_env_references: set[str] = set()
+        secret_like_references: list[str] = []
+        for path in existing_text_files("apps/web"):
+            if path.suffix not in {".js", ".jsx", ".ts", ".tsx", ".mjs", ".json"}:
+                continue
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            public_env_references.update(re.findall(r"\bNEXT_PUBLIC_[A-Z0-9_]+\b", text))
+            for pattern in (
+                r"\bNEXT_PUBLIC_[A-Z0-9_]*(?:DATABASE|SECRET|TOKEN|API_KEY|MODEL|AZURE|OPENAI|ANTHROPIC)[A-Z0-9_]*\b",
+                r"\bAI_INFRA_FUND_DATABASE_URL\b",
+                r"\bAZURE_AI_FOUNDRY_API_KEY\b",
+                r"\bOPENAI_API_KEY\b",
+                r"\bANTHROPIC_API_KEY\b",
+            ):
+                if re.search(pattern, text):
+                    secret_like_references.append(
+                        f"{path.relative_to(ROOT)} matches {pattern}"
+                    )
+
+        unexpected_public_env = sorted(
+            public_env_references - FRONTEND_PUBLIC_ENV_ALLOWLIST
+        )
+        self.assertEqual([], unexpected_public_env)
+        self.assertEqual([], secret_like_references)
+
     def test_trading_advisory_contract_is_advisory_only(self) -> None:
         data_contract = read_text("docs/specs/0003-data-contracts.md")
         object_model = read_text("docs/ANALYST_OBJECT_MODEL.md")
@@ -538,6 +719,57 @@ class ArchitecturePolicyTests(unittest.TestCase):
                             )
 
         self.assertEqual([], offenders)
+
+    def test_core_contracts_exclude_executable_order_fields(self) -> None:
+        offenders: list[str] = []
+        for path in existing_python_files("packages/core/src/ai_infra_fund_core/contracts"):
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for field_name in re.findall(r"^\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*:", text, re.MULTILINE):
+                lowered = field_name.lower()
+                for forbidden in ("broker", "route", "exchange", "order_id", "execution_id", "auto_trade"):
+                    if forbidden in lowered:
+                        offenders.append(
+                            f"{path.relative_to(ROOT)} field {field_name} contains {forbidden}"
+                        )
+        self.assertEqual([], offenders)
+
+    def test_recommendation_artifact_requires_advisory_lineage(self) -> None:
+        core_src = ROOT / "packages" / "core" / "src"
+        sys.path.insert(0, str(core_src))
+
+        from ai_infra_fund_core.contracts.common import RecommendationAction
+        from ai_infra_fund_core.contracts.recommendations import RecommendationArtifact
+
+        base = {
+            "recommendation_id": "rec-1",
+            "ticker_or_portfolio": "NVDA",
+            "advisory_label": "advisory_only",
+            "action": RecommendationAction.ACCUMULATE,
+            "horizon": "2w",
+            "score_breakdown": {"strategic": "0.72"},
+            "target_weights_id": "tw-1",
+            "evidence_ids": ("evidence-1",),
+            "model_run_ids": ("model-run-1",),
+            "signal_bundle_id": "signal-1",
+            "risks": ("valuation",),
+            "contradictions": (),
+            "final_payload": {"advisory": "accumulate"},
+            "created_at": datetime.now(timezone.utc),
+        }
+
+        RecommendationArtifact(**base)
+        invalid_cases = {
+            "advisory_label": "not_advisory",
+            "target_weights_id": "",
+            "evidence_ids": (),
+            "model_run_ids": (),
+            "signal_bundle_id": "",
+        }
+        for field_name, invalid_value in invalid_cases.items():
+            payload = {**base, field_name: invalid_value}
+            with self.subTest(field_name=field_name):
+                with self.assertRaises(ValueError):
+                    RecommendationArtifact(**payload)
 
     def test_crawler_specs_forbid_arbitrary_crawling_and_execution_outputs(self) -> None:
         crawler_spec = read_text("docs/specs/0016-equity-intelligence-crawler.md")
@@ -568,6 +800,170 @@ class ArchitecturePolicyTests(unittest.TestCase):
             phrase for phrase in DETERMINISTIC_OWNERSHIP_PHRASES if phrase not in combined
         ]
         self.assertEqual([], missing)
+
+    def test_deterministic_analysis_modules_do_not_import_llm_or_router_clients(self) -> None:
+        offenders: list[str] = []
+        for root in DETERMINISTIC_MODULE_ROOTS:
+            for path in existing_python_files(root):
+                text = path.read_text(encoding="utf-8", errors="ignore")
+                for pattern in FORBIDDEN_MODEL_CLIENT_IMPORT_PATTERNS:
+                    if re.search(pattern, text, re.MULTILINE):
+                        offenders.append(f"{path.relative_to(ROOT)} matches {pattern}")
+        self.assertEqual([], offenders)
+
+    def test_business_logic_does_not_hard_code_model_deployment_names(self) -> None:
+        model_terms = model_profile_terms()
+        offenders: list[str] = []
+        for path in existing_text_files("apps", "packages", "services", "scripts"):
+            if path.suffix not in {".py", ".js", ".mjs", ".ts", ".tsx", ".json", ".sh", ".yaml", ".yml"}:
+                continue
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for term in model_terms:
+                if term in text:
+                    offenders.append(f"{path.relative_to(ROOT)} contains {term}")
+        self.assertEqual([], offenders)
+
+    def test_private_research_routes_only_to_local_allowed_profiles(self) -> None:
+        core_src = ROOT / "packages" / "core" / "src"
+        sys.path.insert(0, str(core_src))
+
+        from ai_infra_fund_core.contracts.common import DataClass
+        from ai_infra_fund_core.model_routing.profiles import load_model_profiles
+        from ai_infra_fund_core.model_routing.router import ModelRouteDenied, ModelRouter
+
+        catalog = load_model_profiles(ROOT / "config" / "model_profiles.yaml")
+        router = ModelRouter(catalog)
+        for profile in catalog.profiles.values():
+            if profile.endpoint_type != "local":
+                with self.subTest(profile=profile.profile_id):
+                    self.assertFalse(
+                        router.is_allowed(
+                            profile,
+                            data_classes=(DataClass.PRIVATE_RESEARCH,),
+                        )
+                    )
+
+        roles = sorted({role for profile in catalog.profiles.values() for role in profile.task_roles})
+        for role in roles:
+            with self.subTest(role=role):
+                try:
+                    route = router.resolve(role, data_classes=(DataClass.PRIVATE_RESEARCH,))
+                except ModelRouteDenied:
+                    continue
+                self.assertEqual("local", route.profile.endpoint_type)
+                unsafe_allowed_fallbacks = [
+                    profile.profile_id
+                    for profile in route.fallback_chain
+                    if profile.endpoint_type != "local"
+                    and router.is_allowed(
+                        profile,
+                        data_classes=(DataClass.PRIVATE_RESEARCH,),
+                    )
+                ]
+                self.assertEqual([], unsafe_allowed_fallbacks)
+
+    def test_v1_dependencies_and_imports_do_not_include_duckdb_or_parquet_store(self) -> None:
+        dependency_files = [
+            "pyproject.toml",
+            "services/api/requirements.txt",
+            "services/worker/requirements.txt",
+            "apps/web/package.json",
+            "apps/web/package-lock.json",
+        ]
+        offenders: list[str] = []
+        for relative_path in dependency_files:
+            text = read_text(relative_path).lower()
+            for dependency in FORBIDDEN_V1_STORAGE_DEPENDENCIES:
+                if re.search(rf"['\"]?{re.escape(dependency)}(?:==|>=|<=|~=|['\"]|:)", text):
+                    offenders.append(f"{relative_path} declares {dependency}")
+
+        for path in existing_python_files("apps", "packages", "services", "scripts"):
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for pattern in FORBIDDEN_V1_STORAGE_IMPORT_PATTERNS:
+                if re.search(pattern, text, re.MULTILINE):
+                    offenders.append(f"{path.relative_to(ROOT)} matches {pattern}")
+
+        self.assertEqual([], offenders)
+
+    def test_postgresql_pgvector_remains_canonical_fact_spine(self) -> None:
+        architecture = read_text("docs/ARCHITECTURE.md")
+        migration = read_text("services/api/migrations/0001_phase2_data_spine.sql")
+        docker_compose = read_text("docker-compose.yml")
+
+        self.assertIn("PostgreSQL + pgvector owns all v1 durable records", architecture)
+        self.assertIn("CREATE EXTENSION IF NOT EXISTS vector", migration)
+        self.assertIn("postgres:", docker_compose)
+        self.assertIn("pgvector", docker_compose)
+
+        bypass_offenders: list[str] = []
+        for path in existing_python_files("packages", "services", "scripts"):
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for pattern in (
+                r"^\s*(?:from|import)\s+sqlite3\b",
+                r"^\s*(?:from|import)\s+sqlite_vec\b",
+                r"^\s*(?:from|import)\s+lancedb\b",
+            ):
+                if re.search(pattern, text, re.MULTILINE):
+                    bypass_offenders.append(f"{path.relative_to(ROOT)} matches {pattern}")
+        self.assertEqual([], bypass_offenders)
+
+    def test_raw_private_files_and_env_files_are_not_tracked(self) -> None:
+        result = subprocess.run(
+            ["git", "ls-files"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        offenders: list[str] = []
+        for tracked_path in result.stdout.splitlines():
+            if tracked_path in TRACKED_SECRET_ALLOWLIST:
+                continue
+            for pattern in TRACKED_SECRET_OR_PRIVATE_PATTERNS:
+                if re.search(pattern, tracked_path):
+                    offenders.append(tracked_path)
+        self.assertEqual([], offenders)
+
+    def test_market_event_without_evidence_cannot_reach_signal_policy(self) -> None:
+        core_src = ROOT / "packages" / "core" / "src"
+        sys.path.insert(0, str(core_src))
+
+        from ai_infra_fund_core.contracts.events import MarketEvent
+
+        with self.assertRaises(ValueError):
+            MarketEvent(
+                event_id="event-1",
+                event_type="capex_signal",
+                source_evidence_ids=(),
+                tickers=("NVDA",),
+                companies=("Nvidia",),
+                themes=("accelerator demand",),
+                catalyst="Hyperscaler capex raised.",
+                ai_relevance="Higher AI infrastructure demand.",
+                direction="positive",
+                time_horizon="short_to_medium",
+                confidence="0.7",
+                occurred_at=datetime.now(timezone.utc),
+                available_at=datetime.now(timezone.utc),
+                content_hash="hash-1",
+                extracted_by_model_run_id="model-run-1",
+                review_status="usable",
+            )
+
+    def test_llm_prompt_pack_if_present_preserves_deterministic_boundary(self) -> None:
+        prompt_pack = ROOT / "docs" / "LLM_ANALYST_PROMPT_PACK.md"
+        if not prompt_pack.exists():
+            return
+
+        text = prompt_pack.read_text(encoding="utf-8")
+        missing = [
+            phrase for phrase in LLM_PROMPT_PACK_REQUIRED_BOUNDARY_PHRASES if phrase not in text
+        ]
+        forbidden_present = [
+            phrase for phrase in LLM_PROMPT_PACK_FORBIDDEN_TERMS if phrase in text.lower()
+        ]
+        self.assertEqual([], missing)
+        self.assertEqual([], forbidden_present)
 
     def test_research_extractor_result_names_exclude_deterministic_and_execution_outputs(self) -> None:
         import sys

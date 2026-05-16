@@ -1080,6 +1080,155 @@
       {"cluster_id": "cluster_cloud_capex", "cluster_name": "Cloud AI capex platforms", "tickers": ["ORCL", "MSFT", "GOOGL", "AMZN", "META"], "portfolio_weight_pct": 29.1, "risk_state": "watch"}
     ]
   },
+  "portfolio_snapshot": {
+    "snapshot_id": "psnap_20260516_ai_infra_workstation",
+    "linked_exposure_snapshot_id": "pexp_20260516_ai_infra_core",
+    "as_of": "2026-05-16T08:00:00Z",
+    "currency": "USD",
+    "advisory_only": true,
+    "local_only": true,
+    "position_count": 22,
+    "cash_pct": 5.0,
+    "gross_equity_exposure_pct": 95.0,
+    "top_positions": [
+      {"ticker": "NVDA", "company": "NVIDIA", "portfolio_weight_pct": 12.0, "unrealized_pnl": 8000.0, "risk_flags": ["hbm_allocation", "export_control"], "linked_trade_plan_id": "tpln_20260516_nvda_accumulate_pullback"},
+      {"ticker": "TSM", "company": "Taiwan Semiconductor Manufacturing Company", "portfolio_weight_pct": 7.7, "unrealized_pnl": 7000.0, "risk_flags": ["geopolitical"], "linked_trade_plan_id": "tpln_20260516_tsm_add_cowos"},
+      {"ticker": "VRT", "company": "Vertiv", "portfolio_weight_pct": 6.8, "unrealized_pnl": 12000.0, "risk_flags": ["valuation_extension"], "linked_trade_plan_id": "tpln_20260516_vrt_trim_strength"},
+      {"ticker": "MSFT", "company": "Microsoft", "portfolio_weight_pct": 7.3, "unrealized_pnl": 4500.0, "risk_flags": ["capex_duration"], "linked_trade_plan_id": "tpln_20260516_msft_hold_capex_monitor"}
+    ],
+    "evidence_ids": ["evid_20260516_portfolio_manual_snapshot", "evid_20260516_mock_price_marks"],
+    "deterministic_check_ids": ["portfolio_weight_reconciled", "cash_floor_visible", "manual_snapshot_local_only"]
+  },
+  "watchlist_alerts": [
+    {
+      "alert_id": "walert_20260516_capacity_stack",
+      "severity": "high",
+      "alert_type": "capacity_bottleneck",
+      "tickers": ["NVDA", "AMD", "MU", "TSM", "ASML", "AVGO", "MRVL"],
+      "segments": ["accelerators", "hbm_memory", "foundry_cowos_semicap"],
+      "summary": "HBM, CoWoS, and roadmap cadence require catalyst review across the silicon supply chain.",
+      "linked_event_ids": ["mevt_20260516_hbm_supply_bottleneck", "mevt_20260516_cowos_capacity_expansion", "mevt_20260516_accelerator_roadmap_update"],
+      "evidence_ids": ["evid_20260515_hbm_supplier_checks", "evid_20260515_tsm_cowos_capex_note", "evid_20260514_accelerator_roadmap_brief"],
+      "model_run_ids": ["mrun_20260516_event_extract_002", "mrun_20260516_event_extract_003", "mrun_20260516_event_extract_004"],
+      "next_review": "Confirm whether supply relief improves accelerator shipments or compresses scarcity premiums."
+    },
+    {
+      "alert_id": "walert_20260516_power_grid",
+      "severity": "medium_high",
+      "alert_type": "power_constraint",
+      "tickers": ["VRT", "ETN", "PWR", "CEG", "DLR", "EQIX", "MSFT", "GOOGL", "AMZN"],
+      "segments": ["power_grid_cooling", "datacenter_reits", "cloud_platforms"],
+      "summary": "Power procurement and grid interconnection remain control points for AI campus delivery.",
+      "linked_event_ids": ["mevt_20260516_datacenter_power_purchase_agreement", "mevt_20260516_nuclear_restart_power_capacity"],
+      "evidence_ids": ["evid_20260514_cloud_ppa_release", "evid_20260514_grid_interconnect_queue", "evid_20260513_power_capacity_tracker"],
+      "model_run_ids": ["mrun_20260516_event_extract_005", "mrun_20260516_event_extract_006"],
+      "next_review": "Distinguish announced demand from energized capacity and approved grid work."
+    },
+    {
+      "alert_id": "walert_20260516_cloud_monetization",
+      "severity": "medium",
+      "alert_type": "monetization_gap",
+      "tickers": ["MSFT", "GOOGL", "AMZN", "META", "ORCL"],
+      "segments": ["cloud_platforms", "ai_software_monetization"],
+      "summary": "Higher cloud capex supports the ecosystem but raises utilization and depreciation questions for platform equities.",
+      "linked_event_ids": ["mevt_20260516_hyperscaler_capex_raise", "mevt_20260516_rates_liquidity_macro_shift"],
+      "evidence_ids": ["evid_20260516_msft_capex_call", "evid_20260516_cloud_capex_comp_sheet", "evid_20260516_meta_capex_monetization_note", "evid_20260516_orcl_oci_backlog_note"],
+      "model_run_ids": ["mrun_20260516_event_extract_001", "mrun_20260516_event_extract_008"],
+      "next_review": "Require utilization, AI revenue, backlog quality, or ad-product evidence before upgrading cloud labels."
+    }
+  ],
+  "suggested_actions": [
+    {
+      "action_id": "sact_20260516_nvda_watch",
+      "ticker": "NVDA",
+      "advisory_label": "watch",
+      "analyst_action": "review_accumulate_only_if_hbm_and_policy_blockers_improve",
+      "linked_advisory_id": "adv_20260516_nvda_watch_accumulate",
+      "linked_trade_plan_id": "tpln_20260516_nvda_accumulate_pullback",
+      "linked_event_ids": ["mevt_20260516_hyperscaler_capex_raise", "mevt_20260516_hbm_supply_bottleneck", "mevt_20260516_export_control_update"],
+      "evidence_ids": ["evid_20260516_cloud_capex_comp_sheet", "evid_20260515_hbm_supplier_checks", "evid_20260513_export_control_rule"],
+      "model_run_ids": ["mrun_20260516_advisory_review_001"],
+      "risk_flags": ["hbm_allocation", "export_control", "valuation_crowding"],
+      "invalidation_condition": "HBM or policy constraints reduce forward shipment assumptions while hyperscaler capex evidence stops improving.",
+      "manual_journal_only": true
+    },
+    {
+      "action_id": "sact_20260516_tsm_accumulate",
+      "ticker": "TSM",
+      "advisory_label": "accumulate",
+      "analyst_action": "review_manual_journal_add_note_if_entry_zone_and_geopolitical_checks_remain_valid",
+      "linked_advisory_id": "adv_20260516_tsm_accumulate",
+      "linked_trade_plan_id": "tpln_20260516_tsm_add_cowos",
+      "linked_event_ids": ["mevt_20260516_cowos_capacity_expansion", "mevt_20260516_hbm_supply_bottleneck"],
+      "evidence_ids": ["evid_20260515_tsm_cowos_capex_note", "evid_20260515_packaging_tool_lead_times"],
+      "model_run_ids": ["mrun_20260516_advisory_review_002"],
+      "risk_flags": ["geopolitical", "customer_concentration"],
+      "invalidation_condition": "CoWoS ramp milestones slip or leading AI customer demand weakens materially.",
+      "manual_journal_only": true
+    },
+    {
+      "action_id": "sact_20260516_mu_watch",
+      "ticker": "MU",
+      "advisory_label": "watch",
+      "analyst_action": "wait_for_hbm_customer_qualification_before_label_upgrade",
+      "linked_advisory_id": "adv_20260516_mu_watch",
+      "linked_trade_plan_id": "tpln_20260516_mu_hbm_confirmation",
+      "linked_event_ids": ["mevt_20260516_hbm_supply_bottleneck", "mevt_20260516_company_valuation_rerating"],
+      "evidence_ids": ["evid_20260515_hbm_supplier_checks", "evid_20260515_memory_pricing_tracker", "evid_20260512_ai_infra_multiples_table"],
+      "model_run_ids": ["mrun_20260516_advisory_review_003"],
+      "risk_flags": ["qualification", "memory_cycle", "customer_concentration"],
+      "invalidation_condition": "HBM share-gain evidence weakens or commodity memory pricing overwhelms AI mix improvement.",
+      "manual_journal_only": true
+    },
+    {
+      "action_id": "sact_20260516_vrt_trim",
+      "ticker": "VRT",
+      "advisory_label": "trim",
+      "analyst_action": "review_local_trim_journal_note_after_rerating_and_backlog_check",
+      "linked_advisory_id": "adv_20260516_vrt_trim_watch",
+      "linked_trade_plan_id": "tpln_20260516_vrt_trim_strength",
+      "linked_event_ids": ["mevt_20260516_datacenter_power_purchase_agreement", "mevt_20260516_company_valuation_rerating"],
+      "evidence_ids": ["evid_20260514_cloud_ppa_release", "evid_20260512_vrt_valuation_rerating", "evid_20260512_ai_infra_multiples_table"],
+      "model_run_ids": ["mrun_20260516_advisory_review_004"],
+      "risk_flags": ["valuation_extension", "backlog_conversion"],
+      "invalidation_condition": "Power and cooling backlog evidence deteriorates while valuation remains extended.",
+      "manual_journal_only": true
+    },
+    {
+      "action_id": "sact_20260516_meta_trim",
+      "ticker": "META",
+      "advisory_label": "trim",
+      "analyst_action": "review_capex_monetization_gap_before_adding_platform_exposure",
+      "linked_advisory_id": "adv_20260516_meta_trim_review",
+      "linked_trade_plan_id": "tpln_20260516_meta_trim_capex_debate",
+      "linked_event_ids": ["mevt_20260516_hyperscaler_capex_raise", "mevt_20260516_rates_liquidity_macro_shift"],
+      "evidence_ids": ["evid_20260516_cloud_capex_comp_sheet", "evid_20260516_meta_capex_monetization_note"],
+      "model_run_ids": ["mrun_20260516_advisory_review_007"],
+      "risk_flags": ["capex_monetization_gap", "multiple_sensitivity"],
+      "invalidation_condition": "AI capex continues to rise without matching engagement, ad, or model-distribution evidence.",
+      "manual_journal_only": true
+    }
+  ],
+  "price_target_scenarios": [
+    {"scenario_id": "pts_20260516_nvda", "ticker": "NVDA", "valuation_context_id": "val_20260516_nvda", "scenario_type": "range", "bear": 760.0, "base": 980.0, "bull": 1180.0, "currency": "USD", "horizon": "6_to_18_months", "evidence_ids": ["evid_20260512_ai_infra_multiples_table", "evid_20260515_hbm_supplier_checks"], "risk_flags": ["export_control", "hbm_allocation"], "invalidation_condition": "Shipment assumptions fall on HBM or policy constraints."},
+    {"scenario_id": "pts_20260516_tsm", "ticker": "TSM", "valuation_context_id": "val_20260516_tsm", "scenario_type": "range", "bear": 142.0, "base": 185.0, "bull": 220.0, "currency": "USD", "horizon": "9_to_24_months", "evidence_ids": ["evid_20260515_tsm_cowos_capex_note", "evid_20260515_packaging_tool_lead_times"], "risk_flags": ["geopolitical", "cowos_ramp_timing"], "invalidation_condition": "Advanced packaging expansion misses milestones."},
+    {"scenario_id": "pts_20260516_mu", "ticker": "MU", "valuation_context_id": "val_20260516_mu", "scenario_type": "range", "bear": 92.0, "base": 126.0, "bull": 155.0, "currency": "USD", "horizon": "0_to_12_months", "evidence_ids": ["evid_20260515_hbm_supplier_checks", "evid_20260515_memory_pricing_tracker"], "risk_flags": ["qualification", "memory_cycle"], "invalidation_condition": "HBM qualification evidence fails to confirm share gain."},
+    {"scenario_id": "pts_20260516_vrt", "ticker": "VRT", "valuation_context_id": "val_20260516_vrt", "scenario_type": "range", "bear": 82.0, "base": 108.0, "bull": 132.0, "currency": "USD", "horizon": "6_to_18_months", "evidence_ids": ["evid_20260514_cloud_ppa_release", "evid_20260512_vrt_valuation_rerating"], "risk_flags": ["valuation_extension", "cooling_margin"], "invalidation_condition": "Backlog or margin evidence weakens after valuation rerating."},
+    {"scenario_id": "pts_20260516_pwr", "ticker": "PWR", "valuation_context_id": "val_20260516_pwr", "scenario_type": "range", "bear": 245.0, "base": 320.0, "bull": 385.0, "currency": "USD", "horizon": "12_to_36_months", "evidence_ids": ["evid_20260514_grid_interconnect_queue", "evid_20260513_power_capacity_tracker"], "risk_flags": ["project_timing", "labor_cost"], "invalidation_condition": "Grid work backlog slows or margin risk rises."}
+  ],
+  "entry_exit_levels": [
+    {"levels_id": "lvl_20260516_nvda", "trade_plan_id": "tpln_20260516_nvda_accumulate_pullback", "ticker": "NVDA", "entry_zone": {"low": 880.0, "high": 910.0}, "add_zone": {"low": 820.0, "high": 850.0}, "trim_zone": {"low": 1080.0, "high": 1120.0}, "basis": "mock_deterministic_levels", "evidence_ids": ["evid_20260516_mock_price_marks"], "risk_flags": ["hbm_allocation", "export_control"], "planning_guidance_only": true},
+    {"levels_id": "lvl_20260516_tsm", "trade_plan_id": "tpln_20260516_tsm_add_cowos", "ticker": "TSM", "entry_zone": {"low": 164.0, "high": 170.0}, "add_zone": {"low": 152.0, "high": 158.0}, "trim_zone": {"low": 198.0, "high": 205.0}, "basis": "mock_deterministic_levels", "evidence_ids": ["evid_20260516_mock_price_marks"], "risk_flags": ["geopolitical"], "planning_guidance_only": true},
+    {"levels_id": "lvl_20260516_mu", "trade_plan_id": "tpln_20260516_mu_hbm_confirmation", "ticker": "MU", "entry_zone": {"low": 108.0, "high": 114.0}, "add_zone": {"low": 98.0, "high": 103.0}, "trim_zone": {"low": 138.0, "high": 146.0}, "basis": "mock_deterministic_levels", "evidence_ids": ["evid_20260516_mock_price_marks"], "risk_flags": ["qualification"], "planning_guidance_only": true},
+    {"levels_id": "lvl_20260516_vrt", "trade_plan_id": "tpln_20260516_vrt_trim_strength", "ticker": "VRT", "entry_zone": {"low": 91.0, "high": 96.0}, "add_zone": {"low": 84.0, "high": 88.0}, "trim_zone": {"low": 118.0, "high": 125.0}, "basis": "mock_deterministic_levels", "evidence_ids": ["evid_20260516_mock_price_marks"], "risk_flags": ["valuation_extension"], "planning_guidance_only": true},
+    {"levels_id": "lvl_20260516_pwr", "trade_plan_id": "tpln_20260516_pwr_add_grid_queue", "ticker": "PWR", "entry_zone": {"low": 288.0, "high": 300.0}, "add_zone": {"low": 263.0, "high": 274.0}, "trim_zone": {"low": 352.0, "high": 368.0}, "basis": "mock_deterministic_levels", "evidence_ids": ["evid_20260516_mock_price_marks"], "risk_flags": ["project_timing"], "planning_guidance_only": true}
+  ],
+  "correlation_exposures": [
+    {"correlation_id": "corr_20260516_accelerator_custom_silicon", "cluster_id": "cluster_accelerator_custom_silicon", "tickers": ["NVDA", "AMD", "AVGO", "MRVL"], "portfolio_weight_pct": 27.9, "correlation_level": "high", "crowding_flag": "elevated", "deterministic_check_id": "corr_cluster_accelerator_high", "risk_flags": ["hbm_allocation", "customer_concentration", "export_control"], "evidence_ids": ["evid_20260516_portfolio_manual_snapshot", "evid_20260512_factor_rotation_dashboard"]},
+    {"correlation_id": "corr_20260516_foundry_semicap_hbm", "cluster_id": "cluster_foundry_semicap_hbm", "tickers": ["TSM", "ASML", "MU"], "portfolio_weight_pct": 17.1, "correlation_level": "medium_high", "crowding_flag": "watch", "deterministic_check_id": "corr_cluster_foundry_semicap_watch", "risk_flags": ["geopolitical", "memory_cycle", "export_control"], "evidence_ids": ["evid_20260516_portfolio_manual_snapshot", "evid_20260515_tsm_cowos_capex_note"]},
+    {"correlation_id": "corr_20260516_power_grid_cooling", "cluster_id": "cluster_power_grid_cooling", "tickers": ["VRT", "ETN", "PWR", "CEG"], "portfolio_weight_pct": 19.6, "correlation_level": "medium", "crowding_flag": "valuation_watch", "deterministic_check_id": "corr_cluster_power_grid_valuation_watch", "risk_flags": ["valuation_extension", "project_timing", "regulatory_approval"], "evidence_ids": ["evid_20260516_portfolio_manual_snapshot", "evid_20260512_vrt_valuation_rerating"]},
+    {"correlation_id": "corr_20260516_cloud_capex_platforms", "cluster_id": "cluster_cloud_capex", "tickers": ["ORCL", "MSFT", "GOOGL", "AMZN", "META"], "portfolio_weight_pct": 29.1, "correlation_level": "medium_high", "crowding_flag": "monetization_watch", "deterministic_check_id": "corr_cluster_cloud_capex_monetization_watch", "risk_flags": ["capex_duration", "monetization_lag", "depreciation_pressure"], "evidence_ids": ["evid_20260516_portfolio_manual_snapshot", "evid_20260516_cloud_capex_comp_sheet"]}
+  ],
   "open_trade_plans": [
     {
       "trade_plan_id": "tpln_20260516_nvda_accumulate_pullback",
@@ -1231,6 +1380,21 @@
         "journal_note": "Waiting for customer qualification evidence before changing the advisory label."
       }
     ]
+  },
+  "trade_journal_summary": {
+    "summary_id": "tjsum_20260516_ai_infra_local",
+    "linked_journal_id": "tj_20260516_local_ai_infra",
+    "period_start": "2026-05-01",
+    "period_end": "2026-05-16",
+    "local_only": true,
+    "completed_manual_notes": 1,
+    "intended_manual_notes": 1,
+    "research_notes": 1,
+    "journal_quality_flags": ["evidence_available_at_decision_recorded", "plan_linkage_partial"],
+    "linked_trade_plan_ids": ["tpln_20260516_vrt_trim_strength", "tpln_20260516_tsm_add_cowos", "tpln_20260516_mu_hbm_confirmation"],
+    "evidence_ids": ["evid_20260516_manual_journal_entries", "evid_20260512_vrt_valuation_rerating", "evid_20260515_tsm_cowos_capex_note", "evid_20260515_hbm_supplier_checks"],
+    "model_run_ids": ["mrun_20260516_brief_summarize_001"],
+    "next_review": "Check whether local journal notes had evidence available before the recorded manual decision time."
   },
   "pnl_summary": {
     "pnl_id": "pnl_20260516_ai_infra_mock_manual",

@@ -2,20 +2,22 @@
 
 ## Task
 
-Complete the next advisory-product sessions after the fixture-backed read model:
+Prepare the Agent 1-5 advisory workstation readiness wave.
 
-1. Materialize configured public crawler captures into the canonical advisory read model.
-2. Add the governed LLM extraction/review boundary without enabling unmanaged model calls.
-3. Promote outcome journal/review to a first-class read model.
-4. Add cloud-visible health/readiness checks for the completed product loop.
+This is a coordination and contract-readiness task only. It replaces the completed crawler/cloud task with a phase-scoped setup task for the next parallel workstreams:
+
+1. Current task and repo coordination.
+2. Analyst object model and contract alignment.
+3. LLM analyst prompt pack.
+4. Architecture policy guardrails.
+5. Mock-data normalization for workstation screens.
 
 ## Product Objective
 
-Make the AI Infrastructure Trading Advisory Workstation progress from a fixture-backed cockpit to a continuously refreshable advisory analyst loop.
+Make the AI Infrastructure Trading Advisory Workstation easier to build correctly by aligning the active task, shared object language, prompt boundaries, policy tests, and mock data before the next UI and runtime work begins.
 
 This improves:
 
-- source monitoring
 - evidence quality
 - catalyst detection
 - segment impact mapping
@@ -24,103 +26,95 @@ This improves:
 - advisory brief usefulness
 - journal/outcome review quality
 
-## Governing Specs
+## Governing Docs
 
+- `AGENTS.md`
 - `docs/PRODUCT.md`
 - `docs/ARCHITECTURE.md`
 - `docs/ALPHA_ANALYST_PRINCIPLES.md`
+- `docs/UI_SCREEN_SPECS.md`
+- `docs/SPEC_ROUTER.md`
+- `docs/ANALYST_OBJECT_MODEL.md`
+- `docs/specs/0002-trading-policy.md`
 - `docs/specs/0003-data-contracts.md`
+- `docs/specs/0004-agent-contracts.md`
 - `docs/specs/0008-model-routing-and-audit.md`
-- `docs/specs/0009-evaluation-harness.md`
 - `docs/specs/0013-llm-routing-and-governance.md`
-- `docs/specs/0015-containerized-deployment.md`
-- `docs/specs/0016-equity-intelligence-crawler.md`
-- `docs/specs/0017-crawl-pipeline-runtime.md`
 
 ## Allowed Files
 
-- `packages/core/**`
-- `services/api/**`
-- `services/worker/**`
-- `scripts/**`
-- `deploy/**`
-- `tests/**`
+For this readiness wave only:
+
 - `docs/CURRENT_TASK.md`
 - `docs/plans/active/current-plan.md`
-- `docs/BUILD_LOG.md`
-- `docs/api/openapi.yaml`
+- `docs/ANALYST_OBJECT_MODEL.md`
+- `docs/specs/0003-data-contracts.md`
+- `docs/LLM_ANALYST_PROMPT_PACK.md`
+- `docs/mock_data/situational_awareness_brief.example.json`
+- `tests/**`
+- `packages/core/src/ai_infra_fund_core/contracts/**` only if contract tests require existing contract definitions to be aligned
+- `docs/BUILD_LOG.md` only during final integration
 
 ## Forbidden Changes
 
+- no runtime feature implementation
+- no UI implementation
+- no backend route implementation
+- no database migrations
+- no dependency changes
 - no broker integration
 - no live order placement
 - no execution endpoints
-- no execution UI
-- no arbitrary crawling
-- no private-document crawling
+- no execution-like UI controls
+- no arbitrary or private-document crawling
 - no paid-report scraping
 - no unmanaged model calls
 - no model names hard-coded in business logic
-- no scoring, risk, constraints, target weights, or PnL owned by LLM output
+- no LLM-owned scores, risk, constraints, target weights, entry/exit levels, PnL, or recommendation publication decisions
 - no DuckDB/Parquet v1 dependency
-
-## Input Contract
-
-Configured public crawler sources, crawl captures, existing fixture-backed advisory objects, manual local trade journal entries, and governed model-router configuration.
 
 ## Output Contract
 
-The remaining sessions must preserve and extend this advisory-only loop:
+The readiness wave must leave the repo with:
 
-```text
-SourceFrontier
--> SourceSignal
--> EvidenceItem
--> MarketEvent
--> SegmentImpact
--> EquityImpactAssessment
--> ValuationContext / RiskRegime
--> TradingAdvisory
--> AnalystBrief
--> OutcomeJournal
-```
-
-Every persisted object must expose provenance, freshness, and advisory-only state where applicable.
+- one active task that points future Codex work at the advisory workstation readiness scope
+- one active plan that lists agent streams, file ownership, merge order, tests, forbidden changes, and Definition of Done
+- canonical object and contract docs aligned with the workstation workflow
+- prompt-pack guidance that keeps LLMs inside classify, extract, summarize, review, critique, and explain roles
+- architecture policy tests that guard advisory-only, deterministic ownership, model routing, privacy, and storage boundaries
+- normalized mock data usable by the next workstation UI tasks
 
 ## Acceptance Criteria
 
-- crawler success path writes canonical `analyst.source_signals` and `analyst.market_events` rows, not only legacy `signals.equity_events`
-- crawler-derived read-model records include source URL, source kind, evidence IDs, content hash, timestamps, confidence, and review status
-- LLM extraction/review boundary can only emit governed drafts and ModelRun audit metadata; it cannot emit scores, weights, constraints, orders, executions, or trade instructions
-- outcome journal/review objects link manual journal entries to advisory, MarketEvent, evidence, invalidation, risk flags, and PnL attribution fields
-- read-only APIs expose latest outcome-review state and freshness metadata
-- cloud/readiness checks can detect latest crawler source signal, latest MarketEvent, latest analyst brief, latest outcome review, and API readiness
-- all new routes are read-only unless they are existing local manual journal endpoints
-- architecture policy tests pass
+- `docs/CURRENT_TASK.md` no longer references the completed crawler/cloud task as the active task.
+- `docs/plans/active/current-plan.md` defines the five readiness streams and merge order.
+- Object model, prompt-pack, policy-test, and mock-data work remains advisory/reporting-only.
+- Private research remains local-only by default.
+- Model routing remains governed by `config/model_profiles.yaml`.
+- PostgreSQL + pgvector remains the v1 canonical data spine.
+- Architecture policy tests pass after final integration.
+- No product runtime, UI, backend, migration, dependency, broker, order, or execution surface is added.
 
 ## Tests To Add Or Run
 
-- targeted tests for crawler canonical materialization
-- targeted tests for governed LLM extraction boundary
-- targeted tests for outcome journal/read-model repository and API
-- targeted tests for cloud/readiness checks
+Each stream runs targeted tests for its owned files. Final integration runs:
+
 - `./.venv/bin/python -m unittest tests.test_architecture_policy`
 - `./.venv/bin/python -m unittest discover -s tests`
 - `python3 -m compileall packages services tests`
-- `npm run build --prefix apps/web` if frontend files change
-- `npm audit --omit=dev --prefix apps/web` if frontend/dependency files change
-- `docker compose config`
-- `scripts/compose_smoke.sh`
+- `npm run build --prefix apps/web` only if frontend files change
+- `npm audit --omit=dev --prefix apps/web` only if frontend or dependency files change
 - `git diff --check`
 
 ## Definition Of Done
 
-- implementation complete for scoped remaining sessions
-- relevant RED/GREEN tests added
+- five readiness streams completed or concrete blockers documented
+- file ownership conflicts resolved without reverting unrelated work
+- targeted tests from each stream pass
 - architecture policy tests pass
 - full Python suite passes
-- build/compile checks pass
-- cloud deployment validation completed for runtime/deploy changes
-- `docs/BUILD_LOG.md` updated
-- changes committed and pushed
-- remaining gaps documented
+- compile check passes
+- frontend checks run only if frontend files change
+- `docs/BUILD_LOG.md` updated during final integration
+- changes committed and pushed by the final integration owner
+- no cloud deployment required unless runtime or deploy files change

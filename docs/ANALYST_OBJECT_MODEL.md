@@ -593,6 +593,8 @@ Maps validated MarketEvents into AI infrastructure stack segments and identifies
 - `invalidation_condition`
 - `latest_evidence_at`
 - `signal_bundle_id`
+- `source_evidence_ids`
+- `model_run_ids`
 
 ### Required Fields
 
@@ -602,11 +604,20 @@ Maps validated MarketEvents into AI infrastructure stack segments and identifies
 - `impact_direction`
 - `impact_summary`
 - `primary_tickers`
+- `first_order_tickers`
+- `second_order_tickers`
+- `confidence`
+- `time_horizon`
+- `risk_flags`
+- `invalidation_condition`
+- `latest_evidence_at`
+- `source_evidence_ids`
 
 ### Evidence Requirements
 
 - Must link to at least one validated `MarketEvent`.
-- Segment state, ticker implication, and risk claims must inherit evidence through linked events.
+- Segment state, ticker implication, and risk claims must inherit evidence through linked events and materialized `source_evidence_ids`.
+- `model_run_ids` must be present when the segment mapping or narrative is model-derived.
 
 ### Validation Rules
 
@@ -634,6 +645,8 @@ Maps validated MarketEvents into AI infrastructure stack segments and identifies
 - event counts
 - first-order and second-order classification when supplied by rules
 - `signal_bundle_id`
+- `source_evidence_ids`
+- `model_run_ids` when model-derived
 - evidence freshness status
 - downstream segment score or state
 
@@ -671,12 +684,18 @@ Defines the current evidence-backed thesis state for one equity.
 - `ticker`
 - `company`
 - `linked_event_ids`
+- `segment_ids`
 - `assessment`
+- `bull_case`
+- `base_case`
+- `bear_case`
 - `risk_flags`
 - `invalidation_condition`
 - `watch_items`
 - `advisory_implication`
 - `as_of`
+- `source_evidence_ids`
+- `model_run_ids`
 
 ### Evidence Requirements
 

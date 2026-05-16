@@ -321,3 +321,27 @@ Verification:
 - `npm audit --omit=dev --prefix apps/web` passed, 0 vulnerabilities.
 - `docker compose config` passed.
 - `scripts/compose_smoke.sh` passed.
+
+## 2026-05-16 Advisory Workstation Readiness Wave
+
+Implemented the Agent 1-5 readiness wave for the AI Infrastructure Trading Advisory Workstation.
+
+- Replaced the stale active task with a phase-scoped readiness task covering object-model alignment, LLM prompt boundaries, architecture policy guardrails, and mock-data normalization.
+- Updated the active plan with five disjoint agent streams, ownership, merge order, verification commands, and no-cloud-rollout guidance for docs/contracts/test-only work.
+- Added bounded workstation contracts for `SourceSignal`, `FinancialSnapshot`, `ValuationContext`, `MacroRegimeSnapshot`, `TradingAdvisory`, `AdvisoryUpdate`, and `OutcomeJournalEntry`.
+- Expanded `SegmentImpact` and `EquityImpactAssessment` to carry richer workstation lineage, risk, invalidation, evidence, and model-run fields.
+- Added `docs/LLM_ANALYST_PROMPT_PACK.md` with bounded LLM analyst roles, ModelRun audit requirements, data-class policy, and deterministic ownership restrictions.
+- Normalized the static advisory mock data with top-level workstation feeds for portfolio snapshot, alerts, suggested actions, journal summary, price scenarios, levels, and correlation exposure.
+- Strengthened architecture policy tests for advisory-only boundaries, model-routing discipline, private-research routing, storage discipline, frontend secret exposure, raw secret/private file tracking, and prompt-pack guardrails.
+- Preserved boundaries: no UI implementation, backend route, migration, dependency, broker integration, live order placement, execution endpoint, execution UI, unmanaged model call, or LLM-owned scoring/weights/risk/PnL behavior was added.
+
+Verification:
+
+- `./.venv/bin/python -m unittest discover -s tests/contracts` passed, 13 tests.
+- `./.venv/bin/python -m unittest tests.test_llm_analyst_prompt_pack` passed, 4 tests.
+- `./.venv/bin/python -m unittest tests.test_situational_awareness_mock_data` passed, 5 tests.
+- `./.venv/bin/python -m unittest tests.test_advisory_workstation_contract_docs tests.test_architecture_policy` passed, 44 tests.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 643 tests, 3 skipped.
+- `python3 -m compileall packages services tests` passed.
+- `git diff --check` passed.
+- Frontend and cloud rollout checks were not required for this scoped wave because no frontend, runtime service, deployment, or dependency files were changed by the staged readiness work.

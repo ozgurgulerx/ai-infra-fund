@@ -15,6 +15,8 @@ Define the initial contract surface for Phase 1 implementation.
 - `EvidenceClaim`
 - `SourceSignal`
 - `MarketEvent`
+- `SegmentImpact`
+- `EquityImpactAssessment`
 - `FinancialSnapshot`
 - `ValuationContext`
 - `MacroRegimeSnapshot`
@@ -29,6 +31,7 @@ Define the initial contract surface for Phase 1 implementation.
 - `RecommendationAudit`
 - `TradingAdvisory`
 - `AdvisoryUpdate`
+- `OutcomeJournalEntry`
 - `IncidentRecord`
 - `DataQualityCheck`
 - `RunArtifact`
@@ -83,6 +86,87 @@ Required fields:
 - `content_hash`
 - `extracted_by_model_run_id`
 - `review_status`
+
+Rules:
+
+- Must include at least one `source_evidence_id`.
+- Must include `content_hash` for source-derived records.
+- Event themes must resolve to at least one canonical AI infrastructure segment before the event can be marked usable.
+- `extracted_by_model_run_id` must resolve to a governed ModelRun when the event was model-extracted.
+- Events without provenance cannot influence `SegmentImpact`, `SignalBundle`, trade plans, or recommendation artifacts.
+- MarketEvents are advisory signals, not trading actions.
+
+## SegmentImpact
+
+`SegmentImpact` maps validated MarketEvents into AI infrastructure stack segments and first-order or second-order ticker implications.
+
+Required fields:
+
+- `segment_id`
+- `segment_name`
+- `linked_event_ids`
+- `primary_tickers`
+- `first_order_tickers`
+- `second_order_tickers`
+- `impact_direction`
+- `impact_summary`
+- `confidence`
+- `time_horizon`
+- `risk_flags`
+- `invalidation_condition`
+- `latest_evidence_at`
+- `source_evidence_ids`
+
+Optional or conditional fields:
+
+- `signal_bundle_id`
+- `model_run_ids`
+
+Rules:
+
+- Must link to at least one validated `MarketEvent`.
+- Must include `source_evidence_ids`; inherited event provenance should be materialized for audit.
+- `first_order_tickers` and `second_order_tickers` must be distinguishable.
+- `segment_id` must be a canonical AI infrastructure segment.
+- `model_run_ids` must be present when the segment mapping or impact narrative is model-derived.
+- SegmentImpact is an advisory analysis object and cannot create an executable trading action.
+
+## EquityImpactAssessment
+
+`EquityImpactAssessment` defines the current evidence-backed thesis state for one equity.
+
+Required fields:
+
+- `assessment_id`
+- `ticker`
+- `company`
+- `linked_event_ids`
+- `segment_ids`
+- `assessment`
+- `bull_case`
+- `base_case`
+- `bear_case`
+- `risk_flags`
+- `invalidation_condition`
+- `watch_items`
+- `advisory_implication`
+- `confidence`
+- `as_of`
+- `source_evidence_ids`
+- `model_run_ids`
+
+Optional or conditional fields:
+
+- `linked_signal_bundle_id`
+- `linked_recommendation_artifact_id`
+
+Rules:
+
+- Must link to validated MarketEvents or direct evidence.
+- Bull, base, bear, risk, and invalidation claims must be evidence-backed.
+- `model_run_ids` must cover LLM-authored thesis narrative or critique.
+- Any advisory implication must link to deterministic signal and recommendation artifacts before publication.
+- LLM narrative cannot override deterministic scores, suppressions, risk constraints, target weights, or recommendation gates.
 
 ## FinancialSnapshot
 
@@ -223,6 +307,43 @@ Rules:
 - Change-direction fields must use controlled values.
 - AdvisoryUpdate explains a delta; it does not create an executable trading action.
 
+## OutcomeJournalEntry
+
+`OutcomeJournalEntry` captures local-only manual analyst records and outcome review for intended or completed manual trades.
+
+Required fields:
+
+- `outcome_entry_id`
+- `trade_entry_id`
+- `ticker`
+- `entry_type`
+- `local_only`
+- `linked_trade_plan_id`
+- `advisory_label_at_time`
+- `recorded_at`
+- `evidence_available_ids`
+- `market_event_ids_available_at_decision`
+- `outcome_label`
+
+Optional or conditional fields:
+
+- `recorded_price`
+- `recorded_quantity`
+- `pnl_id`
+- `realized_pnl`
+- `unrealized_pnl`
+- `plan_adherence_status`
+- `analyst_note`
+- `llm_review_note_id`
+
+Rules:
+
+- `local_only` must be true.
+- Journal entries must not transmit to a broker or external trading system.
+- Must preserve evidence and MarketEvents available at decision time.
+- PnL and plan-adherence fields must come from deterministic accounting and comparison logic.
+- LLMs may critique outcomes or draft lessons learned but must not calculate PnL or accounting values.
+
 ## Contract Rules
 
 - IDs must be stable and audit-friendly.
@@ -230,6 +351,9 @@ Rules:
 - Point-in-time records must include `as_of`, `available_at`, or equivalent.
 - Recommendation artifacts must link to evidence, model runs, signals, and target weights.
 - TradingAdvisory records must link to evidence, model runs, valuation context, risk regimes, market events, segment impacts, and deterministic checks.
+- SegmentImpact records must link to evidence-backed MarketEvents and materialized `source_evidence_ids`.
+- EquityImpactAssessment records must link to evidence, MarketEvents, segments, and model runs for model-authored thesis narrative.
+- OutcomeJournalEntry records are local-only manual journal records and must preserve evidence available at decision time.
 - Portfolio holdings are relational facts, not vector-only records.
 - Model outputs must be validated before persistence.
 - MarketEvents must link to evidence.
