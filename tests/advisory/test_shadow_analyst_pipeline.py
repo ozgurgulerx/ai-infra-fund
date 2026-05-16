@@ -57,11 +57,13 @@ class ShadowAnalystPipelineTests(unittest.TestCase):
         bundle = build_daily_analyst_context_bundle(_sample_context_rows(), as_of=NOW)
         client = StubAnalystModelClient(_valid_shadow_response())
         recorder = RecordingModelRunRecorder()
+        draft_recorder = RecordingDraftRecorder()
 
         result = GovernedShadowAnalystPipeline(
             router=self.router,
             model_client=client,
             model_run_recorder=recorder,
+            draft_recorder=draft_recorder,
             now=lambda: NOW,
         ).run(bundle)
 
@@ -72,6 +74,7 @@ class ShadowAnalystPipelineTests(unittest.TestCase):
         self.assertEqual(ModelRunStatus.SUCCESS, recorder.records[0].status)
         self.assertTrue(recorder.records[0].schema_valid)
         self.assertEqual(6, len(result.drafts))
+        self.assertEqual(result.drafts, tuple(draft_recorder.records))
         self.assertEqual(
             {
                 "SegmentImpactDraft",
@@ -145,11 +148,13 @@ class ShadowAnalystPipelineTests(unittest.TestCase):
         invalid["trading_advisories"][0]["payload"]["target_weights"] = {"NVDA": 0.4}
         client = StubAnalystModelClient(invalid)
         recorder = RecordingModelRunRecorder()
+        draft_recorder = RecordingDraftRecorder()
 
         result = GovernedShadowAnalystPipeline(
             router=self.router,
             model_client=client,
             model_run_recorder=recorder,
+            draft_recorder=draft_recorder,
             now=lambda: NOW,
         ).run(bundle)
 
@@ -161,6 +166,8 @@ class ShadowAnalystPipelineTests(unittest.TestCase):
         self.assertTrue(result.rejection_reasons)
         self.assertTrue(result.drafts)
         self.assertTrue(any(draft.review_status is DraftReviewStatus.REJECTED for draft in result.drafts))
+        self.assertEqual(result.drafts, tuple(draft_recorder.records))
+        self.assertTrue(any(draft.review_status is DraftReviewStatus.REJECTED for draft in draft_recorder.records))
 
     def test_llm_unavailable_records_failure_and_uses_deterministic_fallback(self) -> None:
         bundle = build_daily_analyst_context_bundle(_sample_context_rows(), as_of=NOW)
@@ -201,6 +208,15 @@ class RecordingModelRunRecorder:
     def save(self, run: object) -> object:
         self.records.append(run)
         return run
+
+
+class RecordingDraftRecorder:
+    def __init__(self) -> None:
+        self.records = []
+
+    def save_many(self, drafts: object) -> object:
+        self.records.extend(drafts)
+        return drafts
 
 
 def _sample_context_rows() -> dict[str, tuple[dict[str, object], ...]]:

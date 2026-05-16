@@ -49,6 +49,10 @@ class ModelRunRecorder(Protocol):
     def save(self, run: ModelRun) -> object: ...
 
 
+class AnalystDraftRecorder(Protocol):
+    def save_many(self, drafts: Sequence[object]) -> object: ...
+
+
 @dataclass(frozen=True, slots=True)
 class ShadowAnalystResult:
     bundle_id: str
@@ -66,6 +70,7 @@ class GovernedShadowAnalystPipeline:
         router: ModelRouter,
         model_client: AnalystModelClient,
         model_run_recorder: ModelRunRecorder,
+        draft_recorder: AnalystDraftRecorder | None = None,
         now: Callable[[], datetime] | None = None,
         task_role: str = DEFAULT_TASK_ROLE,
         allow_private_research: bool = False,
@@ -73,6 +78,7 @@ class GovernedShadowAnalystPipeline:
         self._router = router
         self._model_client = model_client
         self._model_run_recorder = model_run_recorder
+        self._draft_recorder = draft_recorder
         self._now = now or (lambda: datetime.now(timezone.utc))
         self._task_role = task_role
         self._allow_private_research = allow_private_research
@@ -141,6 +147,7 @@ class GovernedShadowAnalystPipeline:
             model_run_id=model_run_id,
             bundle_evidence_ids=bundle.evidence_ids,
         )
+        self._save_drafts(drafts)
         schema_valid = not rejection_reasons
         run = self._record_profile_run(
             bundle=bundle,
@@ -161,6 +168,10 @@ class GovernedShadowAnalystPipeline:
             fallback_used=False,
             rejection_reasons=rejection_reasons,
         )
+
+    def _save_drafts(self, drafts: Sequence[object]) -> None:
+        if self._draft_recorder is not None and drafts:
+            self._draft_recorder.save_many(tuple(drafts))
 
     def _record_denied_run(self, bundle: AnalystContextBundle, *, error_summary: str) -> ModelRun:
         run = ModelRun(
