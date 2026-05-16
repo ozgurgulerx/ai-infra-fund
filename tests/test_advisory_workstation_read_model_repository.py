@@ -99,6 +99,83 @@ class AdvisoryWorkstationReadModelRepositoryTests(unittest.TestCase):
             self.assertIn("UPPER(%s)", statement)
             self.assertEqual(("NVDA", 10), params)
 
+    def test_segment_map_returns_segments_with_linked_events_and_risk_context(self) -> None:
+        from ai_infra_fund_api.repositories.advisory_workstation import (
+            AdvisoryWorkstationRepository,
+        )
+
+        connection = FakeConnection(
+            [
+                ResultSet([segment_impact_row()], SEGMENT_COLUMNS),
+                ResultSet([market_event_row()], MARKET_EVENT_COLUMNS),
+                ResultSet([risk_regime_row()], RISK_COLUMNS),
+            ]
+        )
+
+        payload = AdvisoryWorkstationRepository(connection).get_latest_segment_map()
+
+        self.assertEqual("available", payload["status"])
+        self.assertEqual("advisory_only", payload["advisory_label"])
+        self.assertEqual("segment-1", payload["segment_impacts"][0]["segment_id"])
+        self.assertEqual("market-event-1", payload["market_events"][0]["event_id"])
+        self.assertEqual("risk-1", payload["risk_regime_updates"][0]["regime_id"])
+        executions = connection.cursor_instance.executions
+        self.assertIn("FROM analyst.segment_impacts", executions[0][0])
+        self.assertIn("WHERE event_id = ANY", executions[1][0])
+        self.assertEqual((["market-event-1"], ["market-event-1"], 1), executions[1][1])
+        self.assertIn("FROM analyst.risk_regime_updates", executions[2][0])
+        self.assertEqual((["market-event-1"], 20), executions[2][1])
+
+    def test_ticker_workbench_returns_full_ticker_context(self) -> None:
+        from ai_infra_fund_api.repositories.advisory_workstation import (
+            AdvisoryWorkstationRepository,
+        )
+
+        connection = FakeConnection(
+            [
+                ResultSet([source_signal_row()], SOURCE_SIGNAL_COLUMNS),
+                ResultSet([market_event_row()], MARKET_EVENT_COLUMNS),
+                ResultSet([segment_impact_row()], SEGMENT_COLUMNS),
+                ResultSet([equity_assessment_row()], ASSESSMENT_COLUMNS),
+                ResultSet([valuation_row()], VALUATION_COLUMNS),
+                ResultSet([trading_advisory_row()], ADVISORY_COLUMNS),
+                ResultSet([trade_plan_row()], TRADE_PLAN_COLUMNS),
+                ResultSet([risk_regime_row()], RISK_COLUMNS),
+                ResultSet([llm_note_row()], LLM_NOTE_COLUMNS),
+            ]
+        )
+
+        payload = AdvisoryWorkstationRepository(connection).get_ticker_workbench("nvda")
+
+        self.assertEqual("available", payload["status"])
+        self.assertEqual("NVDA", payload["ticker"])
+        self.assertEqual("segment-1", payload["segment_impacts"][0]["segment_id"])
+        self.assertEqual("trade-plan-1", payload["trade_plans"][0]["trade_plan_id"])
+        self.assertTrue(payload["trade_plans"][0]["manual_journal_only"])
+        self.assertEqual("risk-1", payload["risk_regime_updates"][0]["regime_id"])
+        self.assertEqual("llm-note-1", payload["llm_analyst_notes"][0]["note_id"])
+        self.assertEqual(9, len(connection.cursor_instance.executions))
+
+    def test_latest_portfolio_exposure_returns_deterministic_snapshot(self) -> None:
+        from ai_infra_fund_api.repositories.advisory_workstation import (
+            AdvisoryWorkstationRepository,
+        )
+
+        connection = FakeConnection(
+            ResultSet([portfolio_exposure_row()], PORTFOLIO_EXPOSURE_COLUMNS)
+        )
+
+        payload = AdvisoryWorkstationRepository(connection).get_latest_portfolio_exposure()
+
+        self.assertEqual("available", payload["status"])
+        self.assertEqual("advisory_only", payload["advisory_label"])
+        self.assertEqual("portfolio-snapshot-1", payload["snapshot"]["snapshot_id"])
+        self.assertEqual("NVDA", payload["snapshot"]["positions"][0]["ticker"])
+        self.assertEqual(["correlation-1"], payload["snapshot"]["correlation_exposure_ids"])
+        statement, params = connection.cursor_instance.executions[0]
+        self.assertIn("FROM analyst.portfolio_exposure_snapshots", statement)
+        self.assertEqual((1,), params)
+
     def test_market_events_for_ticker_filters_by_ticker_and_returns_freshness_metadata(self) -> None:
         from ai_infra_fund_api.repositories.advisory_workstation import (
             AdvisoryWorkstationRepository,
@@ -218,10 +295,18 @@ RISK_COLUMNS = (
     "regime_id",
     "risk_type",
     "status",
+    "severity",
+    "confidence",
     "linked_event_ids",
+    "affected_segments",
+    "affected_tickers",
     "evidence_ids",
     "summary",
     "portfolio_monitoring_note",
+    "relief_condition",
+    "invalidation_condition",
+    "as_of",
+    "available_at",
     "payload_json",
 )
 
@@ -251,6 +336,61 @@ BRIEF_COLUMNS = (
     "segment_impact_ids",
     "trading_advisory_ids",
     "model_run_ids",
+    "payload_json",
+)
+
+TRADE_PLAN_COLUMNS = (
+    "trade_plan_id",
+    "ticker",
+    "company",
+    "status",
+    "advisory_action",
+    "linked_event_ids",
+    "linked_signal_bundle_id",
+    "linked_recommendation_artifact_id",
+    "entry_exit_levels_id",
+    "price_target_scenario_id",
+    "target_weights_id",
+    "deterministic_check_ids",
+    "readiness",
+    "blocking_reasons",
+    "manual_journal_only",
+    "evidence_ids",
+    "linked_advisory_id",
+    "last_reviewed_at",
+    "payload_json",
+)
+
+PORTFOLIO_EXPOSURE_COLUMNS = (
+    "snapshot_id",
+    "as_of",
+    "currency",
+    "source",
+    "advisory_label",
+    "total_market_value",
+    "cash_placeholder",
+    "gross_equity_exposure",
+    "position_count",
+    "positions_json",
+    "correlation_exposure_ids",
+    "pnl_summary_id",
+    "target_weights_id",
+    "concentration_flags",
+    "stale_price_flags",
+    "payload_json",
+)
+
+LLM_NOTE_COLUMNS = (
+    "note_id",
+    "model_run_id",
+    "scope",
+    "allowed_role",
+    "reviewed_object_ids",
+    "evidence_ids",
+    "note",
+    "deterministic_fields_not_modified",
+    "created_at",
+    "review_status",
     "payload_json",
 )
 
@@ -383,10 +523,18 @@ def risk_regime_row() -> tuple[object, ...]:
         "risk-1",
         "power_capacity",
         "elevated",
+        "medium",
+        "0.74",
         ["market-event-1"],
+        ["power_grid"],
+        ["NVDA"],
         ["evidence-1"],
         "Power is constrained.",
         "Watch energized capacity.",
+        "Confirmed energized capacity.",
+        "Power bottleneck evidence reverses.",
+        NOW,
+        NOW,
         {"source": "fixture"},
     )
 
@@ -420,6 +568,80 @@ def brief_row() -> tuple[object, ...]:
         ["segment-1"],
         ["advisory-1"],
         ["model-run-1"],
+        {"source": "fixture"},
+    )
+
+
+def trade_plan_row() -> tuple[object, ...]:
+    return (
+        "trade-plan-1",
+        "NVDA",
+        "NVIDIA",
+        "active",
+        "watch",
+        ["market-event-1"],
+        "signal-bundle-1",
+        "recommendation-1",
+        "levels-1",
+        "scenario-1",
+        "target-1",
+        ["readiness-check-1"],
+        "ready",
+        [],
+        True,
+        ["evidence-1"],
+        "advisory-1",
+        NOW,
+        {"source": "fixture"},
+    )
+
+
+def portfolio_exposure_row() -> tuple[object, ...]:
+    return (
+        "portfolio-snapshot-1",
+        NOW,
+        "USD",
+        "manual_journal",
+        "advisory_only",
+        "50000",
+        "5000",
+        "0.90",
+        1,
+        [
+            {
+                "ticker": "NVDA",
+                "company": "NVIDIA",
+                "segment_tags": ["accelerators"],
+                "market_value": "45000",
+                "portfolio_weight": "0.90",
+                "cost_basis": "42000",
+                "unrealized_pnl": "3000",
+                "open_trade_plan_id": "trade-plan-1",
+                "risk_flags": ["valuation"],
+                "last_price_timestamp": NOW.isoformat(),
+            }
+        ],
+        ["correlation-1"],
+        "pnl-1",
+        "target-1",
+        ["single_name_concentration"],
+        [],
+        {"source": "fixture"},
+    )
+
+
+def llm_note_row() -> tuple[object, ...]:
+    return (
+        "llm-note-1",
+        "model-run-1",
+        "ticker_workbench",
+        "equity_thesis_analyst",
+        ["assessment-1", "trade-plan-1"],
+        ["evidence-1"],
+        "Evidence supports watch status but deterministic readiness remains authoritative.",
+        ["entry_exit_levels", "pnl", "portfolio_weights"],
+        NOW,
+        "approved",
         {"source": "fixture"},
     )
 

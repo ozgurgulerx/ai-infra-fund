@@ -46,7 +46,11 @@ class AdvisoryWorkstationFixtureSeedTests(unittest.TestCase):
             "analyst.equity_impact_assessments",
             "analyst.valuation_contexts",
             "analyst.macro_regime_snapshots",
+            "analyst.risk_regime_updates",
             "analyst.trading_advisories",
+            "analyst.trade_plans",
+            "analyst.portfolio_exposure_snapshots",
+            "analyst.llm_analyst_notes",
             "analyst.analyst_briefs",
         ):
             self.assertIn(table_name, statements)

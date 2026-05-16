@@ -27,9 +27,12 @@ class AdvisoryWorkstationReadModelApiTests(unittest.TestCase):
             "/internal/source-signals/latest": "source-signals",
             "/internal/market-events/latest": "market-events",
             "/internal/market-events/NVDA": "ticker-market-events",
+            "/internal/segment-map/latest": "segment-map",
             "/internal/analyst-brief/latest": "analyst-brief",
             "/internal/trading-advisory/latest": "trading-advisory",
             "/internal/ticker/NVDA/analyst-summary": "ticker-summary",
+            "/internal/ticker/NVDA/workbench": "ticker-workbench",
+            "/internal/portfolio/exposure/latest": "portfolio-exposure",
         }
         for path, kind in expected.items():
             with self.subTest(path=path):
@@ -37,7 +40,7 @@ class AdvisoryWorkstationReadModelApiTests(unittest.TestCase):
                 self.assertEqual(200, response.status_code)
                 self.assertEqual(kind, response.json()["data"]["kind"])
 
-        self.assertEqual(["NVDA", "NVDA"], repository.ticker_calls)
+        self.assertEqual(["NVDA", "NVDA", "NVDA"], repository.ticker_calls)
 
     def test_advisory_workstation_endpoints_reject_mutation_methods(self) -> None:
         from fastapi.testclient import TestClient
@@ -52,9 +55,12 @@ class AdvisoryWorkstationReadModelApiTests(unittest.TestCase):
             "/internal/source-signals/latest",
             "/internal/market-events/latest",
             "/internal/market-events/NVDA",
+            "/internal/segment-map/latest",
             "/internal/analyst-brief/latest",
             "/internal/trading-advisory/latest",
             "/internal/ticker/NVDA/analyst-summary",
+            "/internal/ticker/NVDA/workbench",
+            "/internal/portfolio/exposure/latest",
         ):
             for request in (client.post, client.put, client.patch, client.delete):
                 with self.subTest(path=path, method=request.__name__):
@@ -80,9 +86,12 @@ class AdvisoryWorkstationReadModelApiTests(unittest.TestCase):
                 for marker in (
                     "source-signals",
                     "market-events",
+                    "segment-map",
                     "analyst-brief",
                     "trading-advisory",
                     "analyst-summary",
+                    "workbench",
+                    "portfolio",
                 )
             )
         ]
@@ -119,6 +128,16 @@ class FakeAdvisoryWorkstationRepository:
     def get_ticker_analyst_summary(self, ticker: str) -> dict[str, object]:
         self.ticker_calls.append(ticker)
         return {"kind": "ticker-summary", "ticker": ticker, "advisory_label": "advisory_only"}
+
+    def get_latest_segment_map(self) -> dict[str, object]:
+        return {"kind": "segment-map", "advisory_label": "advisory_only"}
+
+    def get_ticker_workbench(self, ticker: str) -> dict[str, object]:
+        self.ticker_calls.append(ticker)
+        return {"kind": "ticker-workbench", "ticker": ticker, "advisory_label": "advisory_only"}
+
+    def get_latest_portfolio_exposure(self) -> dict[str, object]:
+        return {"kind": "portfolio-exposure", "advisory_label": "advisory_only"}
 
 
 if __name__ == "__main__":
