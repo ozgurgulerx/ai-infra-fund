@@ -249,6 +249,21 @@ class AdvisoryWorkstationRepository:
             "items": [_market_event_payload(row) for row in rows],
         }
 
+    def get_market_events_for_ticker(
+        self, ticker: str, limit: int = 10
+    ) -> dict[str, object]:
+        normalized = str(ticker).upper()
+        rows = self._fetch_many(
+            TICKER_MARKET_EVENTS_SQL, (normalized, _limit(limit))
+        )
+        return {
+            "status": _status(rows),
+            "ticker": normalized,
+            "advisory_label": "advisory_only",
+            "freshness": _freshness(rows),
+            "items": [_market_event_payload(row) for row in rows],
+        }
+
     def get_latest_trading_advisory(self, limit: int = 10) -> dict[str, object]:
         rows = self._fetch_many(LATEST_TRADING_ADVISORY_SQL, (_limit(limit),))
         return {
@@ -528,6 +543,18 @@ def _brief_payload(row: Mapping[str, object]) -> dict[str, object]:
 
 def _status(rows: Sequence[object]) -> str:
     return "available" if rows else "empty"
+
+
+def _freshness(rows: Sequence[Mapping[str, object]]) -> dict[str, object]:
+    available_values = [
+        _iso_or_none(row.get("available_at"))
+        for row in rows
+        if _iso_or_none(row.get("available_at")) is not None
+    ]
+    return {
+        "latest_available_at": max(available_values) if available_values else None,
+        "item_count": len(rows),
+    }
 
 
 def _limit(value: int) -> int:

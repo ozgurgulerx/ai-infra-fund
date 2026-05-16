@@ -114,6 +114,7 @@ READ_ONLY_DASHBOARD_ENDPOINTS = [
     "/internal/advisory-chain/demo",
     "/internal/source-signals/latest",
     "/internal/market-events/latest",
+    "/internal/market-events/NVDA",
     "/internal/analyst-brief/latest",
     "/internal/trading-advisory/latest",
     "/internal/ticker/NVDA/analyst-summary",
@@ -280,24 +281,28 @@ class ControlRoomUiTests(unittest.TestCase):
         ]
         self.assertEqual([], forbidden_methods)
 
-    def test_daily_trading_cockpit_uses_wave2_static_workstation_data(
+    def test_daily_trading_cockpit_uses_api_backed_workstation_read_models(
         self,
     ) -> None:
         page = read_web("app/page.tsx")
         required = [
             "Daily Trading Cockpit",
             "AI Infrastructure Trading Analyst Workstation",
-            "mockWorkstationData",
+            "readCockpitPayload",
             "Top MarketEvents",
             "Segment impact snapshot",
             "Equity impact assessments",
             "Risk regime updates",
             "Suggested actions",
             "Open trade plans",
+            "API-backed analyst brief unavailable",
+            "stale-data",
         ]
         self.assertEqual([], [text for text in required if text not in page])
-        self.assertNotIn("/internal/analyst-brief/latest", page)
-        self.assertNotIn("fetchAnalystBrief", page)
+        self.assertIn("/internal/analyst-brief/latest", page)
+        self.assertIn("/internal/source-signals/latest", page)
+        self.assertIn("/internal/market-events/latest", page)
+        self.assertNotIn("mockWorkstationData", page)
         self.assertNotIn("readFileSync", page)
         self.assertNotIn("existsSync", page)
         self.assertNotIn("situational_awareness_brief.example.json", page)
@@ -328,18 +333,18 @@ class ControlRoomUiTests(unittest.TestCase):
         ]
         self.assertEqual([], [text for text in required if text not in proxy])
 
-    def test_daily_trading_cockpit_is_static_and_not_backend_dependent(self) -> None:
+    def test_daily_trading_cockpit_is_dynamic_and_backend_dependent(self) -> None:
         page = read_web("app/page.tsx")
         required = [
-            'export const dynamic = "force-static"',
-            "Static mock data",
-            "mockWorkstationData",
+            'export const dynamic = "force-dynamic"',
+            "API read model",
+            "readAnalystBriefPayload",
+            "degradedAnalystBrief",
         ]
         self.assertEqual([], [text for text in required if text not in page])
         forbidden = [
-            "readAnalystBriefPayload",
-            "degradedAnalystBrief",
-            "API-backed analyst brief unavailable",
+            "Static mock data",
+            "mockWorkstationData",
         ]
         self.assertEqual([], [text for text in forbidden if text in page])
 
@@ -347,9 +352,9 @@ class ControlRoomUiTests(unittest.TestCase):
         self,
     ) -> None:
         page = read_web("app/page.tsx")
-        self.assertNotIn("AI_INFRA_FUND_INTERNAL_API_BASE_URL", page)
-        self.assertNotIn("AI_INFRA_FUND_INTERNAL_TOKEN", page)
-        self.assertNotIn("internalApiBaseUrl", page)
+        self.assertIn("AI_INFRA_FUND_INTERNAL_API_BASE_URL", page)
+        self.assertIn("AI_INFRA_FUND_INTERNAL_TOKEN", page)
+        self.assertIn("internalApiBaseUrl", page)
         self.assertNotIn('get("host")', page)
         self.assertNotIn('get("x-forwarded-proto")', page)
         self.assertNotIn("next/headers", page)

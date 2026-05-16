@@ -99,6 +99,27 @@ class AdvisoryWorkstationReadModelRepositoryTests(unittest.TestCase):
             self.assertIn("UPPER(%s)", statement)
             self.assertEqual(("NVDA", 10), params)
 
+    def test_market_events_for_ticker_filters_by_ticker_and_returns_freshness_metadata(self) -> None:
+        from ai_infra_fund_api.repositories.advisory_workstation import (
+            AdvisoryWorkstationRepository,
+        )
+
+        connection = FakeConnection(ResultSet([market_event_row()], MARKET_EVENT_COLUMNS))
+
+        payload = AdvisoryWorkstationRepository(connection).get_market_events_for_ticker(
+            "nvda"
+        )
+
+        self.assertEqual("available", payload["status"])
+        self.assertEqual("NVDA", payload["ticker"])
+        self.assertEqual("advisory_only", payload["advisory_label"])
+        self.assertEqual("market-event-1", payload["items"][0]["event_id"])
+        self.assertEqual(["evidence-1"], payload["items"][0]["source_evidence_ids"])
+        self.assertEqual(NOW.isoformat(), payload["freshness"]["latest_available_at"])
+        statement, params = connection.cursor_instance.executions[0]
+        self.assertIn("WHERE tickers @> ARRAY[UPPER(%s)]", statement)
+        self.assertEqual(("NVDA", 10), params)
+
     def test_empty_latest_brief_returns_empty_state(self) -> None:
         from ai_infra_fund_api.repositories.advisory_workstation import (
             AdvisoryWorkstationRepository,

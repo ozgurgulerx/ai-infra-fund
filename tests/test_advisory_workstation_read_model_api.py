@@ -26,6 +26,7 @@ class AdvisoryWorkstationReadModelApiTests(unittest.TestCase):
         expected = {
             "/internal/source-signals/latest": "source-signals",
             "/internal/market-events/latest": "market-events",
+            "/internal/market-events/NVDA": "ticker-market-events",
             "/internal/analyst-brief/latest": "analyst-brief",
             "/internal/trading-advisory/latest": "trading-advisory",
             "/internal/ticker/NVDA/analyst-summary": "ticker-summary",
@@ -36,7 +37,7 @@ class AdvisoryWorkstationReadModelApiTests(unittest.TestCase):
                 self.assertEqual(200, response.status_code)
                 self.assertEqual(kind, response.json()["data"]["kind"])
 
-        self.assertEqual(["NVDA"], repository.ticker_calls)
+        self.assertEqual(["NVDA", "NVDA"], repository.ticker_calls)
 
     def test_advisory_workstation_endpoints_reject_mutation_methods(self) -> None:
         from fastapi.testclient import TestClient
@@ -50,6 +51,7 @@ class AdvisoryWorkstationReadModelApiTests(unittest.TestCase):
         for path in (
             "/internal/source-signals/latest",
             "/internal/market-events/latest",
+            "/internal/market-events/NVDA",
             "/internal/analyst-brief/latest",
             "/internal/trading-advisory/latest",
             "/internal/ticker/NVDA/analyst-summary",
@@ -103,6 +105,10 @@ class FakeAdvisoryWorkstationRepository:
 
     def get_latest_market_events(self) -> dict[str, object]:
         return {"kind": "market-events", "advisory_label": "advisory_only"}
+
+    def get_market_events_for_ticker(self, ticker: str) -> dict[str, object]:
+        self.ticker_calls.append(ticker)
+        return {"kind": "ticker-market-events", "ticker": ticker, "advisory_label": "advisory_only"}
 
     def get_latest_analyst_brief(self) -> dict[str, object]:
         return {"kind": "analyst-brief", "advisory_label": "advisory_only"}

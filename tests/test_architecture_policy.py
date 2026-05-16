@@ -55,7 +55,7 @@ REQUIRED_PHASE0_FILES = [
 NON_NEGOTIABLE_PHRASES = [
     "Advisory-only system",
     "no live order placement",
-    "Deterministic code owns scores",
+    "Deterministic code still owns numeric scores",
     "config/model_profiles.yaml",
     "PostgreSQL + pgvector",
     "DuckDB/Parquet is future optional only",
@@ -63,6 +63,15 @@ NON_NEGOTIABLE_PHRASES = [
     "evidence IDs",
     "ModelRun",
     ".env.example",
+]
+
+AGENTS_LLM_MEDIATED_DECISION_POLICY_PHRASES = [
+    "Every analyst evaluation and decision point must be LLM-mediated",
+    "evidence-linked, and auditable",
+    "Deterministic code still owns numeric scores, risk math",
+    "constraints, target weights, scenario values, entry/exit levels, PnL",
+    "publication/suppression gates",
+    "LLM review cannot bypass failed deterministic checks",
 ]
 
 MODEL_PROFILE_REQUIRED_ROLES = [
@@ -370,6 +379,15 @@ class ArchitecturePolicyTests(unittest.TestCase):
     def test_agents_md_contains_non_negotiable_rules(self) -> None:
         text = read_text("AGENTS.md")
         missing = [phrase for phrase in NON_NEGOTIABLE_PHRASES if phrase not in text]
+        self.assertEqual([], missing)
+
+    def test_agents_md_requires_llm_mediated_audited_decisions_with_deterministic_boundaries(self) -> None:
+        text = read_text("AGENTS.md")
+        missing = [
+            phrase
+            for phrase in AGENTS_LLM_MEDIATED_DECISION_POLICY_PHRASES
+            if phrase not in text
+        ]
         self.assertEqual([], missing)
 
     def test_specs_agree_on_postgresql_only_v1_storage(self) -> None:

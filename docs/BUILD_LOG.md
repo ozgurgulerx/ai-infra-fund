@@ -390,3 +390,32 @@ Cloud deployment validation:
   - `https://ai-infra-fund-frontend.azurewebsites.net/api/backend/health`
   - `https://ai-infra-fund-frontend.azurewebsites.net/api/backend/ready`
 - Confirmed App Service container config reports `DOCKER|aistartuptr.azurecr.io/ai-infra-fund-web:e87544c`.
+
+## 2026-05-16 Six-Agent API-Backed Cockpit Alignment
+
+Implemented the next six-agent plan slice from the shared planning session.
+
+- Updated `AGENTS.md` so every analyst evaluation and decision point must be LLM-mediated, evidence-linked, and auditable while preserving deterministic ownership of numeric scores, risk math, constraints, target weights, scenario values, entry/exit levels, PnL, readiness checks, and publication/suppression gates.
+- Replaced the older active readiness wave with the six-agent implementation sequence: contract/read-model freeze, fixture-backed DB loop, read-only APIs, API-backed cockpit UI, real public-source crawler, LLM extraction/review, outcome journal/evaluation, and cloud hardening.
+- Added `AdvisoryReadinessCheck` and `AnalystBrief` contracts, required readiness checks on `TradingAdvisory`, scenario-key validation, and forbidden broker/order/execution payload-key guards.
+- Added the read-only per-ticker endpoint `GET /internal/market-events/{ticker}` and repository support with freshness metadata.
+- Switched the Daily Trading Cockpit landing page from static fixture import to API-backed read models, including degraded/stale-data handling for unavailable analyst brief data.
+- Preserved advisory-only boundaries: no broker integration, no live order placement, no execution endpoints, no execution UI, no UI-side scoring, no database migration, no dependency change, and no unmanaged model call was added.
+
+Verification:
+
+- `./.venv/bin/python -m unittest tests.test_advisory_workstation_read_model_api tests.test_advisory_workstation_read_model_repository` passed, 8 tests.
+- `./.venv/bin/python -m unittest tests.test_control_room_ui tests.test_wave2_workstation_ui` passed, 29 tests.
+- `./.venv/bin/python -m unittest discover -s tests/contracts` passed, 15 tests.
+- `./.venv/bin/python -m unittest tests.test_architecture_policy` passed, 41 tests.
+- `./.venv/bin/python -m unittest tests.test_advisory_workstation_contract_docs tests.test_situational_awareness_mock_data` passed, 9 tests.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 652 tests, 3 skipped.
+- `python3 -m compileall packages services tests` passed.
+- `npm run build --prefix apps/web` passed.
+- `npm audit --omit=dev --prefix apps/web` passed, 0 vulnerabilities.
+- `docker compose config` passed.
+- `scripts/compose_smoke.sh` passed.
+- `scripts/run_fixture_advisory_once.sh` passed with run `run-fixture-advisory-b15f2ec40623383b`.
+- Development preflight curl against `/internal/market-events/NVDA` returned an available advisory-only ticker event feed.
+- Development preflight curl against `/` returned the API-backed Daily Trading Cockpit HTML.
+- `git diff --check` passed.

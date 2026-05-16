@@ -46,6 +46,10 @@ class OutcomeLabel(str, Enum):
     REVIEW_NEEDED = "review_needed"
 
 
+REQUIRED_SCENARIOS = frozenset({"bear", "base", "bull"})
+FORBIDDEN_ADVISORY_PAYLOAD_TERMS = frozenset({"broker", "order", "execution"})
+
+
 @dataclass(frozen=True, slots=True)
 class SourceSignal:
     signal_id: str
@@ -148,10 +152,13 @@ class ValuationContext:
         object.__setattr__(self, "valuation_summary", _required_text(self.valuation_summary, "valuation_summary"))
         object.__setattr__(self, "peer_group", _required_text_tuple(self.peer_group, "peer_group", uppercase=True))
         _require_non_empty_dict(self.valuation_multiples, "valuation_multiples")
+        _reject_forbidden_payload_keys(self.valuation_multiples, "valuation_multiples")
         object.__setattr__(self, "bear_case_assumptions", _required_text_tuple(self.bear_case_assumptions, "bear_case_assumptions"))
         object.__setattr__(self, "base_case_assumptions", _required_text_tuple(self.base_case_assumptions, "base_case_assumptions"))
         object.__setattr__(self, "bull_case_assumptions", _required_text_tuple(self.bull_case_assumptions, "bull_case_assumptions"))
         _require_non_empty_dict(self.price_target_scenarios, "price_target_scenarios")
+        _require_scenario_keys(self.price_target_scenarios, "price_target_scenarios")
+        _reject_forbidden_payload_keys(self.price_target_scenarios, "price_target_scenarios")
         object.__setattr__(self, "key_sensitivities", _required_text_tuple(self.key_sensitivities, "key_sensitivities"))
         object.__setattr__(self, "risk_flags", _required_text_tuple(self.risk_flags, "risk_flags"))
         object.__setattr__(self, "evidence_ids", _required_text_tuple(self.evidence_ids, "evidence_ids"))
@@ -189,6 +196,34 @@ class MacroRegimeSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class AdvisoryReadinessCheck:
+    check_id: str
+    check_name: str
+    passed: bool
+    checked_at: datetime
+    evidence_ids: tuple[str, ...]
+    model_run_ids: tuple[str, ...]
+    deterministic_checks: dict[str, Any]
+    blocking_failures: tuple[str, ...]
+    confidence: Decimal
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "check_id", _required_text(self.check_id, "check_id"))
+        object.__setattr__(self, "check_name", _required_text(self.check_name, "check_name"))
+        if self.passed is not True:
+            raise ValueError("AdvisoryReadinessCheck must pass before advisory publication")
+        require_aware_datetime(self.checked_at, "checked_at")
+        object.__setattr__(self, "evidence_ids", _required_text_tuple(self.evidence_ids, "evidence_ids"))
+        object.__setattr__(self, "model_run_ids", _required_text_tuple(self.model_run_ids, "model_run_ids"))
+        _require_non_empty_dict(self.deterministic_checks, "deterministic_checks")
+        _reject_forbidden_payload_keys(self.deterministic_checks, "deterministic_checks")
+        object.__setattr__(self, "blocking_failures", _optional_text_tuple(self.blocking_failures, "blocking_failures"))
+        if self.blocking_failures:
+            raise ValueError("AdvisoryReadinessCheck cannot contain blocking_failures")
+        object.__setattr__(self, "confidence", _confidence(self.confidence))
+
+
+@dataclass(frozen=True, slots=True)
 class TradingAdvisory:
     advisory_id: str
     ticker_or_portfolio: str
@@ -209,6 +244,7 @@ class TradingAdvisory:
     evidence_ids: tuple[str, ...]
     model_run_ids: tuple[str, ...]
     deterministic_checks: dict[str, Any]
+    readiness_checks: tuple[AdvisoryReadinessCheck, ...]
     created_at: datetime
 
     def __post_init__(self) -> None:
@@ -228,12 +264,57 @@ class TradingAdvisory:
         object.__setattr__(self, "add_zone", _optional_text(self.add_zone, "add_zone"))
         object.__setattr__(self, "invalidation_level", _required_text(self.invalidation_level, "invalidation_level"))
         _require_non_empty_dict(self.target_scenarios, "target_scenarios")
+        _require_scenario_keys(self.target_scenarios, "target_scenarios")
+        _reject_forbidden_payload_keys(self.target_scenarios, "target_scenarios")
         object.__setattr__(self, "time_horizon", _required_text(self.time_horizon, "time_horizon"))
         object.__setattr__(self, "risk_flags", _required_text_tuple(self.risk_flags, "risk_flags"))
         object.__setattr__(self, "evidence_ids", _required_text_tuple(self.evidence_ids, "evidence_ids"))
         object.__setattr__(self, "model_run_ids", _required_text_tuple(self.model_run_ids, "model_run_ids"))
         _require_non_empty_dict(self.deterministic_checks, "deterministic_checks")
+        _reject_forbidden_payload_keys(self.deterministic_checks, "deterministic_checks")
+        object.__setattr__(self, "readiness_checks", _required_readiness_checks(self.readiness_checks))
         require_aware_datetime(self.created_at, "created_at")
+
+
+@dataclass(frozen=True, slots=True)
+class AnalystBrief:
+    brief_id: str
+    ticker_or_portfolio: str
+    advisory_label: AdvisoryLabel
+    headline: str
+    summary: str
+    key_points: tuple[str, ...]
+    risk_flags: tuple[str, ...]
+    linked_advisory_id: str | None
+    linked_valuation_context_id: str | None
+    evidence_ids: tuple[str, ...]
+    model_run_ids: tuple[str, ...]
+    metadata: dict[str, Any]
+    created_at: datetime
+    confidence: Decimal
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "brief_id", _required_text(self.brief_id, "brief_id"))
+        object.__setattr__(self, "ticker_or_portfolio", _required_text(self.ticker_or_portfolio, "ticker_or_portfolio").upper())
+        object.__setattr__(self, "advisory_label", coerce_enum(self.advisory_label, AdvisoryLabel, "advisory_label"))
+        if self.advisory_label is not AdvisoryLabel.ADVISORY_ONLY:
+            raise ValueError("AnalystBrief must be advisory-only")
+        object.__setattr__(self, "headline", _required_text(self.headline, "headline"))
+        object.__setattr__(self, "summary", _required_text(self.summary, "summary"))
+        object.__setattr__(self, "key_points", _required_text_tuple(self.key_points, "key_points"))
+        object.__setattr__(self, "risk_flags", _required_text_tuple(self.risk_flags, "risk_flags"))
+        object.__setattr__(self, "linked_advisory_id", _optional_text(self.linked_advisory_id, "linked_advisory_id"))
+        object.__setattr__(
+            self,
+            "linked_valuation_context_id",
+            _optional_text(self.linked_valuation_context_id, "linked_valuation_context_id"),
+        )
+        object.__setattr__(self, "evidence_ids", _required_text_tuple(self.evidence_ids, "evidence_ids"))
+        object.__setattr__(self, "model_run_ids", _required_text_tuple(self.model_run_ids, "model_run_ids"))
+        _require_non_empty_dict(self.metadata, "metadata")
+        _reject_forbidden_payload_keys(self.metadata, "metadata")
+        require_aware_datetime(self.created_at, "created_at")
+        object.__setattr__(self, "confidence", _confidence(self.confidence))
 
 
 @dataclass(frozen=True, slots=True)
@@ -355,6 +436,17 @@ def _required_text_tuple(values: object, field_name: str, *, uppercase: bool = F
     return text_values
 
 
+def _optional_text_tuple(values: object, field_name: str) -> tuple[str, ...]:
+    return tuple(_required_text(value, field_name) for value in normalize_tuple(values, field_name))
+
+
+def _required_readiness_checks(values: object) -> tuple[AdvisoryReadinessCheck, ...]:
+    checks = require_non_empty_tuple(normalize_tuple(values, "readiness_checks"), "readiness_checks")
+    if not all(isinstance(check, AdvisoryReadinessCheck) for check in checks):
+        raise ValueError("readiness_checks must contain AdvisoryReadinessCheck instances")
+    return checks
+
+
 def _confidence(value: Decimal) -> Decimal:
     return require_decimal_range(value, "confidence", Decimal("0"), Decimal("1"))
 
@@ -362,3 +454,21 @@ def _confidence(value: Decimal) -> Decimal:
 def _require_non_empty_dict(values: dict[str, Any], field_name: str) -> None:
     if not isinstance(values, dict) or not values:
         raise ValueError(f"{field_name} must not be empty")
+
+
+def _require_scenario_keys(values: dict[str, Any], field_name: str) -> None:
+    missing = REQUIRED_SCENARIOS.difference(str(key).strip().lower() for key in values)
+    if missing:
+        raise ValueError(f"{field_name} must include bear, base, and bull scenarios")
+
+
+def _reject_forbidden_payload_keys(values: Any, field_name: str) -> None:
+    if isinstance(values, dict):
+        for key, value in values.items():
+            normalized_key = str(key).strip().lower()
+            if any(term in normalized_key for term in FORBIDDEN_ADVISORY_PAYLOAD_TERMS):
+                raise ValueError(f"{field_name} cannot include broker, order, or execution fields")
+            _reject_forbidden_payload_keys(value, field_name)
+    elif isinstance(values, (list, tuple)):
+        for value in values:
+            _reject_forbidden_payload_keys(value, field_name)

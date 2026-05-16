@@ -35,6 +35,7 @@ type DashboardSummaryEndpoint =
   | "/internal/dashboard/ticker-intelligence/NVDA"
   | "/internal/source-signals/latest"
   | "/internal/market-events/latest"
+  | "/internal/market-events/NVDA"
   | "/internal/analyst-brief/latest"
   | "/internal/trading-advisory/latest"
   | "/internal/ticker/NVDA/analyst-summary";
@@ -385,6 +386,13 @@ export async function fetchLatestMarketEvents(): Promise<DashboardSummaryFeed> {
   return fetchReadOnlyDashboardSummary(
     "/internal/market-events/latest",
     "Market Events",
+  );
+}
+
+export async function fetchNvdaMarketEvents(): Promise<DashboardSummaryFeed> {
+  return fetchReadOnlyDashboardSummary(
+    "/internal/market-events/NVDA",
+    "NVDA Market Events",
   );
 }
 

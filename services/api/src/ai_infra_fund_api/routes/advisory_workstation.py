@@ -17,6 +17,8 @@ class AdvisoryWorkstationReadRepository(Protocol):
 
     def get_latest_market_events(self) -> dict[str, object]: ...
 
+    def get_market_events_for_ticker(self, ticker: str) -> dict[str, object]: ...
+
     def get_latest_analyst_brief(self) -> dict[str, object]: ...
 
     def get_latest_trading_advisory(self) -> dict[str, object]: ...
@@ -37,6 +39,9 @@ class PostgresAdvisoryWorkstationReadRepository:
 
     def get_latest_market_events(self) -> dict[str, object]:
         return self._read("get_latest_market_events")
+
+    def get_market_events_for_ticker(self, ticker: str) -> dict[str, object]:
+        return self._read_with_argument("get_market_events_for_ticker", ticker.upper())
 
     def get_latest_analyst_brief(self) -> dict[str, object]:
         return self._read("get_latest_analyst_brief")
@@ -102,6 +107,10 @@ def register_advisory_workstation_routes(
     @router.get("/internal/market-events/latest")
     def latest_market_events() -> JSONResponse:
         return _read(repository.get_latest_market_events)
+
+    @router.get("/internal/market-events/{ticker}")
+    def market_events_for_ticker(ticker: str) -> JSONResponse:
+        return _read(lambda: repository.get_market_events_for_ticker(ticker.upper()))
 
     @router.get("/internal/analyst-brief/latest")
     def latest_analyst_brief() -> JSONResponse:

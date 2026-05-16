@@ -36,7 +36,7 @@ class Wave2WorkstationUiTests(unittest.TestCase):
         missing = [path for path in required if not (WEB_ROOT / path).is_file()]
         self.assertEqual([], missing)
 
-    def test_daily_trading_cockpit_renders_static_advisory_workstation_sections(self) -> None:
+    def test_daily_trading_cockpit_renders_api_backed_advisory_workstation_sections(self) -> None:
         page = read_web("app/page.tsx")
         required = [
             "Daily Trading Cockpit",
@@ -51,11 +51,13 @@ class Wave2WorkstationUiTests(unittest.TestCase):
             "Open trade plans",
             "Portfolio exposure snapshot",
             "Invalidation watchlist",
-            "mockWorkstationData",
+            "readCockpitPayload",
+            "API read model",
         ]
         self.assertEqual([], [text for text in required if text not in page])
-        self.assertNotIn("/internal/analyst-brief/latest", page)
-        self.assertNotIn("fetchAnalystBrief", page)
+        self.assertIn("/internal/analyst-brief/latest", page)
+        self.assertIn("/internal/source-signals/latest", page)
+        self.assertNotIn("mockWorkstationData", page)
 
     def test_segment_map_ticker_workbench_trade_and_radar_screens_have_wave2_content(self) -> None:
         expectations = {

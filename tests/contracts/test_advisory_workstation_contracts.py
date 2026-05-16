@@ -14,7 +14,9 @@ sys.path.insert(0, str(CORE_SRC))
 from ai_infra_fund_core.contracts.common import AdvisoryLabel, DataClass  # noqa: E402
 from ai_infra_fund_core.contracts.workstation import (  # noqa: E402
     AdvisoryChangeDirection,
+    AdvisoryReadinessCheck,
     AdvisoryUpdate,
+    AnalystBrief,
     AnalystAction,
     FinancialSnapshot,
     MacroRegimeSnapshot,
@@ -71,13 +73,16 @@ class AdvisoryWorkstationContractTests(unittest.TestCase):
 
         self.assertEqual("NVDA", context.ticker)
         self.assertEqual("model-run-valuation", context.generated_by_model_run_id)
-        self.assertIn("bull", context.price_target_scenarios)
+        self.assertEqual({"bear", "base", "bull"}, set(context.price_target_scenarios))
 
         invalid = [
             {"evidence_ids": ()},
             {"generated_by_model_run_id": ""},
             {"deterministic_inputs_hash": ""},
             {"price_target_scenarios": {}},
+            {"valuation_multiples": {"execution_price": "875"}},
+            {"price_target_scenarios": {"target_price": "910"}},
+            {"price_target_scenarios": {"bear": "720", "base": "910", "bull": "1120", "broker": "example"}},
         ]
         for overrides in invalid:
             with self.subTest(overrides=overrides):
@@ -93,6 +98,26 @@ class AdvisoryWorkstationContractTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.macro_regime(evidence_ids=())
 
+    def test_advisory_readiness_check_requires_audit_inputs_and_bounded_confidence(self) -> None:
+        readiness = self.advisory_readiness_check()
+
+        self.assertEqual("evidence-1", readiness.evidence_ids[0])
+        self.assertEqual(("model-run-advisory",), readiness.model_run_ids)
+        self.assertEqual(Decimal("0.9"), readiness.confidence)
+
+        invalid = [
+            {"check_id": ""},
+            {"evidence_ids": ()},
+            {"model_run_ids": ()},
+            {"deterministic_checks": {}},
+            {"confidence": Decimal("1.01")},
+            {"blocking_failures": ("missing-evidence",)},
+        ]
+        for overrides in invalid:
+            with self.subTest(overrides=overrides):
+                with self.assertRaises(ValueError):
+                    self.advisory_readiness_check(**overrides)
+
     def test_trading_advisory_is_advisory_only_and_audited(self) -> None:
         advisory = self.trading_advisory(analyst_action="accumulate")
 
@@ -100,6 +125,7 @@ class AdvisoryWorkstationContractTests(unittest.TestCase):
         self.assertEqual(AnalystAction.ACCUMULATE, advisory.analyst_action)
         self.assertEqual(("evidence-1",), advisory.evidence_ids)
         self.assertEqual(("model-run-advisory",), advisory.model_run_ids)
+        self.assertEqual("readiness-1", advisory.readiness_checks[0].check_id)
 
         invalid = [
             {"advisory_label": "not_advisory"},
@@ -109,11 +135,36 @@ class AdvisoryWorkstationContractTests(unittest.TestCase):
             {"deterministic_checks": {}},
             {"market_event_ids": ()},
             {"segment_impact_ids": ()},
+            {"readiness_checks": ()},
+            {"target_scenarios": {"bear": "720", "base": "910", "bull": "1120", "order": "buy"}},
         ]
         for overrides in invalid:
             with self.subTest(overrides=overrides):
                 with self.assertRaises(ValueError):
                     self.trading_advisory(**overrides)
+
+    def test_analyst_brief_is_evidence_backed_and_advisory_only(self) -> None:
+        brief = self.analyst_brief()
+
+        self.assertEqual("NVDA", brief.ticker_or_portfolio)
+        self.assertEqual(AdvisoryLabel.ADVISORY_ONLY, brief.advisory_label)
+        self.assertEqual(("evidence-1",), brief.evidence_ids)
+        self.assertEqual(Decimal("0.82"), brief.confidence)
+
+        invalid = [
+            {"brief_id": ""},
+            {"advisory_label": "not_advisory"},
+            {"key_points": ()},
+            {"risk_flags": ()},
+            {"evidence_ids": ()},
+            {"model_run_ids": ()},
+            {"confidence": Decimal("-0.01")},
+            {"metadata": {"execution": "forbidden"}},
+        ]
+        for overrides in invalid:
+            with self.subTest(overrides=overrides):
+                with self.assertRaises(ValueError):
+                    self.analyst_brief(**overrides)
 
     def test_advisory_update_requires_prior_new_advisory_and_evidence(self) -> None:
         update = self.advisory_update()
@@ -226,6 +277,21 @@ class AdvisoryWorkstationContractTests(unittest.TestCase):
         data.update(overrides)
         return MacroRegimeSnapshot(**data)
 
+    def advisory_readiness_check(self, **overrides: object) -> AdvisoryReadinessCheck:
+        data = {
+            "check_id": "readiness-1",
+            "check_name": "publication_gate",
+            "passed": True,
+            "checked_at": AS_OF,
+            "evidence_ids": ("evidence-1",),
+            "model_run_ids": ("model-run-advisory",),
+            "deterministic_checks": {"risk_gate": "pass", "stale_data": "pass"},
+            "blocking_failures": (),
+            "confidence": Decimal("0.9"),
+        }
+        data.update(overrides)
+        return AdvisoryReadinessCheck(**data)
+
     def trading_advisory(self, **overrides: object) -> TradingAdvisory:
         data = {
             "advisory_id": "advisory-nvda-1",
@@ -247,10 +313,31 @@ class AdvisoryWorkstationContractTests(unittest.TestCase):
             "evidence_ids": ("evidence-1",),
             "model_run_ids": ("model-run-advisory",),
             "deterministic_checks": {"risk_gate": "pass", "stale_data": "pass"},
+            "readiness_checks": (self.advisory_readiness_check(),),
             "created_at": AS_OF,
         }
         data.update(overrides)
         return TradingAdvisory(**data)
+
+    def analyst_brief(self, **overrides: object) -> AnalystBrief:
+        data = {
+            "brief_id": "brief-nvda-1",
+            "ticker_or_portfolio": "nvda",
+            "advisory_label": AdvisoryLabel.ADVISORY_ONLY,
+            "headline": "AI accelerator demand remains constructive.",
+            "summary": "Evidence-backed brief for analyst review, not an execution instruction.",
+            "key_points": ("Hyperscaler capex signal improved.",),
+            "risk_flags": ("valuation_pressure",),
+            "linked_advisory_id": "advisory-nvda-1",
+            "linked_valuation_context_id": "valuation-nvda-1",
+            "evidence_ids": ("evidence-1",),
+            "model_run_ids": ("model-run-brief",),
+            "metadata": {"review_stage": "draft"},
+            "created_at": AS_OF,
+            "confidence": Decimal("0.82"),
+        }
+        data.update(overrides)
+        return AnalystBrief(**data)
 
     def advisory_update(self, **overrides: object) -> AdvisoryUpdate:
         data = {

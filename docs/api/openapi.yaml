@@ -548,6 +548,29 @@ paths:
               schema: {}
           description: Successful Response
       summary: Latest Market Events
+  /internal/market-events/{ticker}:
+    get:
+      operationId: market_events_for_ticker_internal_market_events__ticker__get
+      parameters:
+      - in: path
+        name: ticker
+        required: true
+        schema:
+          title: Ticker
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      summary: Market Events For Ticker
   /internal/outcome-journal/latest:
     get:
       operationId: latest_outcome_journal_internal_outcome_journal_latest_get
