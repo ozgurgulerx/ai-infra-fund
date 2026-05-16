@@ -1,0 +1,1488 @@
+{
+  "MarketEvents": [
+    {
+      "event_id": "mevt_20260516_hyperscaler_capex_raise_msft_az_ai",
+      "event_type": "hyperscaler_capex_raise",
+      "source_evidence_ids": [
+        "evid_20260515_msft_cfo_ai_capex_transcript",
+        "evid_20260515_msft_10q_capex_update"
+      ],
+      "tickers": [
+        "MSFT",
+        "NVDA",
+        "AMD",
+        "AVGO",
+        "ANET",
+        "VRT",
+        "ETN"
+      ],
+      "companies": [
+        "Microsoft",
+        "NVIDIA",
+        "Advanced Micro Devices",
+        "Broadcom",
+        "Arista Networks",
+        "Vertiv",
+        "Eaton"
+      ],
+      "themes": [
+        "AI training clusters",
+        "accelerator demand",
+        "ethernet AI fabrics",
+        "datacenter electrical infrastructure"
+      ],
+      "catalyst": "A hyperscaler raises current-year AI infrastructure capex guidance after stronger internal demand for frontier model training and enterprise inference capacity.",
+      "ai_relevance": "Higher hyperscaler capex directly supports accelerator, networking, power, and cooling demand, while increasing scrutiny on free cash flow conversion for cloud platforms.",
+      "direction": "positive_for_ai_infrastructure_supply_chain",
+      "time_horizon": "6_to_18_months",
+      "confidence": "high",
+      "occurred_at": "2026-05-15T13:30:00Z",
+      "available_at": "2026-05-15T14:05:00Z",
+      "content_hash": "sha256:9d3f1f4d2a4b5c6e7f80123456789abcdeffedcba9876543210f1234567890ab",
+      "extracted_by_model_run_id": "mrun_20260516_sabrief_extract_001",
+      "review_status": "reviewed"
+    },
+    {
+      "event_id": "mevt_20260516_hbm_supply_bottleneck_sk hynix_micron",
+      "event_type": "hbm_supply_bottleneck",
+      "source_evidence_ids": [
+        "evid_20260514_memory_channel_checks_hbm3e",
+        "evid_20260514_supplier_lead_time_tracker"
+      ],
+      "tickers": [
+        "NVDA",
+        "AMD",
+        "MU",
+        "005930.KS",
+        "000660.KS",
+        "TSM"
+      ],
+      "companies": [
+        "NVIDIA",
+        "Advanced Micro Devices",
+        "Micron",
+        "Samsung Electronics",
+        "SK hynix",
+        "Taiwan Semiconductor Manufacturing Company"
+      ],
+      "themes": [
+        "HBM3E capacity",
+        "AI accelerator memory attach",
+        "advanced packaging constraints",
+        "gross margin mix"
+      ],
+      "catalyst": "Memory supplier checks indicate HBM3E capacity remains allocated into the next two quarters, with qualification slots and substrate availability limiting near-term upside.",
+      "ai_relevance": "HBM availability is a gating item for accelerator shipments and may shift bargaining power toward qualified memory suppliers while constraining GPU volume flexibility.",
+      "direction": "mixed_positive_for_hbm_suppliers_negative_for_accelerator_units",
+      "time_horizon": "0_to_9_months",
+      "confidence": "medium",
+      "occurred_at": "2026-05-14T16:00:00Z",
+      "available_at": "2026-05-14T17:20:00Z",
+      "content_hash": "sha256:0a8c2f1e3d4b5a69788776655443322110ffeeddccbbaa998877665544332211",
+      "extracted_by_model_run_id": "mrun_20260516_sabrief_extract_002",
+      "review_status": "needs_human_review"
+    },
+    {
+      "event_id": "mevt_20260516_nuclear_ppa_datacenter_power",
+      "event_type": "nuclear_power_purchase_agreement",
+      "source_evidence_ids": [
+        "evid_20260513_cloud_provider_nuclear_ppa_release",
+        "evid_20260513_utility_interconnection_queue"
+      ],
+      "tickers": [
+        "GOOGL",
+        "CEG",
+        "VST",
+        "ETN",
+        "PWR",
+        "VRT"
+      ],
+      "companies": [
+        "Alphabet",
+        "Constellation Energy",
+        "Vistra",
+        "Eaton",
+        "Quanta Services",
+        "Vertiv"
+      ],
+      "themes": [
+        "datacenter power procurement",
+        "nuclear baseload",
+        "grid interconnection",
+        "electrical equipment backlog"
+      ],
+      "catalyst": "A cloud platform signs a long-duration nuclear power purchase agreement tied to a planned AI datacenter campus in a constrained power market.",
+      "ai_relevance": "Power access is becoming a binding constraint for AI cluster deployment; long-duration PPAs improve capacity visibility and support utility and electrical equipment demand.",
+      "direction": "positive_for_power_infrastructure_and_cloud_capacity_visibility",
+      "time_horizon": "12_to_36_months",
+      "confidence": "medium",
+      "occurred_at": "2026-05-13T11:00:00Z",
+      "available_at": "2026-05-13T11:45:00Z",
+      "content_hash": "sha256:1bcf02e3a4d5968776655443322110ffeeddccbbaa0099887766554433221100",
+      "extracted_by_model_run_id": "mrun_20260516_sabrief_extract_003",
+      "review_status": "reviewed"
+    },
+    {
+      "event_id": "mevt_20260516_cowos_expansion_tsm_capacity",
+      "event_type": "cowos_expansion",
+      "source_evidence_ids": [
+        "evid_20260512_tsm_supplier_capex_note",
+        "evid_20260512_advanced_packaging_tool_orders"
+      ],
+      "tickers": [
+        "TSM",
+        "NVDA",
+        "AMD",
+        "AVGO",
+        "ASML",
+        "AMAT",
+        "KLAC"
+      ],
+      "companies": [
+        "Taiwan Semiconductor Manufacturing Company",
+        "NVIDIA",
+        "Advanced Micro Devices",
+        "Broadcom",
+        "ASML",
+        "Applied Materials",
+        "KLA"
+      ],
+      "themes": [
+        "CoWoS capacity",
+        "advanced packaging",
+        "AI accelerator supply",
+        "semicap equipment"
+      ],
+      "catalyst": "Foundry supplier disclosures point to an accelerated CoWoS capacity expansion plan, with additional advanced packaging lines scheduled to ramp in late 2026.",
+      "ai_relevance": "Expanded CoWoS capacity can relieve a key bottleneck for AI accelerators and supports demand for packaging equipment, inspection, and substrate suppliers.",
+      "direction": "positive_for_packaging_capacity_and_ai_accelerator_shipments",
+      "time_horizon": "9_to_24_months",
+      "confidence": "medium_high",
+      "occurred_at": "2026-05-12T08:15:00Z",
+      "available_at": "2026-05-12T09:10:00Z",
+      "content_hash": "sha256:7755aa33cc11ee22998877665544332210abcdefabcdef1234567890fedcba09",
+      "extracted_by_model_run_id": "mrun_20260516_sabrief_extract_004",
+      "review_status": "reviewed"
+    },
+    {
+      "event_id": "mevt_20260516_datacenter_lease_hyperscale_campus",
+      "event_type": "datacenter_lease",
+      "source_evidence_ids": [
+        "evid_20260511_reit_lease_disclosure",
+        "evid_20260511_local_permit_ai_campus"
+      ],
+      "tickers": [
+        "AMZN",
+        "EQIX",
+        "DLR",
+        "VRT",
+        "ETN",
+        "ANET",
+        "SMCI"
+      ],
+      "companies": [
+        "Amazon",
+        "Equinix",
+        "Digital Realty",
+        "Vertiv",
+        "Eaton",
+        "Arista Networks",
+        "Super Micro Computer"
+      ],
+      "themes": [
+        "hyperscale leasing",
+        "datacenter absorption",
+        "AI server deployment",
+        "power-dense racks"
+      ],
+      "catalyst": "A large pre-lease is signed for a new high-density datacenter campus designed for GPU clusters and liquid-cooling-ready halls.",
+      "ai_relevance": "The lease validates continued demand for power-dense AI capacity and may pull forward server, cooling, switch, and electrical system orders.",
+      "direction": "positive_for_datacenter_capacity_and_supply_chain",
+      "time_horizon": "6_to_24_months",
+      "confidence": "medium",
+      "occurred_at": "2026-05-11T20:30:00Z",
+      "available_at": "2026-05-12T00:30:00Z",
+      "content_hash": "sha256:2233445566778899aabbccddeeff00112233445566778899aabbccddeeff0011",
+      "extracted_by_model_run_id": "mrun_20260516_sabrief_extract_005",
+      "review_status": "reviewed"
+    },
+    {
+      "event_id": "mevt_20260516_export_control_update_ai_accelerators",
+      "event_type": "export_control_update",
+      "source_evidence_ids": [
+        "evid_20260510_bis_ai_chip_rule_update",
+        "evid_20260510_company_export_risk_8k"
+      ],
+      "tickers": [
+        "NVDA",
+        "AMD",
+        "AVGO",
+        "MRVL",
+        "ASML",
+        "TSM"
+      ],
+      "companies": [
+        "NVIDIA",
+        "Advanced Micro Devices",
+        "Broadcom",
+        "Marvell Technology",
+        "ASML",
+        "Taiwan Semiconductor Manufacturing Company"
+      ],
+      "themes": [
+        "AI chip export controls",
+        "China revenue exposure",
+        "compliance risk",
+        "supply-chain rerouting"
+      ],
+      "catalyst": "A regulator updates export-control thresholds and license requirements for advanced AI accelerators, accelerator networking components, and related technical support.",
+      "ai_relevance": "Policy changes can alter addressable market access, product segmentation, compliance costs, and demand timing for restricted-region customers.",
+      "direction": "negative_for_restricted_revenue_exposure_positive_for_compliance_differentiation",
+      "time_horizon": "0_to_12_months",
+      "confidence": "high",
+      "occurred_at": "2026-05-10T18:00:00Z",
+      "available_at": "2026-05-10T18:20:00Z",
+      "content_hash": "sha256:ffeeddccbbaa99887766554433221100aabbccddeeff00112233445566778899",
+      "extracted_by_model_run_id": "mrun_20260516_sabrief_extract_006",
+      "review_status": "reviewed"
+    }
+  ],
+  "SegmentImpacts": [
+    {
+      "segment_id": "seg_cloud_platforms",
+      "segment_name": "Cloud Platforms",
+      "primary_tickers": [
+        "MSFT",
+        "AMZN",
+        "GOOGL"
+      ],
+      "linked_event_ids": [
+        "mevt_20260516_hyperscaler_capex_raise_msft_az_ai",
+        "mevt_20260516_nuclear_ppa_datacenter_power",
+        "mevt_20260516_datacenter_lease_hyperscale_campus"
+      ],
+      "impact_direction": "mixed",
+      "impact_summary": "Capex increases and long-duration power procurement improve AI capacity visibility, but they raise near-term free-cash-flow scrutiny and increase execution risk around power delivery."
+    },
+    {
+      "segment_id": "seg_accelerators_custom_silicon",
+      "segment_name": "Accelerators and Custom Silicon",
+      "primary_tickers": [
+        "NVDA",
+        "AMD",
+        "AVGO",
+        "MRVL"
+      ],
+      "linked_event_ids": [
+        "mevt_20260516_hyperscaler_capex_raise_msft_az_ai",
+        "mevt_20260516_hbm_supply_bottleneck_sk hynix_micron",
+        "mevt_20260516_cowos_expansion_tsm_capacity",
+        "mevt_20260516_export_control_update_ai_accelerators"
+      ],
+      "impact_direction": "mixed_positive",
+      "impact_summary": "Demand indicators remain strong, but HBM and export controls create allocation, product-mix, and revenue-recognition uncertainty."
+    },
+    {
+      "segment_id": "seg_memory_hbm",
+      "segment_name": "HBM and Advanced Memory",
+      "primary_tickers": [
+        "MU",
+        "005930.KS",
+        "000660.KS"
+      ],
+      "linked_event_ids": [
+        "mevt_20260516_hbm_supply_bottleneck_sk hynix_micron"
+      ],
+      "impact_direction": "positive",
+      "impact_summary": "Capacity tightness supports pricing, long-term agreements, and mix improvement for qualified HBM suppliers."
+    },
+    {
+      "segment_id": "seg_foundry_advanced_packaging",
+      "segment_name": "Foundry and Advanced Packaging",
+      "primary_tickers": [
+        "TSM",
+        "ASML",
+        "AMAT",
+        "KLAC"
+      ],
+      "linked_event_ids": [
+        "mevt_20260516_hbm_supply_bottleneck_sk hynix_micron",
+        "mevt_20260516_cowos_expansion_tsm_capacity",
+        "mevt_20260516_export_control_update_ai_accelerators"
+      ],
+      "impact_direction": "positive",
+      "impact_summary": "CoWoS expansion and packaging tool demand remain constructive, while export-control rules require monitoring for regional demand substitution."
+    },
+    {
+      "segment_id": "seg_datacenter_power_cooling",
+      "segment_name": "Datacenter Power and Cooling",
+      "primary_tickers": [
+        "VRT",
+        "ETN",
+        "PWR",
+        "CEG",
+        "VST"
+      ],
+      "linked_event_ids": [
+        "mevt_20260516_hyperscaler_capex_raise_msft_az_ai",
+        "mevt_20260516_nuclear_ppa_datacenter_power",
+        "mevt_20260516_datacenter_lease_hyperscale_campus"
+      ],
+      "impact_direction": "positive",
+      "impact_summary": "AI datacenter growth keeps power availability, electrical equipment, grid work, and thermal management near the center of the infrastructure thesis."
+    },
+    {
+      "segment_id": "seg_networking_optics",
+      "segment_name": "AI Networking and Optics",
+      "primary_tickers": [
+        "ANET",
+        "AVGO",
+        "MRVL",
+        "LITE",
+        "COHR"
+      ],
+      "linked_event_ids": [
+        "mevt_20260516_hyperscaler_capex_raise_msft_az_ai",
+        "mevt_20260516_datacenter_lease_hyperscale_campus"
+      ],
+      "impact_direction": "positive",
+      "impact_summary": "Larger AI clusters and new high-density campuses increase demand for ethernet fabrics, switching silicon, optical modules, and related connectivity components."
+    }
+  ],
+  "EquityImpactAssessments": [
+    {
+      "ticker": "NVDA",
+      "company": "NVIDIA",
+      "linked_event_ids": [
+        "mevt_20260516_hyperscaler_capex_raise_msft_az_ai",
+        "mevt_20260516_hbm_supply_bottleneck_sk hynix_micron",
+        "mevt_20260516_cowos_expansion_tsm_capacity",
+        "mevt_20260516_export_control_update_ai_accelerators"
+      ],
+      "assessment": "Demand signal remains strong, but near-term unit upside depends on HBM allocation and packaging throughput. Export-control updates add product-mix and restricted-region revenue uncertainty.",
+      "watch_items": [
+        "HBM allocation commentary",
+        "CoWoS shipment cadence",
+        "restricted-region product disclosures"
+      ],
+      "advisory_implication": "watch_for_capacity_relief_and_policy_risk"
+    },
+    {
+      "ticker": "TSM",
+      "company": "Taiwan Semiconductor Manufacturing Company",
+      "linked_event_ids": [
+        "mevt_20260516_hbm_supply_bottleneck_sk hynix_micron",
+        "mevt_20260516_cowos_expansion_tsm_capacity",
+        "mevt_20260516_export_control_update_ai_accelerators"
+      ],
+      "assessment": "Advanced packaging demand remains a durable AI infrastructure bottleneck. CoWoS expansion supports medium-term capacity growth, while export-control updates require monitoring for customer mix changes.",
+      "watch_items": [
+        "CoWoS capacity ramp milestones",
+        "advanced packaging capex",
+        "AI accelerator customer concentration"
+      ],
+      "advisory_implication": "constructive_packaging_thesis"
+    },
+    {
+      "ticker": "MU",
+      "company": "Micron",
+      "linked_event_ids": [
+        "mevt_20260516_hbm_supply_bottleneck_sk hynix_micron"
+      ],
+      "assessment": "HBM tightness improves pricing and qualification leverage for suppliers with credible HBM3E ramps, but execution risk remains high because customer qualification and yield determine realized share.",
+      "watch_items": [
+        "HBM3E qualification wins",
+        "gross margin mix",
+        "capacity prepayment terms"
+      ],
+      "advisory_implication": "watch_for_supplier_share_gain"
+    },
+    {
+      "ticker": "VRT",
+      "company": "Vertiv",
+      "linked_event_ids": [
+        "mevt_20260516_hyperscaler_capex_raise_msft_az_ai",
+        "mevt_20260516_nuclear_ppa_datacenter_power",
+        "mevt_20260516_datacenter_lease_hyperscale_campus"
+      ],
+      "assessment": "Power-dense AI campuses and higher hyperscaler capex support continued demand for thermal and power infrastructure. Backlog quality and delivery cadence matter more than headline orders.",
+      "watch_items": [
+        "liquid cooling backlog",
+        "hyperscaler order conversion",
+        "supply-chain delivery constraints"
+      ],
+      "advisory_implication": "constructive_with_execution_monitoring"
+    },
+    {
+      "ticker": "CEG",
+      "company": "Constellation Energy",
+      "linked_event_ids": [
+        "mevt_20260516_nuclear_ppa_datacenter_power"
+      ],
+      "assessment": "Long-duration nuclear PPAs tied to datacenter demand can improve contracted revenue visibility and reinforce the baseload-power scarcity thesis.",
+      "watch_items": [
+        "PPA pricing disclosure",
+        "regulatory approvals",
+        "interconnection timeline"
+      ],
+      "advisory_implication": "positive_power_scarcity_signal"
+    },
+    {
+      "ticker": "ANET",
+      "company": "Arista Networks",
+      "linked_event_ids": [
+        "mevt_20260516_hyperscaler_capex_raise_msft_az_ai",
+        "mevt_20260516_datacenter_lease_hyperscale_campus"
+      ],
+      "assessment": "Larger AI clusters support ethernet switching demand, especially where hyperscalers standardize on merchant ethernet fabrics. Customer concentration remains the main monitoring point.",
+      "watch_items": [
+        "AI ethernet order growth",
+        "cloud customer concentration",
+        "gross margin effect from product mix"
+      ],
+      "advisory_implication": "positive_networking_derivative"
+    },
+    {
+      "ticker": "MSFT",
+      "company": "Microsoft",
+      "linked_event_ids": [
+        "mevt_20260516_hyperscaler_capex_raise_msft_az_ai"
+      ],
+      "assessment": "Higher AI capex suggests continued demand, but the equity debate shifts to utilization, monetization, and margin conversion rather than capacity growth alone.",
+      "watch_items": [
+        "Azure AI revenue contribution",
+        "capex-to-revenue lag",
+        "depreciation pressure"
+      ],
+      "advisory_implication": "mixed_capacity_positive_cash_flow_watch"
+    }
+  ],
+  "RiskRegimeUpdates": [
+    {
+      "regime_id": "risk_20260516_power_as_binding_constraint",
+      "risk_type": "power_capacity",
+      "status": "elevated",
+      "linked_event_ids": [
+        "mevt_20260516_nuclear_ppa_datacenter_power",
+        "mevt_20260516_datacenter_lease_hyperscale_campus"
+      ],
+      "summary": "Power availability and interconnection queues are now first-order constraints for AI campus timing, making utilities, grid contractors, and electrical equipment suppliers more central to the AI infrastructure map.",
+      "portfolio_monitoring_note": "Separate demand signals from deliverable capacity; watch for delays between lease announcements, power commitments, and energized capacity."
+    },
+    {
+      "regime_id": "risk_20260516_bottleneck_rotation_hbm_to_packaging",
+      "risk_type": "supply_bottleneck",
+      "status": "active",
+      "linked_event_ids": [
+        "mevt_20260516_hbm_supply_bottleneck_sk hynix_micron",
+        "mevt_20260516_cowos_expansion_tsm_capacity"
+      ],
+      "summary": "The bottleneck stack remains concentrated in HBM, advanced packaging, and substrates. CoWoS expansion helps the medium-term thesis but does not eliminate near-term allocation risk.",
+      "portfolio_monitoring_note": "Track whether bottleneck relief benefits accelerator unit volumes or compresses scarcity premiums for upstream suppliers."
+    },
+    {
+      "regime_id": "risk_20260516_policy_friction",
+      "risk_type": "export_controls",
+      "status": "elevated",
+      "linked_event_ids": [
+        "mevt_20260516_export_control_update_ai_accelerators"
+      ],
+      "summary": "Export controls add headline risk and revenue segmentation pressure for AI accelerator and semiconductor equipment names with restricted-region exposure.",
+      "portfolio_monitoring_note": "Monitor company disclosures for license denials, product redesigns, region-specific inventory, and changes in customer order timing."
+    },
+    {
+      "regime_id": "risk_20260516_capex_duration",
+      "risk_type": "hyperscaler_capex_duration",
+      "status": "watch",
+      "linked_event_ids": [
+        "mevt_20260516_hyperscaler_capex_raise_msft_az_ai"
+      ],
+      "summary": "Higher hyperscaler capex supports the AI supply chain but increases sensitivity to utilization evidence and return-on-capital narratives.",
+      "portfolio_monitoring_note": "Watch for a divergence between infrastructure order growth and cloud AI monetization metrics."
+    }
+  ],
+  "AnalystBrief": {
+    "brief_id": "abrief_20260516_ai_infra_situational_awareness",
+    "as_of": "2026-05-16T08:00:00Z",
+    "title": "AI Infrastructure Situational Awareness Brief",
+    "advisory_label": "research_only_not_investment_advice",
+    "executive_summary": "The mock event set points to a still-strong AI infrastructure demand regime, with hyperscaler capex and datacenter leasing supporting accelerators, networking, power, cooling, and advanced packaging. The strongest incremental thesis support is in bottleneck and enabling layers: HBM, CoWoS, grid power, nuclear PPAs, and power-dense datacenter equipment. The main offsets are export-control friction, HBM allocation limits, and rising scrutiny of hyperscaler capex efficiency.",
+    "highest_conviction_theme_updates": [
+      {
+        "theme": "AI infrastructure bottlenecks remain investable thesis nodes",
+        "supporting_event_ids": [
+          "mevt_20260516_hbm_supply_bottleneck_sk hynix_micron",
+          "mevt_20260516_cowos_expansion_tsm_capacity"
+        ],
+        "brief_note": "The capacity constraint has not disappeared; it is rotating across memory, packaging, substrates, and power delivery."
+      },
+      {
+        "theme": "Power procurement is becoming strategic AI capacity control",
+        "supporting_event_ids": [
+          "mevt_20260516_nuclear_ppa_datacenter_power",
+          "mevt_20260516_datacenter_lease_hyperscale_campus"
+        ],
+        "brief_note": "Long-duration PPAs and high-density leases make power access a key differentiator for AI deployment timelines."
+      },
+      {
+        "theme": "Policy risk remains a live semiconductor valuation factor",
+        "supporting_event_ids": [
+          "mevt_20260516_export_control_update_ai_accelerators"
+        ],
+        "brief_note": "Export-control updates can reshape product mix, compliance costs, and regional demand timing."
+      }
+    ],
+    "ticker_focus_list": [
+      {
+        "ticker": "NVDA",
+        "reason": "Most exposed to the combined demand, HBM, CoWoS, and export-control signal set."
+      },
+      {
+        "ticker": "TSM",
+        "reason": "Central to advanced packaging capacity relief and AI accelerator supply throughput."
+      },
+      {
+        "ticker": "VRT",
+        "reason": "Direct beneficiary of power-dense AI datacenter buildouts and cooling requirements."
+      },
+      {
+        "ticker": "CEG",
+        "reason": "Nuclear PPA activity reinforces the baseload-power scarcity thesis for AI campuses."
+      },
+      {
+        "ticker": "ANET",
+        "reason": "AI cluster growth supports ethernet switching demand and cloud networking upgrades."
+      }
+    ],
+    "open_questions": [
+      "Do hyperscaler AI workloads show enough utilization and monetization to justify the new capex run rate?",
+      "Does CoWoS expansion arrive soon enough to unlock accelerator revenue upside in the next two reported quarters?",
+      "Are HBM suppliers gaining durable pricing power or only temporary scarcity premiums?",
+      "Do export-control updates materially alter accelerator shipment mix or simply redirect demand to compliant variants?",
+      "Which announced datacenter leases have committed power versus speculative future interconnection capacity?"
+    ],
+    "next_review_triggers": [
+      "Hyperscaler earnings calls with capex and AI revenue detail",
+      "HBM supplier qualification or capacity prepayment disclosures",
+      "Foundry advanced packaging monthly revenue or capex updates",
+      "Utility PPA filings and interconnection queue changes",
+      "Regulatory implementation guidance for AI accelerator export controls"
+    ]
+  },
+  "portfolio_snapshot": {
+    "snapshot_id": "psnap_20260516_ai_infra_core",
+    "as_of": "2026-05-16T08:00:00Z",
+    "currency": "USD",
+    "advisory_label": "local_research_snapshot_not_broker_statement",
+    "source": "manual_portfolio_snapshot",
+    "total_market_value": 425000.0,
+    "cash_placeholder": 18750.0,
+    "gross_equity_exposure": 406250.0,
+    "position_count": 19,
+    "positions": [
+      {
+        "ticker": "NVDA",
+        "company": "NVIDIA",
+        "segment_tags": [
+          "accelerators",
+          "ai_networking",
+          "cuda_platform"
+        ],
+        "market_value": 55250.0,
+        "portfolio_weight": 13.0,
+        "cost_basis": 48200.0,
+        "unrealized_pnl": 7050.0,
+        "open_trade_plan_id": "tpln_20260516_nvda_accumulate_pullback",
+        "risk_flags": [
+          "hbm_allocation",
+          "export_control"
+        ]
+      },
+      {
+        "ticker": "AMD",
+        "company": "Advanced Micro Devices",
+        "segment_tags": [
+          "accelerators",
+          "cpu_gpu_platform"
+        ],
+        "market_value": 26775.0,
+        "portfolio_weight": 6.3,
+        "cost_basis": 29100.0,
+        "unrealized_pnl": -2325.0,
+        "open_trade_plan_id": "tpln_20260516_amd_watch_mi300",
+        "risk_flags": [
+          "share_gain_execution"
+        ]
+      },
+      {
+        "ticker": "AVGO",
+        "company": "Broadcom",
+        "segment_tags": [
+          "custom_silicon",
+          "networking_silicon"
+        ],
+        "market_value": 35275.0,
+        "portfolio_weight": 8.3,
+        "cost_basis": 30900.0,
+        "unrealized_pnl": 4375.0,
+        "open_trade_plan_id": "tpln_20260516_avgo_hold_custom_silicon",
+        "risk_flags": [
+          "hyperscaler_concentration"
+        ]
+      },
+      {
+        "ticker": "TSM",
+        "company": "Taiwan Semiconductor Manufacturing Company",
+        "segment_tags": [
+          "foundry",
+          "advanced_packaging",
+          "cowos"
+        ],
+        "market_value": 34000.0,
+        "portfolio_weight": 8.0,
+        "cost_basis": 28650.0,
+        "unrealized_pnl": 5350.0,
+        "open_trade_plan_id": "tpln_20260516_tsm_add_cowos",
+        "risk_flags": [
+          "geopolitical",
+          "customer_concentration"
+        ]
+      },
+      {
+        "ticker": "ASML",
+        "company": "ASML",
+        "segment_tags": [
+          "semicap",
+          "lithography"
+        ],
+        "market_value": 23375.0,
+        "portfolio_weight": 5.5,
+        "cost_basis": 24750.0,
+        "unrealized_pnl": -1375.0,
+        "open_trade_plan_id": "tpln_20260516_asml_hold_policy_watch",
+        "risk_flags": [
+          "export_control",
+          "china_revenue"
+        ]
+      },
+      {
+        "ticker": "MU",
+        "company": "Micron",
+        "segment_tags": [
+          "hbm",
+          "memory"
+        ],
+        "market_value": 21250.0,
+        "portfolio_weight": 5.0,
+        "cost_basis": 18500.0,
+        "unrealized_pnl": 2750.0,
+        "open_trade_plan_id": "tpln_20260516_mu_hbm_breakout",
+        "risk_flags": [
+          "hbm_qualification"
+        ]
+      },
+      {
+        "ticker": "ANET",
+        "company": "Arista Networks",
+        "segment_tags": [
+          "ai_networking",
+          "ethernet_fabrics"
+        ],
+        "market_value": 25500.0,
+        "portfolio_weight": 6.0,
+        "cost_basis": 21850.0,
+        "unrealized_pnl": 3650.0,
+        "open_trade_plan_id": "tpln_20260516_anet_hold_ai_ethernet",
+        "risk_flags": [
+          "cloud_customer_concentration"
+        ]
+      },
+      {
+        "ticker": "MRVL",
+        "company": "Marvell Technology",
+        "segment_tags": [
+          "custom_silicon",
+          "optical_dsp"
+        ],
+        "market_value": 16150.0,
+        "portfolio_weight": 3.8,
+        "cost_basis": 17300.0,
+        "unrealized_pnl": -1150.0,
+        "open_trade_plan_id": "tpln_20260516_mrvl_watch_custom_asic",
+        "risk_flags": [
+          "customer_timing"
+        ]
+      },
+      {
+        "ticker": "VRT",
+        "company": "Vertiv",
+        "segment_tags": [
+          "power_cooling",
+          "liquid_cooling"
+        ],
+        "market_value": 28050.0,
+        "portfolio_weight": 6.6,
+        "cost_basis": 19225.0,
+        "unrealized_pnl": 8825.0,
+        "open_trade_plan_id": "tpln_20260516_vrt_trim_strength",
+        "risk_flags": [
+          "valuation_extension"
+        ]
+      },
+      {
+        "ticker": "ETN",
+        "company": "Eaton",
+        "segment_tags": [
+          "electrical_equipment",
+          "grid_power"
+        ],
+        "market_value": 19125.0,
+        "portfolio_weight": 4.5,
+        "cost_basis": 16800.0,
+        "unrealized_pnl": 2325.0,
+        "open_trade_plan_id": "tpln_20260516_etn_hold_power_backlog",
+        "risk_flags": [
+          "industrial_multiple"
+        ]
+      },
+      {
+        "ticker": "PWR",
+        "company": "Quanta Services",
+        "segment_tags": [
+          "grid_services",
+          "interconnection"
+        ],
+        "market_value": 15300.0,
+        "portfolio_weight": 3.6,
+        "cost_basis": 13250.0,
+        "unrealized_pnl": 2050.0,
+        "open_trade_plan_id": "tpln_20260516_pwr_add_grid_queue",
+        "risk_flags": [
+          "project_timing"
+        ]
+      },
+      {
+        "ticker": "CEG",
+        "company": "Constellation Energy",
+        "segment_tags": [
+          "nuclear_power",
+          "datacenter_power"
+        ],
+        "market_value": 18275.0,
+        "portfolio_weight": 4.3,
+        "cost_basis": 14175.0,
+        "unrealized_pnl": 4100.0,
+        "open_trade_plan_id": "tpln_20260516_ceg_hold_ppa_optional",
+        "risk_flags": [
+          "regulatory_approval"
+        ]
+      },
+      {
+        "ticker": "DLR",
+        "company": "Digital Realty",
+        "segment_tags": [
+          "datacenter_reit",
+          "hyperscale_leasing"
+        ],
+        "market_value": 12325.0,
+        "portfolio_weight": 2.9,
+        "cost_basis": 11900.0,
+        "unrealized_pnl": 425.0,
+        "open_trade_plan_id": "tpln_20260516_dlr_watch_power_leases",
+        "risk_flags": [
+          "rate_sensitivity"
+        ]
+      },
+      {
+        "ticker": "EQIX",
+        "company": "Equinix",
+        "segment_tags": [
+          "datacenter_reit",
+          "interconnection"
+        ],
+        "market_value": 11900.0,
+        "portfolio_weight": 2.8,
+        "cost_basis": 12650.0,
+        "unrealized_pnl": -750.0,
+        "open_trade_plan_id": "tpln_20260516_eqix_hold_interconnection",
+        "risk_flags": [
+          "rate_sensitivity"
+        ]
+      },
+      {
+        "ticker": "ORCL",
+        "company": "Oracle",
+        "segment_tags": [
+          "cloud_platform",
+          "gpu_capacity_resale"
+        ],
+        "market_value": 19125.0,
+        "portfolio_weight": 4.5,
+        "cost_basis": 17175.0,
+        "unrealized_pnl": 1950.0,
+        "open_trade_plan_id": "tpln_20260516_orcl_watch_capacity_backlog",
+        "risk_flags": [
+          "capex_funding",
+          "contract_concentration"
+        ]
+      },
+      {
+        "ticker": "MSFT",
+        "company": "Microsoft",
+        "segment_tags": [
+          "cloud_platform",
+          "ai_software_monetization"
+        ],
+        "market_value": 34000.0,
+        "portfolio_weight": 8.0,
+        "cost_basis": 30300.0,
+        "unrealized_pnl": 3700.0,
+        "open_trade_plan_id": "tpln_20260516_msft_hold_capex_monitor",
+        "risk_flags": [
+          "capex_duration",
+          "depreciation_pressure"
+        ]
+      },
+      {
+        "ticker": "GOOGL",
+        "company": "Alphabet",
+        "segment_tags": [
+          "cloud_platform",
+          "tpu",
+          "power_procurement"
+        ],
+        "market_value": 25075.0,
+        "portfolio_weight": 5.9,
+        "cost_basis": 23100.0,
+        "unrealized_pnl": 1975.0,
+        "open_trade_plan_id": "tpln_20260516_googl_hold_power_tpu",
+        "risk_flags": [
+          "ai_monetization",
+          "capex_duration"
+        ]
+      },
+      {
+        "ticker": "AMZN",
+        "company": "Amazon",
+        "segment_tags": [
+          "cloud_platform",
+          "aws_ai_capacity"
+        ],
+        "market_value": 30175.0,
+        "portfolio_weight": 7.1,
+        "cost_basis": 26250.0,
+        "unrealized_pnl": 3925.0,
+        "open_trade_plan_id": "tpln_20260516_amzn_hold_aws_ai",
+        "risk_flags": [
+          "retail_margin_offset",
+          "capex_duration"
+        ]
+      },
+      {
+        "ticker": "META",
+        "company": "Meta Platforms",
+        "segment_tags": [
+          "ai_capex",
+          "model_training_demand"
+        ],
+        "market_value": 24650.0,
+        "portfolio_weight": 5.8,
+        "cost_basis": 20175.0,
+        "unrealized_pnl": 4475.0,
+        "open_trade_plan_id": "tpln_20260516_meta_trim_capex_debate",
+        "risk_flags": [
+          "capex_monetization_gap"
+        ]
+      }
+    ]
+  },
+  "open_trade_plans": [
+    {
+      "trade_plan_id": "tpln_20260516_nvda_accumulate_pullback",
+      "ticker": "NVDA",
+      "company": "NVIDIA",
+      "status": "active",
+      "advisory_action": "accumulate_on_pullback",
+      "linked_event_ids": [
+        "mevt_20260516_hyperscaler_capex_raise_msft_az_ai",
+        "mevt_20260516_cowos_expansion_tsm_capacity"
+      ],
+      "linked_signal_bundle_id": "sig_20260516_nvda_ai_accel_001",
+      "linked_recommendation_artifact_id": "rec_20260516_nvda_accumulate_001",
+      "readiness": "blocked_until_hbm_and_policy_checks_reviewed",
+      "blocking_reasons": [
+        "HBM allocation tightness limits near-term shipment upside",
+        "Export-control update needs revenue mix review"
+      ],
+      "manual_journal_only": true
+    },
+    {
+      "trade_plan_id": "tpln_20260516_tsm_add_cowos",
+      "ticker": "TSM",
+      "company": "Taiwan Semiconductor Manufacturing Company",
+      "status": "active",
+      "advisory_action": "add_if_packaging_ramp_confirmed",
+      "linked_event_ids": [
+        "mevt_20260516_cowos_expansion_tsm_capacity"
+      ],
+      "linked_signal_bundle_id": "sig_20260516_tsm_cowos_001",
+      "linked_recommendation_artifact_id": "rec_20260516_tsm_accumulate_001",
+      "readiness": "review_ready",
+      "blocking_reasons": [],
+      "manual_journal_only": true
+    },
+    {
+      "trade_plan_id": "tpln_20260516_mu_hbm_breakout",
+      "ticker": "MU",
+      "company": "Micron",
+      "status": "draft",
+      "advisory_action": "watch_for_hbm_qualification",
+      "linked_event_ids": [
+        "mevt_20260516_hbm_supply_bottleneck_sk hynix_micron"
+      ],
+      "linked_signal_bundle_id": "sig_20260516_mu_hbm_001",
+      "linked_recommendation_artifact_id": "rec_20260516_mu_watch_001",
+      "readiness": "blocked_until_customer_qualification_evidence",
+      "blocking_reasons": [
+        "Supplier share gain is not confirmed by customer-level evidence"
+      ],
+      "manual_journal_only": true
+    },
+    {
+      "trade_plan_id": "tpln_20260516_vrt_trim_strength",
+      "ticker": "VRT",
+      "company": "Vertiv",
+      "status": "active",
+      "advisory_action": "trim_if_valuation_extends_without_backlog_confirmation",
+      "linked_event_ids": [
+        "mevt_20260516_datacenter_lease_hyperscale_campus",
+        "mevt_20260516_nuclear_ppa_datacenter_power"
+      ],
+      "linked_signal_bundle_id": "sig_20260516_vrt_power_cooling_001",
+      "linked_recommendation_artifact_id": "rec_20260516_vrt_trim_watch_001",
+      "readiness": "review_ready",
+      "blocking_reasons": [],
+      "manual_journal_only": true
+    },
+    {
+      "trade_plan_id": "tpln_20260516_meta_trim_capex_debate",
+      "ticker": "META",
+      "company": "Meta Platforms",
+      "status": "paused",
+      "advisory_action": "trim_review_if_capex_monetization_gap_widens",
+      "linked_event_ids": [
+        "mevt_20260516_hyperscaler_capex_raise_msft_az_ai"
+      ],
+      "linked_signal_bundle_id": "sig_20260516_meta_capex_001",
+      "linked_recommendation_artifact_id": "rec_20260516_meta_hold_watch_001",
+      "readiness": "paused_for_earnings_context",
+      "blocking_reasons": [
+        "Need latest ad growth and AI engagement evidence before changing exposure"
+      ],
+      "manual_journal_only": true
+    }
+  ],
+  "watchlist_alerts": [
+    {
+      "alert_id": "walert_20260516_nvda_policy_gap",
+      "ticker": "NVDA",
+      "alert_type": "policy_risk",
+      "severity": "high",
+      "summary": "Export-control update may require review of restricted-region AI accelerator revenue assumptions.",
+      "linked_event_id": "mevt_20260516_export_control_update_ai_accelerators",
+      "suggested_workbench": "Ticker Analyst Workbench",
+      "created_at": "2026-05-16T07:15:00Z"
+    },
+    {
+      "alert_id": "walert_20260516_mu_hbm_pricing",
+      "ticker": "MU",
+      "alert_type": "supply_bottleneck",
+      "severity": "medium_high",
+      "summary": "HBM capacity tightness supports pricing but requires customer qualification evidence.",
+      "linked_event_id": "mevt_20260516_hbm_supply_bottleneck_sk hynix_micron",
+      "suggested_workbench": "Trade Plan + Entry/Exit Workbench",
+      "created_at": "2026-05-16T07:18:00Z"
+    },
+    {
+      "alert_id": "walert_20260516_ceg_ppa",
+      "ticker": "CEG",
+      "alert_type": "power_procurement",
+      "severity": "medium",
+      "summary": "Nuclear PPA activity reinforces contracted baseload-power scarcity thesis.",
+      "linked_event_id": "mevt_20260516_nuclear_ppa_datacenter_power",
+      "suggested_workbench": "Ticker Analyst Workbench",
+      "created_at": "2026-05-16T07:24:00Z"
+    },
+    {
+      "alert_id": "walert_20260516_orcl_gpu_capacity",
+      "ticker": "ORCL",
+      "alert_type": "capacity_backlog",
+      "severity": "medium",
+      "summary": "OCI AI backlog thesis depends on leased GPU capacity delivery and customer concentration review.",
+      "linked_event_id": "mevt_20260516_datacenter_lease_hyperscale_campus",
+      "suggested_workbench": "Ticker Analyst Workbench",
+      "created_at": "2026-05-16T07:31:00Z"
+    },
+    {
+      "alert_id": "walert_20260516_asml_export",
+      "ticker": "ASML",
+      "alert_type": "export_control",
+      "severity": "medium",
+      "summary": "Updated AI infrastructure controls may affect China-related semicap demand timing.",
+      "linked_event_id": "mevt_20260516_export_control_update_ai_accelerators",
+      "suggested_workbench": "AI Infrastructure Ecosystem Map",
+      "created_at": "2026-05-16T07:44:00Z"
+    }
+  ],
+  "suggested_actions": [
+    {
+      "action_id": "act_20260516_review_nvda_export_controls",
+      "priority": "high",
+      "action_type": "review_trade_plan",
+      "ticker": "NVDA",
+      "label": "Review NVDA plan before any manual add",
+      "rationale": "Demand signal is strong, but export-control and HBM bottleneck checks are both active.",
+      "required_objects": [
+        "rec_20260516_nvda_accumulate_001",
+        "risk_20260516_policy_friction",
+        "risk_20260516_bottleneck_rotation_hbm_to_packaging"
+      ],
+      "allowed_user_action": "open_workbench_or_record_local_note",
+      "forbidden_user_action": "submit_or_route_order"
+    },
+    {
+      "action_id": "act_20260516_update_tsm_cowos_plan",
+      "priority": "medium_high",
+      "action_type": "update_trade_plan",
+      "ticker": "TSM",
+      "label": "Update TSM add plan with CoWoS ramp evidence",
+      "rationale": "CoWoS expansion is supportive, but timing and capex cadence should be linked to the plan.",
+      "required_objects": [
+        "mevt_20260516_cowos_expansion_tsm_capacity",
+        "levels_20260516_tsm"
+      ],
+      "allowed_user_action": "edit_local_trade_plan_note",
+      "forbidden_user_action": "broker_order_entry"
+    },
+    {
+      "action_id": "act_20260516_check_power_cluster",
+      "priority": "medium",
+      "action_type": "portfolio_exposure_review",
+      "ticker": "VRT",
+      "label": "Review power and cooling cluster exposure",
+      "rationale": "VRT, ETN, PWR, and CEG exposure benefits from power scarcity but increases single-theme crowding.",
+      "required_objects": [
+        "corr_20260516_power_grid_cluster",
+        "psnap_20260516_ai_infra_core"
+      ],
+      "allowed_user_action": "open_portfolio_exposure_balancer",
+      "forbidden_user_action": "automated_rebalance"
+    },
+    {
+      "action_id": "act_20260516_journal_meta_pause",
+      "priority": "medium",
+      "action_type": "journal_note",
+      "ticker": "META",
+      "label": "Record why META trim review remains paused",
+      "rationale": "Capex concern exists, but latest monetization evidence is incomplete.",
+      "required_objects": [
+        "tpln_20260516_meta_trim_capex_debate"
+      ],
+      "allowed_user_action": "record_local_journal_note",
+      "forbidden_user_action": "trade_execution"
+    }
+  ],
+  "trade_journal_summary": {
+    "journal_id": "tj_20260516_local_ai_infra",
+    "period_start": "2026-05-01",
+    "period_end": "2026-05-16",
+    "local_only": true,
+    "entry_count": 7,
+    "completed_manual_trade_count": 3,
+    "intended_trade_count": 2,
+    "note_count": 2,
+    "latest_entries": [
+      {
+        "trade_entry_id": "te_20260515_vrt_trim_note",
+        "ticker": "VRT",
+        "entry_type": "completed_manual",
+        "linked_trade_plan_id": "tpln_20260516_vrt_trim_strength",
+        "summary": "Recorded a partial manual trim after valuation review; no broker transmission is represented in this journal.",
+        "outcome_status": "pending_review"
+      },
+      {
+        "trade_entry_id": "te_20260514_tsm_intended_add",
+        "ticker": "TSM",
+        "entry_type": "intended",
+        "linked_trade_plan_id": "tpln_20260516_tsm_add_cowos",
+        "summary": "Intended add if CoWoS ramp evidence is confirmed and entry zone remains valid.",
+        "outcome_status": "open"
+      },
+      {
+        "trade_entry_id": "te_20260513_mu_watch_note",
+        "ticker": "MU",
+        "entry_type": "note",
+        "linked_trade_plan_id": "tpln_20260516_mu_hbm_breakout",
+        "summary": "Waiting for customer qualification evidence before upgrading from watch.",
+        "outcome_status": "watching"
+      }
+    ],
+    "review_flags": [
+      "NVDA add plan lacks updated export-control review",
+      "META paused trim plan needs earnings context",
+      "Power cluster exposure increased after VRT outperformance"
+    ]
+  },
+  "pnl_summary": {
+    "pnl_id": "pnl_20260516_ai_infra",
+    "as_of": "2026-05-16T08:00:00Z",
+    "calculation_owner": "deterministic_portfolio_engine",
+    "currency": "USD",
+    "daily_unrealized_pnl": 4825.0,
+    "month_to_date_realized_pnl": 6250.0,
+    "month_to_date_unrealized_pnl": 50250.0,
+    "total_unrealized_pnl": 55200.0,
+    "top_positive_contributors": [
+      {
+        "ticker": "VRT",
+        "pnl": 8825.0,
+        "driver": "power_dense_datacenter_backlog"
+      },
+      {
+        "ticker": "NVDA",
+        "pnl": 7050.0,
+        "driver": "accelerator_demand_and_cowos_relief"
+      },
+      {
+        "ticker": "TSM",
+        "pnl": 5350.0,
+        "driver": "advanced_packaging_capacity"
+      }
+    ],
+    "top_negative_contributors": [
+      {
+        "ticker": "AMD",
+        "pnl": -2325.0,
+        "driver": "share_gain_timing_uncertainty"
+      },
+      {
+        "ticker": "ASML",
+        "pnl": -1375.0,
+        "driver": "export_control_and_china_demand_risk"
+      },
+      {
+        "ticker": "MRVL",
+        "pnl": -1150.0,
+        "driver": "custom_asic_customer_timing"
+      }
+    ],
+    "thesis_bucket_pnl": [
+      {
+        "bucket": "accelerators_and_custom_silicon",
+        "pnl": 7950.0
+      },
+      {
+        "bucket": "foundry_and_cowos",
+        "pnl": 3975.0
+      },
+      {
+        "bucket": "power_grid_and_cooling",
+        "pnl": 17200.0
+      },
+      {
+        "bucket": "cloud_ai_capex",
+        "pnl": 16025.0
+      }
+    ]
+  },
+  "price_target_scenarios": [
+    {
+      "scenario_id": "pts_20260516_nvda",
+      "ticker": "NVDA",
+      "as_of": "2026-05-16T08:00:00Z",
+      "calculation_owner": "deterministic_scenario_engine",
+      "bear_case": {
+        "target_price": 780.0,
+        "assumptions": [
+          "HBM allocation restricts shipment upside",
+          "Export controls reduce restricted-region revenue"
+        ]
+      },
+      "base_case": {
+        "target_price": 980.0,
+        "assumptions": [
+          "Hyperscaler demand remains strong",
+          "CoWoS capacity improves through late 2026"
+        ]
+      },
+      "bull_case": {
+        "target_price": 1180.0,
+        "assumptions": [
+          "HBM supply unlocks additional accelerator volume",
+          "Networking and software attach improve mix"
+        ]
+      }
+    },
+    {
+      "scenario_id": "pts_20260516_tsm",
+      "ticker": "TSM",
+      "as_of": "2026-05-16T08:00:00Z",
+      "calculation_owner": "deterministic_scenario_engine",
+      "bear_case": {
+        "target_price": 145.0,
+        "assumptions": [
+          "Advanced packaging ramp slips",
+          "Customer concentration risk compresses multiple"
+        ]
+      },
+      "base_case": {
+        "target_price": 185.0,
+        "assumptions": [
+          "CoWoS capacity expands on schedule",
+          "AI accelerator wafer demand remains durable"
+        ]
+      },
+      "bull_case": {
+        "target_price": 220.0,
+        "assumptions": [
+          "Packaging scarcity supports pricing",
+          "Multiple AI customers prepay capacity"
+        ]
+      }
+    },
+    {
+      "scenario_id": "pts_20260516_vrt",
+      "ticker": "VRT",
+      "as_of": "2026-05-16T08:00:00Z",
+      "calculation_owner": "deterministic_scenario_engine",
+      "bear_case": {
+        "target_price": 82.0,
+        "assumptions": [
+          "Valuation compresses after order growth decelerates",
+          "Liquid cooling margin contribution disappoints"
+        ]
+      },
+      "base_case": {
+        "target_price": 108.0,
+        "assumptions": [
+          "Power-dense datacenter backlog converts steadily",
+          "Cooling attach rates rise with AI rack density"
+        ]
+      },
+      "bull_case": {
+        "target_price": 132.0,
+        "assumptions": [
+          "Liquid cooling backlog accelerates",
+          "Hyperscaler power architecture refresh expands content per rack"
+        ]
+      }
+    },
+    {
+      "scenario_id": "pts_20260516_mu",
+      "ticker": "MU",
+      "as_of": "2026-05-16T08:00:00Z",
+      "calculation_owner": "deterministic_scenario_engine",
+      "bear_case": {
+        "target_price": 94.0,
+        "assumptions": [
+          "HBM share gains are slower than expected",
+          "Commodity memory pricing weakens"
+        ]
+      },
+      "base_case": {
+        "target_price": 126.0,
+        "assumptions": [
+          "HBM3E qualifications expand",
+          "AI memory mix improves gross margin"
+        ]
+      },
+      "bull_case": {
+        "target_price": 155.0,
+        "assumptions": [
+          "HBM capacity is pre-sold at favorable pricing",
+          "Customer concentration improves"
+        ]
+      }
+    }
+  ],
+  "entry_exit_levels": [
+    {
+      "levels_id": "levels_20260516_nvda",
+      "ticker": "NVDA",
+      "calculation_owner": "deterministic_levels_engine",
+      "entry_zone": "880_to_910",
+      "add_zone": "820_to_850",
+      "trim_zone": "1080_to_1120",
+      "exit_candidate_below": 760.0,
+      "invalidation_condition": "AI accelerator demand remains strong but HBM allocation or export controls materially reduce forward shipment assumptions.",
+      "stale_after": "2026-05-23T08:00:00Z"
+    },
+    {
+      "levels_id": "levels_20260516_tsm",
+      "ticker": "TSM",
+      "calculation_owner": "deterministic_levels_engine",
+      "entry_zone": "164_to_170",
+      "add_zone": "152_to_158",
+      "trim_zone": "198_to_205",
+      "exit_candidate_below": 138.0,
+      "invalidation_condition": "CoWoS ramp slips or AI customer packaging demand weakens materially.",
+      "stale_after": "2026-05-23T08:00:00Z"
+    },
+    {
+      "levels_id": "levels_20260516_vrt",
+      "ticker": "VRT",
+      "calculation_owner": "deterministic_levels_engine",
+      "entry_zone": "91_to_96",
+      "add_zone": "84_to_88",
+      "trim_zone": "118_to_125",
+      "exit_candidate_below": 78.0,
+      "invalidation_condition": "AI datacenter backlog or cooling margin evidence deteriorates while valuation remains extended.",
+      "stale_after": "2026-05-23T08:00:00Z"
+    },
+    {
+      "levels_id": "levels_20260516_ceg",
+      "ticker": "CEG",
+      "calculation_owner": "deterministic_levels_engine",
+      "entry_zone": "205_to_214",
+      "add_zone": "188_to_196",
+      "trim_zone": "248_to_260",
+      "exit_candidate_below": 176.0,
+      "invalidation_condition": "Nuclear PPA economics or regulatory approvals fail to support datacenter-power thesis.",
+      "stale_after": "2026-05-23T08:00:00Z"
+    }
+  ],
+  "correlation_exposures": [
+    {
+      "correlation_id": "corr_20260516_accelerator_cluster",
+      "cluster_name": "Accelerators and custom silicon",
+      "tickers": [
+        "NVDA",
+        "AMD",
+        "AVGO",
+        "MRVL"
+      ],
+      "portfolio_weight": 31.4,
+      "primary_driver": "hyperscaler_ai_capex",
+      "secondary_drivers": [
+        "HBM supply",
+        "CoWoS capacity",
+        "export controls"
+      ],
+      "risk_state": "elevated",
+      "suggested_review": "Check that any NVDA or AVGO add does not over-concentrate the same capex cycle."
+    },
+    {
+      "correlation_id": "corr_20260516_power_grid_cluster",
+      "cluster_name": "Power, grid, and cooling",
+      "tickers": [
+        "VRT",
+        "ETN",
+        "PWR",
+        "CEG"
+      ],
+      "portfolio_weight": 19.0,
+      "primary_driver": "datacenter_power_scarcity",
+      "secondary_drivers": [
+        "nuclear PPAs",
+        "interconnection queues",
+        "liquid cooling adoption"
+      ],
+      "risk_state": "watch",
+      "suggested_review": "Power scarcity thesis is working, but VRT valuation and CEG regulatory approvals should be reviewed separately."
+    },
+    {
+      "correlation_id": "corr_20260516_cloud_capex_cluster",
+      "cluster_name": "Cloud AI capex platforms",
+      "tickers": [
+        "MSFT",
+        "GOOGL",
+        "AMZN",
+        "META",
+        "ORCL"
+      ],
+      "portfolio_weight": 31.3,
+      "primary_driver": "ai_capex_duration",
+      "secondary_drivers": [
+        "ai_monetization",
+        "depreciation pressure",
+        "datacenter lease availability"
+      ],
+      "risk_state": "watch",
+      "suggested_review": "Cloud exposure is broad but still tied to the same AI capex duration debate."
+    },
+    {
+      "correlation_id": "corr_20260516_datacenter_reit_cluster",
+      "cluster_name": "Datacenter REIT and interconnection",
+      "tickers": [
+        "DLR",
+        "EQIX"
+      ],
+      "portfolio_weight": 5.7,
+      "primary_driver": "hyperscale_leasing",
+      "secondary_drivers": [
+        "rates",
+        "power availability",
+        "high-density campus demand"
+      ],
+      "risk_state": "moderate",
+      "suggested_review": "Lease demand is positive, but rate sensitivity and power availability are separate gating items."
+    },
+    {
+      "correlation_id": "corr_20260516_semicap_foundry_cluster",
+      "cluster_name": "Foundry, CoWoS, and semicap equipment",
+      "tickers": [
+        "TSM",
+        "ASML"
+      ],
+      "portfolio_weight": 13.5,
+      "primary_driver": "advanced_packaging_and_lithography",
+      "secondary_drivers": [
+        "CoWoS expansion",
+        "export controls",
+        "AI wafer demand"
+      ],
+      "risk_state": "moderate_high",
+      "suggested_review": "Separate TSM packaging upside from ASML export-control exposure."
+    }
+  ],
+  "llm_analyst_notes": [
+    {
+      "note_id": "llmnote_20260516_cockpit_summary",
+      "model_run_id": "mrun_20260516_sabrief_extract_007",
+      "scope": "daily_trading_cockpit",
+      "allowed_role": "summarize_and_critique",
+      "note": "The strongest actionable research cluster is still AI infrastructure capacity: accelerators, CoWoS, HBM, and power. NVDA and TSM have positive demand evidence, but NVDA requires a fresh export-control and HBM allocation review before any manual add is journaled.",
+      "deterministic_fields_not_modified": [
+        "portfolio_weight",
+        "target_weight",
+        "entry_exit_levels",
+        "pnl_summary",
+        "correlation_exposures"
+      ]
+    },
+    {
+      "note_id": "llmnote_20260516_power_cluster",
+      "model_run_id": "mrun_20260516_sabrief_extract_008",
+      "scope": "portfolio_exposure_balancer",
+      "allowed_role": "explain_risk_cluster",
+      "note": "Power and cooling exposure is thesis-consistent after the nuclear PPA and high-density lease events. The main critique is crowding: VRT, ETN, PWR, and CEG benefit from related power-scarcity assumptions, but each has different timing and valuation risk.",
+      "deterministic_fields_not_modified": [
+        "correlation_cluster_weight",
+        "pnl_contribution",
+        "risk_state"
+      ]
+    },
+    {
+      "note_id": "llmnote_20260516_cloud_capex",
+      "model_run_id": "mrun_20260516_sabrief_extract_009",
+      "scope": "ticker_analyst_workbench",
+      "allowed_role": "identify_open_questions",
+      "note": "MSFT, GOOGL, AMZN, META, and ORCL are not interchangeable cloud capex exposures. MSFT and GOOGL need monetization versus depreciation review, AMZN needs AWS AI capacity utilization evidence, META needs capex-to-engagement evidence, and ORCL needs backlog delivery quality.",
+      "deterministic_fields_not_modified": [
+        "advisory_label",
+        "target_weight",
+        "trade_plan_readiness"
+      ]
+    }
+  ]
+}
