@@ -114,6 +114,8 @@ The product is a read-heavy analyst cockpit with local journal support:
 
 The UI should feel like a focused AI infrastructure trading advisory workstation, not a generic dashboard, stock screener, marketing site, broker console, or backtesting-first quant lab.
 
+Product and analyst-loop principles are maintained in `docs/ALPHA_ANALYST_PRINCIPLES.md`.
+
 ## Backtesting And Evaluation Role
 
 Backtesting is not the core product experience.

@@ -2,7 +2,29 @@
 
 ## Purpose
 
-Define the advisory-only crawler for AI equity intelligence. The crawler gathers public evidence about configured equity watchlist names, materializes provenance-backed evidence, and emits typed events for downstream advisory analysis. It does not create any live market action surface.
+Define the advisory-only crawler for AI equity intelligence. The crawler monitors configured public sources, detects macro, micro, thematic, company, financial, and segment-level changes, materializes provenance-backed evidence, and emits `SourceSignal` and `MarketEvent` objects for downstream advisory analysis.
+
+The crawler exists to support the AI Infrastructure Trading Advisory Workstation. It can support `TradingAdvisory` candidate updates through evidence-backed signals, but it must not create live market actions, broker outputs, order outputs, automated trading decisions, or execution surfaces.
+
+## Output Flow
+
+```text
+SourceFrontier
+-> SourceSignal
+-> EvidenceItem
+-> MarketEvent
+-> SegmentImpact
+-> TradingAdvisory candidate update
+```
+
+Output ownership:
+
+- `SourceFrontier` records where configured public sources should be monitored.
+- `SourceSignal` records a detected public-source change that may deserve materialization.
+- `EvidenceItem` records provenance-backed source evidence.
+- `MarketEvent` records a validated AI infrastructure catalyst.
+- `SegmentImpact` maps catalyst effects across the AI infrastructure stack.
+- `TradingAdvisory candidate update` is a reviewable advisory input, not an action, order, execution instruction, or automated trade decision.
 
 ## Source Of Truth
 
@@ -10,23 +32,32 @@ The crawler universe is config-driven:
 
 - `config/ai_equity_watchlist.yaml` owns ticker, company name, themes, sector tags, optional source URLs, and priority.
 - Business logic must load and validate that config instead of hard-coding watched companies.
-- Local user files remain ignored local inputs until validation classifies them as safe evidence candidates.
+- Local user files are outside the public-source crawler. If local research ingestion exists elsewhere, it must validate files before evidence materialization and must not reuse the public crawler as a private-document crawler.
 
 ## Advisory Boundary
 
 Allowed:
 
-- crawl public company, investor-relations, public filing, public technical, and public news sources
+- monitor configured public sources
+- crawl public company, investor-relations, public filing, public technical, macro, policy, sector, and public news sources
 - classify sources into data classes
-- extract claims, typed events, timestamps, and evidence spans
+- detect macro, micro, thematic, company, financial, and segment-level changes
+- extract source signals, claims, typed events, timestamps, and evidence spans
 - materialize evidence items, chunks, claims, and run artifacts
-- raise risk, thesis, refresh, or review events for advisory workflows
+- raise risk, thesis, refresh, source-signal, or review events for advisory workflows
+- support `TradingAdvisory` candidate updates with provenance and review gates
 
 Forbidden:
 
+- crawling arbitrary internet sources without watchlist or source-registry configuration
+- scraping paid reports
+- crawling private documents, local file trees, email inboxes, cloud drives, data rooms, or account portals
+- ingesting sensitive private financial documents
 - credentials for financial accounts or venues
 - private account forms, account-transfer PDFs, or other sensitive local documents as evidence
+- broker, order, route, fill, execution, or automated trading outputs
 - any live market action endpoint or UI control
+- any execution/trading action
 - using LLM output to produce deterministic scores, constraints, or target weights directly
 
 ## Source Frontier
@@ -38,10 +69,19 @@ Each frontier target is derived from a watchlist entry plus a source kind:
 | Source kind | Examples | Default data class |
 | --- | --- | --- |
 | company_home | company product and platform pages | public_evidence |
-| investor_relations | earnings releases, presentations, transcripts, filings links | public_evidence |
-| filings | SEC or exchange filing pages | public_evidence |
+| company_investor_relations | earnings releases, presentations, investor days, transcripts, filings links | public_evidence |
+| sec_filings | 10-K, 10-Q, 8-K, proxy, Form 4, 13F, and other public SEC pages | public_evidence |
 | technical_docs | product docs, benchmark pages, architecture notes | public_evidence |
-| public_news | public articles and press releases | public_evidence |
+| earnings_releases_transcripts | earnings releases, call transcripts, prepared remarks, and public Q&A summaries | public_evidence |
+| hyperscaler_capex_commentary | public capex guidance, cloud capacity commentary, and datacenter investment remarks | public_evidence |
+| semiconductor_supply_chain_news | public supply-chain, substrate, equipment, fab, and packaging capacity news | public_evidence |
+| hbm_memory_news | public HBM, DRAM, memory pricing, qualification, and capacity updates | public_evidence |
+| cowos_advanced_packaging_news | public CoWoS, advanced packaging, interposer, and substrate capacity updates | public_evidence |
+| datacenter_leasing_power_contracts | public leases, campus announcements, PPAs, interconnection updates, and power contracts | public_evidence |
+| utility_load_growth_guidance | utility earnings, load-growth guidance, grid capex, and interconnection queue commentary | public_evidence |
+| export_controls_geopolitical_policy | public export-control, sanctions, sovereign AI, national-security, and geopolitical policy updates | public_evidence |
+| macro_rates_liquidity_commentary | public rates, liquidity, credit, risk appetite, and market-structure commentary | public_market_data |
+| public_sentiment_news_flow | public articles, reputable news flow, public sentiment summaries, and press releases | public_evidence |
 
 Frontier records should track:
 
@@ -55,6 +95,8 @@ Frontier records should track:
 - failure count and backoff state
 
 The frontier is URL-level state. The watchlist is ticker-level configuration. Refresh jobs are the bridge between them.
+
+The frontier must not discover or crawl arbitrary internet sources outside configured watchlist entries, source registry records, or explicit approved public-source categories. Search-engine expansion is allowed only when it produces candidate URLs for human or policy approval before crawl scheduling.
 
 ## Refresh Jobs
 
@@ -112,7 +154,41 @@ Lease rules:
 
 ## Typed Events
 
-The crawler emits typed events from public evidence. Events are advisory signals, not actions.
+The crawler emits `SourceSignal` and typed `MarketEvent` records from public evidence. They are advisory signals, not actions.
+
+`SourceSignal` records should include:
+
+- `source_signal_id`
+- `frontier_url_id`
+- `source_kind`
+- `ticker`
+- `company`
+- `detected_at`
+- `signal_type`
+- `summary`
+- `source_url`
+- `content_hash`
+- `data_class`
+- `review_status`
+- `evidence_candidate_id` when materialized
+
+`SourceSignal` records are created only from configured public sources. A signal is not usable downstream until it links to an `EvidenceItem` or is explicitly rejected during review.
+
+Initial source signal types:
+
+- `new_public_document`
+- `changed_public_document`
+- `earnings_or_transcript_update`
+- `filing_update`
+- `capex_commentary_change`
+- `supply_chain_signal`
+- `hbm_memory_signal`
+- `advanced_packaging_signal`
+- `datacenter_or_power_signal`
+- `utility_load_growth_signal`
+- `export_control_or_policy_signal`
+- `macro_liquidity_signal`
+- `public_sentiment_signal`
 
 Initial event types:
 
@@ -126,6 +202,8 @@ Initial event types:
 - `partnership_signal`
 - `competitive_position_signal`
 - `data_center_power_signal`
+- `macro_liquidity_signal`
+- `valuation_context_signal`
 
 Each event must include:
 
@@ -142,6 +220,8 @@ Each event must include:
 
 Event extraction may use configured model routes only for allowed data classes. Deterministic code owns final scoring and portfolio constraints.
 
+`TradingAdvisory` candidate updates may reference crawler outputs only after evidence materialization and review gating. They must cite `EvidenceItem`, `MarketEvent`, and `SegmentImpact` records. They must never contain broker, order, route, fill, execution, automated-trading, or live-market-action instructions.
+
 ## Evidence Materialization
 
 Public crawl captures materialize into the existing evidence spine:
@@ -155,7 +235,9 @@ Public crawl captures materialize into the existing evidence spine:
 7. extract claims and typed events with provenance links
 8. write run artifacts tying crawler attempt, model run, evidence IDs, and event IDs together
 
-Private local research files must be validated before materialization. Sensitive Schwab, account-transfer, or routing-number PDFs are quarantined and must not become evidence items.
+Private local research files are not crawler inputs. If a separate manual-ingestion path validates local research before materialization, sensitive Schwab, account-transfer, or routing-number PDFs are quarantined and must not become evidence items.
+
+Paid reports, licensed research, private financial documents, broker statements, account exports, tax documents, and other sensitive private documents must not be crawled, scraped, or materialized by the public-source crawler.
 
 ## Storage Ownership
 
@@ -180,6 +262,9 @@ Each job must be restartable, idempotent where feasible, and observable through 
 - `config/ai_equity_watchlist.yaml` validates without hard-coded company lists in business logic.
 - Local CSV/file validators reject missing point-in-time fields, missing evidence provenance, and sensitive Schwab/routing PDFs.
 - Public source crawls produce evidence IDs before events are considered usable.
+- SourceSignals are created only from configured public sources.
+- MarketEvents and TradingAdvisory candidate updates link back to evidence IDs.
 - Refresh jobs and leases support crash recovery and bounded retry.
 - Typed events include source evidence IDs and model run IDs when model-assisted extraction is used.
+- The crawler never emits broker, order, route, fill, execution, automated-trading, or live-market-action outputs.
 - Architecture policy tests continue to pass.

@@ -14,9 +14,15 @@ The model supports an AI Infrastructure Trading Analyst Workstation. It is advis
 - No order tickets, route controls, submit buttons, fill states, or broker account views.
 - Manual trade entry is local journal only.
 - LLMs may classify, extract, summarize, review, critique, and explain.
+- LLMs may generate narrative, thesis interpretation, risk critique, and valuation scenario explanation.
 - LLMs must not own final scores, risk, constraints, target weights, portfolio exposure, entry/exit levels, or PnL calculations.
-- Deterministic code owns scores, risk, constraints, target weights, correlation exposure, concentration checks, entry/exit levels, scenario values, and PnL calculations.
+- Deterministic code owns scores, risk, constraints, target weights, correlation exposure, concentration checks, entry/exit levels, scenario values, PnL, exposure, risk-limit checks, and accounting.
 - Every recommendation-like label must link to evidence and audit records where available.
+- all advisory outputs are advisory-only.
+- every material claim links to evidence_ids or source evidence references.
+- Price targets are scenarios, not predictions.
+- Entry, add, trim, exit, and invalidation levels are planning guidance, not orders.
+- No object may include broker, route, exchange, order_id, execution_id, or auto_trade fields.
 
 ## Consumed Screens
 
@@ -31,10 +37,15 @@ The model supports an AI Infrastructure Trading Analyst Workstation. It is advis
 ## LLM Analyst Roles
 
 - `market_event_extractor`: creates draft `MarketEvent` objects from evidence.
+- `source_signal_monitor`: records raw monitored `SourceSignal` objects from public and licensed source lanes.
 - `market_event_reviewer`: reviews extracted events for provenance, clarity, and advisory wording.
+- `fundamental_snapshot_reviewer`: explains `FinancialSnapshot` inputs without changing deterministic values.
+- `valuation_context_analyst`: drafts valuation scenario interpretation for `ValuationContext`.
+- `macro_regime_reviewer`: explains `MacroRegimeSnapshot` conditions and critiques risk framing.
 - `segment_mapper`: creates or reviews draft `SegmentImpact` summaries from validated events.
 - `equity_thesis_analyst`: creates or reviews narrative parts of `EquityImpactAssessment`.
 - `risk_regime_reviewer`: reviews `RiskRegimeUpdate` explanations and relief conditions.
+- `trading_advisory_synthesizer`: drafts advisory-only `TradingAdvisory` narrative from validated upstream objects.
 - `trade_plan_critic`: reviews `TradePlan` consistency and drafts local journal notes.
 - `portfolio_exposure_explainer`: explains `PortfolioExposureSnapshot` outputs without changing deterministic values.
 - `brief_synthesizer`: creates narrative `AnalystBrief` summaries from validated upstream objects.
@@ -50,6 +61,435 @@ The model supports an AI Infrastructure Trading Analyst Workstation. It is advis
 - Objects with stale evidence must remain renderable but cannot be marked review-ready.
 - Any missing evidence, missing deterministic check, stale level, or unresolved contradiction must block action readiness.
 - UI consumers must render fields as provided. They must not compute scores, weights, PnL, target prices, entry/exit levels, or constraints.
+- Price targets and target scenarios must be displayed as scenario ranges or cases, never as predictions.
+- Entry zones, add zones, invalidation levels, and exit planning labels must be displayed as planning guidance, never as orders.
+- Source-derived records must preserve `content_hash` and evidence linkage before they influence advisory outputs.
+
+## SourceSignal
+
+### Purpose
+
+Represents a raw monitored signal from public internet, filings, financial data, macro data, analyst/news flow, or thematic source.
+
+### Fields
+
+- `signal_id`
+- `source_type`
+- `source_uri`
+- `publisher`
+- `captured_at`
+- `available_at`
+- `tickers`
+- `themes`
+- `segments`
+- `raw_summary`
+- `data_class`
+- `content_hash`
+- `evidence_id`
+- `confidence`
+
+### Required Fields
+
+- `signal_id`
+- `source_type`
+- `source_uri`
+- `publisher`
+- `captured_at`
+- `available_at`
+- `raw_summary`
+- `data_class`
+- `content_hash`
+- `evidence_id`
+- `confidence`
+
+### Evidence Requirements
+
+- Must link to exactly one canonical `EvidenceItem` through `evidence_id`.
+- Any ticker, theme, segment, or source summary claim must be traceable to the linked evidence.
+- Must preserve `content_hash` for source-derived deduplication and audit.
+
+### Validation Rules
+
+- `available_at` must not be earlier than `captured_at`.
+- `source_type` and `data_class` must be controlled values.
+- `confidence` must be bounded and cannot substitute for evidence.
+- SourceSignal records are raw monitored inputs, not trading advice.
+
+### Consumed By Screens
+
+- Daily Trading Cockpit
+- Live Market / Sentiment Radar
+- Ticker Analyst Workbench
+
+### LLM Analyst Role
+
+- Create: `source_signal_monitor` may summarize source content into `raw_summary`.
+- Review: `market_event_reviewer` or `llm_note_reviewer`.
+
+### Deterministic Fields
+
+- `signal_id`
+- `captured_at`
+- `available_at`
+- `data_class`
+- `content_hash`
+- evidence link integrity
+- duplicate detection
+
+## FinancialSnapshot
+
+### Purpose
+
+Represents latest company financial and valuation fundamentals used by the analyst workstation.
+
+### Fields
+
+- `ticker`
+- `as_of`
+- `revenue_growth`
+- `gross_margin`
+- `operating_margin`
+- `free_cash_flow`
+- `capex`
+- `debt`
+- `cash`
+- `forward_pe`
+- `ev_sales`
+- `ev_ebitda`
+- `analyst_estimate_revision`
+- `source_evidence_ids`
+
+### Required Fields
+
+- `ticker`
+- `as_of`
+- `revenue_growth`
+- `gross_margin`
+- `operating_margin`
+- `free_cash_flow`
+- `capex`
+- `debt`
+- `cash`
+- `forward_pe`
+- `ev_sales`
+- `ev_ebitda`
+- `analyst_estimate_revision`
+- `source_evidence_ids`
+
+### Evidence Requirements
+
+- Must include at least one `source_evidence_id`.
+- Every numeric value must trace to filings, financial data, analyst-estimate data, or a documented deterministic transform.
+- Estimate revisions must preserve source evidence and point-in-time availability.
+
+### Validation Rules
+
+- `ticker` must be in the universe or explicit watchlist.
+- `as_of` must represent the financial data timestamp, not UI render time.
+- Missing, stale, or conflicting fundamentals must be visible to advisory consumers.
+- LLMs may explain values but must not calculate or overwrite fundamentals.
+
+### Consumed By Screens
+
+- Ticker Analyst Workbench
+- Trade Plan + Entry/Exit Workbench
+- Portfolio + Exposure Balancer
+
+### LLM Analyst Role
+
+- Create: none for numeric values.
+- Review: `fundamental_snapshot_reviewer` may explain trends and data gaps.
+
+### Deterministic Fields
+
+- `ticker`
+- `as_of`
+- all numeric fundamentals
+- source evidence link integrity
+- freshness and stale-data flags
+
+## ValuationContext
+
+### Purpose
+
+Represents valuation interpretation, not final price truth.
+
+### Fields
+
+- `ticker`
+- `as_of`
+- `valuation_summary`
+- `peer_group`
+- `valuation_multiples`
+- `bear_case_assumptions`
+- `base_case_assumptions`
+- `bull_case_assumptions`
+- `price_target_scenarios`
+- `key_sensitivities`
+- `risk_flags`
+- `evidence_ids`
+- `generated_by_model_run_id`
+- `deterministic_inputs_hash`
+
+### Required Fields
+
+- `ticker`
+- `as_of`
+- `valuation_summary`
+- `peer_group`
+- `valuation_multiples`
+- `bear_case_assumptions`
+- `base_case_assumptions`
+- `bull_case_assumptions`
+- `price_target_scenarios`
+- `key_sensitivities`
+- `risk_flags`
+- `evidence_ids`
+- `generated_by_model_run_id`
+- `deterministic_inputs_hash`
+
+### Evidence Requirements
+
+- Must include `evidence_ids` for every material valuation claim.
+- Peer group, multiple selection, assumptions, sensitivities, and risk flags must be evidence-backed.
+- Price targets are scenarios, not predictions.
+
+### Validation Rules
+
+- `deterministic_inputs_hash` must cover the underlying financial inputs, peer data, and deterministic scenario inputs.
+- `generated_by_model_run_id` must resolve to a governed `ModelRun`.
+- `price_target_scenarios` must be labeled as bear, base, bull, or explicit custom cases.
+- ValuationContext cannot mark an entry, add, trim, or exit action as executable.
+
+### Consumed By Screens
+
+- Ticker Analyst Workbench
+- Trade Plan + Entry/Exit Workbench
+- Portfolio + Exposure Balancer
+
+### LLM Analyst Role
+
+- Create: `valuation_context_analyst` may draft valuation summary and scenario explanation.
+- Review: `llm_note_reviewer`.
+
+### Deterministic Fields
+
+- `ticker`
+- `as_of`
+- `valuation_multiples` when supplied by deterministic data transforms
+- `deterministic_inputs_hash`
+- scenario input values
+- evidence link integrity
+
+## MacroRegimeSnapshot
+
+### Purpose
+
+Represents macro and systemic context for advisory interpretation.
+
+### Fields
+
+- `as_of`
+- `rates_regime`
+- `liquidity_regime`
+- `risk_appetite`
+- `semiconductor_cycle`
+- `ai_capex_cycle`
+- `credit_conditions`
+- `energy_price_context`
+- `geopolitical_risk_level`
+- `evidence_ids`
+
+### Required Fields
+
+- `as_of`
+- `rates_regime`
+- `liquidity_regime`
+- `risk_appetite`
+- `semiconductor_cycle`
+- `ai_capex_cycle`
+- `credit_conditions`
+- `energy_price_context`
+- `geopolitical_risk_level`
+- `evidence_ids`
+
+### Evidence Requirements
+
+- Must include evidence for every macro or systemic regime claim.
+- Cycle, liquidity, credit, energy, and geopolitical labels must be traceable to source evidence or deterministic regime rules.
+
+### Validation Rules
+
+- `as_of` must represent the regime observation time.
+- Regime labels must be controlled values or include an explicit review-needed status.
+- MacroRegimeSnapshot can change advisory interpretation, but deterministic code owns exposure and risk-limit checks.
+
+### Consumed By Screens
+
+- Daily Trading Cockpit
+- Live Market / Sentiment Radar
+- Portfolio + Exposure Balancer
+
+### LLM Analyst Role
+
+- Create: `macro_regime_reviewer` may summarize and critique macro context.
+- Review: `risk_regime_reviewer`.
+
+### Deterministic Fields
+
+- `as_of`
+- regime labels when rule-derived
+- freshness state
+- evidence link integrity
+
+## TradingAdvisory
+
+### Purpose
+
+Represents an advisory-only output for a ticker or portfolio review.
+
+### Fields
+
+- `advisory_id`
+- `ticker_or_portfolio`
+- `advisory_label`
+- `analyst_action`
+- `thesis_summary`
+- `catalyst_summary`
+- `valuation_context_id`
+- `risk_regime_ids`
+- `market_event_ids`
+- `segment_impact_ids`
+- `entry_zone`
+- `add_zone`
+- `invalidation_level`
+- `target_scenarios`
+- `time_horizon`
+- `risk_flags`
+- `evidence_ids`
+- `model_run_ids`
+- `deterministic_checks`
+- `created_at`
+
+### Required Fields
+
+- `advisory_id`
+- `ticker_or_portfolio`
+- `advisory_label`
+- `analyst_action`
+- `thesis_summary`
+- `catalyst_summary`
+- `valuation_context_id`
+- `risk_regime_ids`
+- `market_event_ids`
+- `segment_impact_ids`
+- `target_scenarios`
+- `time_horizon`
+- `risk_flags`
+- `evidence_ids`
+- `model_run_ids`
+- `deterministic_checks`
+- `created_at`
+
+### Evidence Requirements
+
+- Must include `evidence_ids` for every material thesis, catalyst, valuation, risk, entry-zone, add-zone, invalidation, and target-scenario claim.
+- `valuation_context_id`, `risk_regime_ids`, `market_event_ids`, and `segment_impact_ids` must resolve to validated upstream objects.
+- `model_run_ids` must cover LLM-authored narrative or critique.
+
+### Validation Rules
+
+- `advisory_label` must be advisory-only.
+- `analyst_action` must be one of watch, accumulate, hold, trim, avoid, or review.
+- `entry_zone`, `add_zone`, and `invalidation_level` are planning guidance, not orders.
+- `target_scenarios` are scenarios, not predictions.
+- `deterministic_checks` must include risk, exposure, stale-data, and policy-gate results before publication.
+
+### Consumed By Screens
+
+- Daily Trading Cockpit
+- Ticker Analyst Workbench
+- Trade Plan + Entry/Exit Workbench
+- Portfolio + Exposure Balancer
+- Trade Journal + PnL Review
+
+### LLM Analyst Role
+
+- Create: `trading_advisory_synthesizer` may draft thesis, catalyst, risk, and valuation explanation.
+- Review: `llm_note_reviewer`.
+
+### Deterministic Fields
+
+- `advisory_id`
+- `advisory_label`
+- `analyst_action` after publication policy
+- `entry_zone`
+- `add_zone`
+- `invalidation_level`
+- `target_scenarios`
+- `deterministic_checks`
+- risk-limit, exposure, PnL, and accounting checks
+
+## AdvisoryUpdate
+
+### Purpose
+
+Represents changes since a prior advisory brief.
+
+### Fields
+
+- `update_id`
+- `previous_advisory_id`
+- `new_advisory_id`
+- `what_changed`
+- `thesis_change_direction`
+- `risk_change_direction`
+- `valuation_change_direction`
+- `confidence_change`
+- `evidence_ids`
+- `created_at`
+
+### Required Fields
+
+- `update_id`
+- `previous_advisory_id`
+- `new_advisory_id`
+- `what_changed`
+- `thesis_change_direction`
+- `risk_change_direction`
+- `valuation_change_direction`
+- `confidence_change`
+- `evidence_ids`
+- `created_at`
+
+### Evidence Requirements
+
+- Must include `evidence_ids` for every material change explanation.
+- Both advisory references must resolve to advisory-only `TradingAdvisory` records.
+
+### Validation Rules
+
+- Change-direction fields must be controlled values.
+- `confidence_change` must distinguish increased, decreased, unchanged, and review-needed states.
+- AdvisoryUpdate cannot create a new trading action by itself; it only explains the delta between advisory records.
+
+### Consumed By Screens
+
+- Daily Trading Cockpit
+- Ticker Analyst Workbench
+- Trade Journal + PnL Review
+
+### LLM Analyst Role
+
+- Create: `brief_synthesizer` or `trading_advisory_synthesizer` may summarize deltas.
+- Review: `llm_note_reviewer`.
+
+### Deterministic Fields
+
+- `update_id`
+- advisory reference integrity
+- created timestamp
+- change-direction normalization when rule-derived
 
 ## MarketEvent
 

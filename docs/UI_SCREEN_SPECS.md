@@ -2,667 +2,931 @@
 
 ## Product Frame
 
-This document defines the implementation-ready UX shape for the AI Infrastructure Trading Analyst Workstation. The product is a daily trading cockpit for AI infrastructure equities: catalyst-driven, evidence-backed, portfolio-aware, and fast enough for daily review. It is not a generic market dashboard, passive daily newsletter, broker terminal, execution surface, or backtesting-first quant tool.
+This document defines the UX shape for the AI Infrastructure Trading Advisory Workstation. The product is used daily to monitor AI infrastructure sources, assess catalysts, update equity theses, review valuation scenarios, prepare manual trade plans, record local journal entries, and review outcomes.
 
-Primary workflow:
+The workstation is advisory and reporting-only. It is not a broker terminal, live trading system, order management system, execution blotter, or automated trading loop.
 
-```text
-Evidence -> MarketEvent -> SegmentImpact -> EquityImpactAssessment -> RiskRegimeUpdate -> SignalBundle -> RecommendationArtifact -> TradePlan -> ManualTradeJournal -> PnLReview
-```
-
-Daily workstation loop:
+Primary workstation loop:
 
 ```text
-Open Cockpit -> Check Radar -> Inspect Ecosystem Map -> Work Ticker -> Review Trade Plan -> Balance Exposure -> Journal Outcome
+Source Monitoring
+-> Evidence Quality Review
+-> Catalyst Detection
+-> Segment Impact Mapping
+-> Ticker Thesis Review
+-> Valuation Scenario Review
+-> Risk Regime Review
+-> Trade Plan Review
+-> Manual Journal Entry
+-> Outcome Review
 ```
 
 Primary screens:
 
-| Screen | Workflow Role | Primary Output |
-| --- | --- | --- |
-| Daily Trading Cockpit | Daily triage and action queue | Review priorities and blocked actions |
-| AI Infrastructure Ecosystem Map | Segment and theme propagation | First-order and second-order ticker implications |
-| Live Market / Sentiment Radar | Intraday catalyst and sentiment monitoring | Validated alerts for analyst review |
-| Ticker Analyst Workbench | Single-name thesis and setup analysis | Evidence-backed ticker assessment |
-| Trade Plan + Entry/Exit Workbench | Advisory plan readiness | Local-only trade plan and journal readiness |
-| Portfolio + Exposure Balancer | Portfolio context and constraint review | Advisory balancing review list |
-| Trade Journal + PnL Review | Outcome learning loop | Deterministic PnL review and analyst lessons |
+1. Daily Trading Cockpit
+2. Live Source Monitoring / Sentiment Radar
+3. AI Infrastructure Segment Map
+4. Ticker Analyst Workbench
+5. Valuation & Price Target Workbench
+6. Trade Plan Workbench
+7. Portfolio Exposure Balancer
+8. Manual Trade Journal + PnL Review
+9. Advisory Update History
+10. Evidence Library
 
-Global rules:
+## Hard Boundaries
 
-- Advisory-only.
 - No broker integration.
-- No live order placement.
+- No live trading.
 - No execution UI.
-- No order tickets, submit buttons, route controls, fill simulation controls, or broker account views.
-- Manual trade entry is local journal only and must not transmit to any broker, venue, exchange, or trading API.
-- Recommendation language must remain advisory-only: watch, accumulate, hold, trim, avoid, exit-candidate.
+- No automated trading.
+- No order routing.
+- No broker credentials.
+- Manual journal only.
+- All advisory insights cite evidence.
+- Price targets are scenarios, not promises or executable instructions.
+- Entry and exit levels are trade-planning guidance only.
 - LLMs may classify, extract, summarize, review, critique, and explain.
-- LLMs must not own final scores, risk, constraints, target weights, or PnL calculations.
-- Deterministic code owns scores, risk, constraints, target weights, concentration checks, correlation checks, exposure calculations, and PnL calculations.
-- Every recommendation-like label must link to evidence, signal bundles, deterministic checks, and audit records where available.
-- UI must render API/domain objects only; it must not compute portfolio weights, scores, risk limits, PnL, or target weights.
-- Entry, exit, add, trim, and invalidation language describes advisory plan conditions only; it must never become an order ticket, routing instruction, or execution workflow.
-- Trade journal writes are local analyst records for intended or completed manual trades; they must not transmit anything to external trading systems.
+- Deterministic code owns scores, risk, constraints, target weights, portfolio exposure, PnL, scenario math, and data quality gates.
+- UI must render supplied objects and status only; it must not compute scores, risk, PnL, target weights, or execution decisions.
+
+## Shared Acceptance Criteria
+
+- Every screen displays advisory/reporting-only context when showing recommendation-like content.
+- Every recommendation-like insight links to evidence ids or clearly states that evidence is unavailable and suppresses action readiness.
+- Every price target is labeled as a scenario.
+- Every entry/exit level is labeled as trade-planning guidance only.
+- Every manual trade control is framed as local journal capture only.
+- No screen includes broker connection, order submission, order routing, live trading, execution controls, or automated trading loops.
 
 ## 1. Daily Trading Cockpit
 
 ### User Question
 
-What should I review before making any manual AI infrastructure trading decisions today, what changed, which names need action, and what risks block action?
+What changed since the last review, which AI infrastructure names need attention today, and what manual trading decisions should I prepare or avoid?
 
-### Primary Decisions Supported
+### Primary Decision Supported
 
-- Decide which tickers require immediate analyst review.
-- Decide whether an existing trade plan should be kept, revised, paused, or invalidated.
-- Decide whether a manual journal entry is needed for an intended or completed trade.
-- Decide which alerts, catalysts, and risk changes deserve deeper workbench review.
+Prioritize the daily review queue: hold current thesis, inspect a ticker, revise a trade plan, pause an advisory, update a local journal entry, or investigate missing evidence.
 
-### Required Data Objects
+### Primary Data Objects
 
 - `AnalystBrief`
 - `MarketEvent`
 - `SegmentImpact`
 - `EquityImpactAssessment`
+- `ValuationContext`
 - `RiskRegimeUpdate`
-- `SignalBundle`
-- `RecommendationArtifact`
 - `TradePlan`
-- `PortfolioSnapshot`
-- `WatchlistAlert`
-- `TradeJournal`
-- `PnLSummary`
+- `PortfolioExposureSnapshot`
+- `RecommendationArtifact`
 - `EvidenceItem`
 - `ModelRun`
+- `RunArtifact`
 
 ### Sections
 
-- Header: trading date, as_of timestamp, latest data freshness, advisory-only label, latest successful run id.
-- Action queue: suggested research actions, blocked actions, stale actions, and review-needed items.
-- Catalyst tape: AI infrastructure catalysts by urgency and evidence freshness.
-- Position impact: current holdings and watchlist names affected by catalysts.
-- Open trade plans: planned entries, exits, trims, adds, invalidation status, and manual-journal readiness.
-- Risk regime strip: power, HBM, CoWoS, export-control, capex, datacenter, and market-liquidity risk changes.
-- PnL and exposure snapshot: deterministic daily and cumulative PnL, concentration, segment, and correlation exposure.
-- LLM analyst notes: critique and explanation only, clearly separated from deterministic signals.
-- Ops/audit footer: stale data, failed runs, missing evidence, and model run links.
+- Run header: date, as_of timestamp, latest run id, freshness status, advisory-only label.
+- Priority queue: tickers and segments requiring review.
+- Catalyst tape: high-impact events and evidence links.
+- Position impact: affected holdings and watchlist names.
+- Trade-plan readiness: plans ready, blocked, stale, invalidated, or journal-needed.
+- Risk regime strip: macro liquidity, power, HBM, CoWoS, export-control, datacenter, and capex risk.
+- Daily brief: executive summary, thesis deltas, contradictions, and follow-up questions.
+- Audit footer: model run ids, evidence ids, data-quality warnings, failed run links.
 
 ### Card/Table Fields
 
-- Ticker.
-- Company.
-- Current advisory label.
-- Position weight.
-- Open trade plan status.
-- Latest catalyst.
-- Catalyst type.
-- Impact direction.
-- Signal score id.
-- Deterministic risk flags.
-- Entry zone.
-- Exit or trim zone.
-- Invalidation level or condition.
-- Price target scenario ids.
-- Evidence ids and links.
-- Model run ids.
-- Freshness timestamp.
-- Suggested next analyst action.
+- Ticker
+- Company
+- Current advisory label
+- Review priority
+- Latest catalyst
+- Impact direction
+- Segment exposure
+- Position weight
+- Trade plan status
+- Entry scenario id
+- Exit/trim scenario id
+- Invalidation condition
+- Risk flags
+- Evidence ids
+- Model run ids
+- Last updated
+- Next analyst action
 
-### Proactive LLM Suggestions
+### LLM-Generated Elements
 
-- Summarize what changed since the last completed cockpit run.
-- Explain why a trade plan is blocked by risk, evidence, or stale data.
-- Critique whether a thesis has become over-dependent on one catalyst.
-- Draft analyst notes for the local trade journal, without producing an order instruction.
-- Highlight contradictions between MarketEvents, evidence claims, and existing trade plans.
+- What changed since last run.
+- Catalyst summary.
+- Thesis contradiction summary.
+- Risk narrative.
+- Suggested analyst questions.
+- Draft journal note text.
 
-### Empty, Loading, And Error States
+### Deterministic Elements
 
-- Empty: no completed cockpit run for the selected date; show latest available brief and mark the day as not ready.
-- Loading: show stage-level progress for evidence ingestion, event extraction, deterministic signals, portfolio checks, and brief generation.
-- Error: show failed dependency, run id, stale-data warning, and affected sections.
-- Partial: render available sections but suppress action urgency when signals, risk checks, or evidence links are missing.
+- Data freshness.
+- Portfolio exposure.
+- Position weights.
+- Risk flags.
+- Trade-plan status.
+- Staleness checks.
+- Recommendation suppression.
+- PnL summary references.
+- Evidence/model-run linkage validation.
+
+### Empty/Loading/Error State
+
+- Empty: show no completed cockpit run and link to source monitoring/evidence library.
+- Loading: show pipeline stages for sources, evidence, catalysts, signals, portfolio checks, and brief assembly.
+- Error: show failed run id, dependency, stale data scope, and suppressed sections.
 
 ### Acceptance Criteria
 
-- Advisory-only label is visible above all recommendation-like labels.
-- The primary screen shows daily trading workflow objects, not generic market widgets.
-- Every suggested action links to evidence, deterministic checks, or a trade plan.
-- No order, broker, execution, submit, route, or fill controls appear.
-- Manual trade entry is framed as local journal capture only.
-- Deterministic fields are labeled as system-computed, not LLM-computed.
-- Stale or missing evidence visibly blocks action readiness.
+- The screen opens directly into a daily advisory workflow, not a marketing page.
+- Each priority item cites evidence or is marked evidence-missing.
+- Blocked trade plans show the blocking reason.
+- No order, broker, route, fill, execution, or live-trading controls appear.
 
 ### Out Of Scope
 
 - Order entry.
-- Broker status.
-- Live execution controls.
-- Generic index dashboard.
-- Backtest optimizer as the main experience.
-- UI-side scoring or portfolio calculations.
+- Broker account state.
+- Live execution status.
+- Automated trading triggers.
+- Generic market dashboard widgets unrelated to AI infrastructure.
 
-## 2. AI Infrastructure Ecosystem Map
+## 2. Live Source Monitoring / Sentiment Radar
 
 ### User Question
 
-Where is the AI infrastructure stack accelerating, constrained, weakening, or exposed to risk, and which equities are first-order or second-order beneficiaries?
+Which sources, news, filings, transcripts, analyst notes, and public signals are changing sentiment or catalyst quality for AI infrastructure equities?
 
-### Primary Decisions Supported
+### Primary Decision Supported
 
-- Decide which AI infrastructure segments deserve capital attention.
-- Decide whether a ticker is a first-order or derivative exposure to a catalyst.
-- Decide whether a thesis is becoming crowded, stale, contradicted, or capacity-constrained.
-- Decide where to look for new trade plans or invalidations.
+Decide whether a new source item should become usable evidence, a quarantined item, a catalyst candidate, or a ticker workbench review.
 
-### Required Data Objects
+### Primary Data Objects
+
+- `SourceItem`
+- `EvidenceItem`
+- `EvidenceClaim`
+- `MarketEvent`
+- `SentimentSnapshot`
+- `WatchlistAlert`
+- `DataQualityCheck`
+- `ModelRun`
+
+### Sections
+
+- Source health: feeds, adapters, freshness, failures, and license/data-class status.
+- Sentiment radar: source-classified positive, negative, mixed, and neutral signals.
+- Catalyst candidates: unreviewed items with possible ticker/segment impact.
+- Evidence validation queue: usable, rejected, stale, duplicate, and quarantined items.
+- Alert tape: ticker, segment, volume, price, thesis, and risk alerts.
+- Source detail drawer: source URI, content hash, extracted spans, claims, and model run ids.
+
+### Card/Table Fields
+
+- Source name
+- Source type
+- URI
+- License label
+- Data class
+- Ticker/theme
+- Sentiment direction
+- Confidence
+- Catalyst candidate type
+- Review status
+- Content hash
+- Evidence id
+- Claim ids
+- Model run ids
+- First seen
+- Available at
+
+### LLM-Generated Elements
+
+- Source classification.
+- Sentiment summary.
+- Claim extraction.
+- Duplicate explanation.
+- Catalyst candidate rationale.
+- Analyst review questions.
+
+### Deterministic Elements
+
+- Content hashing.
+- Deduplication hashes.
+- Freshness and availability timestamps.
+- Data-class policy checks.
+- Quarantine status.
+- Required provenance validation.
+
+### Empty/Loading/Error State
+
+- Empty: no active source items; show configured source adapters and next scheduled/manual scan.
+- Loading: show per-source fetch and parsing progress.
+- Error: show failed adapter, policy denial, malformed source, or missing provenance.
+
+### Acceptance Criteria
+
+- Private research is clearly marked local-only.
+- Every promoted catalyst candidate links to evidence and source metadata.
+- Sentiment is advisory context only and does not become an order signal.
+- Quarantined evidence cannot appear as usable advisory support.
+
+### Out Of Scope
+
+- Scraping private paid reports into committed files.
+- Unlicensed content redistribution.
+- Cloud model calls for private research unless explicitly policy-approved and audited.
+- Broker/trading actions.
+
+## 3. AI Infrastructure Segment Map
+
+### User Question
+
+Which parts of the AI infrastructure stack are accelerating, constrained, deteriorating, or exposed to risk, and which equities are affected first or second order?
+
+### Primary Decision Supported
+
+Decide which segments deserve research attention and which tickers need thesis updates or trade-plan review.
+
+### Primary Data Objects
 
 - `Segment`
 - `SegmentImpact`
 - `MarketEvent`
 - `EquityImpactAssessment`
+- `PortfolioExposureSnapshot`
 - `RiskRegimeUpdate`
 - `EvidenceClaim`
-- `RecommendationArtifact`
-- `PortfolioSnapshot`
 
 ### Sections
 
-- Ecosystem stack map: model progress, hyperscaler capex, accelerators, HBM, CoWoS, foundry/equipment, networking, datacenters, power/grid, cooling/electrical, sovereign/export controls, and software monetization.
-- Segment detail panel: selected segment state, latest catalysts, constraints, beneficiaries, and losers.
-- Exposure overlay: current portfolio exposure and watchlist exposure by segment.
-- Bottleneck tracker: HBM, CoWoS, substrates, power, interconnection, and datacenter capacity.
-- Policy and sovereign AI panel: export-control changes and national AI infrastructure signals.
-- Evidence and contradiction panel: source claims, stale-thesis markers, and unresolved contradictions.
+- Segment topology: model progress, hyperscaler capex, accelerators, HBM/memory, foundry/CoWoS/semicap, networking, datacenters, power/grid, cooling/electrical, sovereign/export controls, and software monetization.
+- Segment state panel: accelerating, constrained, stable, deteriorating, policy-risk, or unknown.
+- First/second-order ticker map.
+- Bottleneck tracker.
+- Portfolio exposure overlay.
+- Evidence and contradiction panel.
 
 ### Card/Table Fields
 
-- Segment name.
-- Segment state: accelerating, stable, deteriorating, constrained, policy-risk, unknown.
-- Latest catalyst.
-- Event count.
-- First-order tickers.
-- Second-order tickers.
-- Portfolio exposure.
-- Watchlist exposure.
-- Deterministic segment signal id.
-- Risk flags.
-- Invalidation condition.
-- Latest evidence timestamp.
-- Evidence ids and links.
-- Contradiction count.
-- Stale-thesis marker.
+- Segment
+- State
+- Latest catalyst
+- Event count
+- First-order tickers
+- Second-order tickers
+- Portfolio exposure
+- Watchlist exposure
+- Risk flags
+- Evidence ids
+- Contradiction count
+- Last update
 
-### Proactive LLM Suggestions
+### LLM-Generated Elements
 
-- Explain why a segment moved and which evidence supports the change.
-- Identify tickers that appear under-covered relative to segment momentum.
-- Summarize contradictions between segment demand and supply constraints.
-- Suggest analyst questions for the ticker workbench.
-- Flag when the ecosystem map is leaning on stale evidence.
+- Segment movement explanation.
+- First/second-order impact narrative.
+- Bottleneck summary.
+- Contradiction summary.
+- Ticker research prompts.
 
-### Empty, Loading, And Error States
+### Deterministic Elements
 
-- Empty: no segment impacts exist; prompt for validated MarketEvents with segment mappings.
-- Loading: show canonical segment skeletons and latest run timestamp.
-- Error: distinguish missing segment mapping, evidence API failure, and stale signal bundle.
-- Partial: render mapped segments and mark unmapped events as review-needed.
+- Segment taxonomy.
+- Segment state from persisted impact records.
+- Exposure totals.
+- Evidence freshness.
+- Missing mapping flags.
+- Portfolio overlap.
 
-### Acceptance Criteria
+### Empty/Loading/Error State
 
-- Segment states are driven by `SegmentImpact` and deterministic signal objects, not UI calculations.
-- First-order and second-order tickers are visually distinct.
-- Every segment movement links to at least one evidence-backed MarketEvent.
-- Portfolio exposure is shown only from provided `PortfolioSnapshot` data.
-- No generic sector screener or ETF browser appears.
-
-### Out Of Scope
-
-- Arbitrary sector browsing.
-- Drag-and-drop graph editing.
-- Manual segment scoring in the UI.
-- Broker or execution controls.
-- Backtest-first factor exploration.
-
-## 3. Live Market / Sentiment Radar
-
-### User Question
-
-What live market, news, sentiment, and catalyst signals are moving AI infrastructure equities today, and which ones are actionable for analyst review?
-
-### Primary Decisions Supported
-
-- Decide whether a move is catalyst-backed or noise.
-- Decide which watchlist alerts should become ticker workbench reviews.
-- Decide whether an open trade plan should be paused due to volatility, sentiment reversal, or stale evidence.
-- Decide which evidence items need validation before influencing recommendations.
-
-### Required Data Objects
-
-- `MarketSnapshot`
-- `WatchlistAlert`
-- `MarketEvent`
-- `EvidenceItem`
-- `EvidenceClaim`
-- `SentimentSnapshot`
-- `SignalBundle`
-- `RiskRegimeUpdate`
-- `ModelRun`
-
-### Sections
-
-- Radar header: market timestamp, source freshness, advisory-only label, data-quality status.
-- AI infrastructure movers: ticker moves, volume anomalies, and catalyst linkage.
-- Sentiment tape: source-classified sentiment from filings, earnings calls, reputable news, analyst notes, and selected public channels.
-- Event validation queue: new, pending, usable, rejected, quarantined, and stale events.
-- Alert stream: price, volume, catalyst, thesis, risk, and evidence alerts.
-- Evidence detail drawer: source, claim, content hash, extracted spans, and model run ids.
-- Volatility and breadth context: deterministic market context for interpreting alerts.
-
-### Card/Table Fields
-
-- Alert id.
-- Ticker.
-- Company.
-- Alert type.
-- Price change.
-- Volume change.
-- Sentiment direction.
-- Catalyst link.
-- MarketEvent id.
-- Evidence ids and links.
-- Signal bundle id.
-- Risk flags.
-- Data freshness.
-- Review status.
-- Suggested analyst next step.
-
-### Proactive LLM Suggestions
-
-- Classify whether an alert appears catalyst-backed, sentiment-only, or data-noise.
-- Summarize the evidence behind a market move.
-- Flag events whose language implies trade action and rewrite them as advisory research notes.
-- Compare today's sentiment to the current thesis without changing deterministic scores.
-- Suggest which alerts should be escalated to the ticker workbench.
-
-### Empty, Loading, And Error States
-
-- Empty: no watchlist alerts or market snapshots for the selected window.
-- Loading: show source-by-source loading state and latest available snapshot.
-- Error: distinguish market data failure, evidence ingestion failure, sentiment extraction failure, and stale run state.
-- Partial: show available alerts but mark downstream action readiness unavailable when evidence or signal bundles are missing.
+- Empty: render canonical segment skeleton and mark all states unknown.
+- Loading: show latest segment-map run stages.
+- Error: distinguish missing segment mappings, stale evidence, and failed exposure load.
 
 ### Acceptance Criteria
 
-- Radar is restricted to AI infrastructure watchlist and portfolio names.
-- Market moves without catalyst evidence are labeled as unconfirmed.
-- LLM sentiment is clearly separated from deterministic market data.
-- Alerts cannot imply automatic trading action.
-- No live order, quote-to-trade, route, or execution controls appear.
+- Segment changes cite one or more evidence-backed `MarketEvent`s.
+- First-order and second-order ticker impacts are visually distinct.
+- Exposure is read from portfolio data, not calculated in UI.
+- Segment map does not offer trade execution.
 
 ### Out Of Scope
 
-- Generic full-market heatmap.
-- Day-trading execution ladder.
-- Options chain trading.
-- Broker positions or account balances.
-- UI-side sentiment scoring.
+- Arbitrary graph editing.
+- Manual segment scoring in UI.
+- Generic sector/ETF browsing.
+- Execution or order workflows.
 
 ## 4. Ticker Analyst Workbench
 
 ### User Question
 
-For this AI infrastructure ticker, what is the current evidence-backed thesis, what changed, what are the entry and exit considerations, and what would invalidate the plan?
+What is the current evidence-backed thesis for this ticker, what changed, what invalidates it, and what should I review before making a manual decision?
 
-### Primary Decisions Supported
+### Primary Decision Supported
 
-- Decide whether the ticker deserves watch, accumulate, hold, trim, avoid, or exit-candidate status.
-- Decide whether to create, revise, pause, or retire a local trade plan.
-- Decide which evidence, risks, or price levels need review before any manual action.
-- Decide whether the ticker belongs in the portfolio, watchlist, or no-action queue.
+Decide whether to maintain, revise, pause, invalidate, or escalate a ticker thesis and related trade plan.
 
-### Required Data Objects
+### Primary Data Objects
 
 - `EquityImpactAssessment`
 - `MarketEvent`
-- `SegmentImpact`
-- `RiskRegimeUpdate`
-- `SignalBundle`
-- `RecommendationArtifact`
-- `TradePlan`
-- `PriceTargetScenario`
-- `EntryExitLevels`
+- `EvidenceItem`
 - `EvidenceClaim`
-- `PortfolioSnapshot`
-- `TradeJournal`
+- `SignalBundle`
+- `ValuationContext`
+- `TradePlan`
+- `RiskRegimeUpdate`
+- `RecommendationArtifact`
+- `ModelRun`
 
 ### Sections
 
-- Ticker header: ticker, company, latest price snapshot, advisory-only label, assessment freshness.
-- Thesis state: current thesis, thesis age, evidence coverage, contradiction count.
-- Catalyst timeline: relevant MarketEvents and their availability timestamps.
-- Segment exposure: first-order and second-order AI infrastructure segment mapping.
-- Bull/base/bear scenarios: price target scenarios and assumptions.
-- Entry/exit panel: deterministic entry zones, trim zones, stop/invalidation conditions, and stale-level warnings.
-- Risk and invalidation panel: risk flags, relief conditions, and blocked-plan reasons.
-- Evidence binder: evidence claims, source links, model runs, and audit details.
-- Journal history: intended trades, completed manual trades, notes, and outcome labels.
+- Ticker header: company, segment exposures, advisory label, data freshness.
+- Thesis stack: bull case, bear case, base case, invalidation, and open questions.
+- Catalyst history.
+- Evidence claims and source spans.
+- Signal summary: strategic thesis, technical context, forward indicators, risk.
+- Valuation context link.
+- Trade plan link.
+- Contradictions and stale thesis warnings.
 
 ### Card/Table Fields
 
-- Ticker.
-- Company.
-- Segment exposures.
-- Latest catalyst.
-- Advisory label.
-- Signal bundle id.
-- Recommendation artifact id.
-- Current position weight.
-- Entry zone.
-- Add zone.
-- Trim zone.
-- Exit-candidate condition.
-- Invalidation condition.
-- Bull target.
-- Base target.
-- Bear target.
+- Ticker
+- Company
+- Segment exposure
+- Advisory label
+- Thesis confidence
+- Bull case
+- Bear case
+- Invalidation condition
+- Latest catalysts
+- Evidence ids
+- Claim ids
+- Signal bundle id
+- Valuation scenario ids
+- Trade plan id
+- Model run ids
+- Review status
+
+### LLM-Generated Elements
+
+- Thesis summary.
+- Catalyst implications.
+- Bull/bear case wording.
+- Contradiction explanation.
+- Analyst questions.
+- Journal-ready note draft.
+
+### Deterministic Elements
+
+- Signal scores.
 - Risk flags.
-- Evidence ids and links.
-- Latest journal note.
+- Staleness checks.
+- Evidence linkage validation.
+- Advisory suppression.
+- Portfolio exposure references.
+- Price/volume facts supplied by snapshots.
 
-### Proactive LLM Suggestions
+### Empty/Loading/Error State
 
-- Summarize the ticker thesis in a bull/base/bear frame.
-- Critique the trade plan for missing evidence, stale assumptions, or unhandled risks.
-- Explain why a price level is an entry, add, trim, or invalidation level based on supplied deterministic objects.
-- Draft local journal notes for analyst review.
-- Identify contradictions between the latest catalyst and the existing thesis.
-
-### Empty, Loading, And Error States
-
-- Empty: ticker is in the universe but has no current `EquityImpactAssessment`.
-- Loading: show ticker shell with last successful assessment timestamp.
-- Error: distinguish missing ticker, missing evidence, stale signal bundle, failed price snapshot, and unavailable trade plan.
-- Partial: show catalyst and evidence data but mark thesis incomplete until risk, invalidation, and scenario objects exist.
+- Empty: ticker is not in universe or lacks validated evidence.
+- Loading: show evidence, signal, valuation, and trade-plan load stages.
+- Error: show missing evidence, stale signal bundle, or failed ticker repository read.
 
 ### Acceptance Criteria
 
-- Bull, base, bear, risk, and invalidation sections are present before a ticker assessment is complete.
-- Entry/exit levels come from provided `EntryExitLevels`, not UI calculations.
-- LLM notes are labeled as critique/explanation, not deterministic output.
-- Every thesis claim links to evidence.
-- No order-entry, execution, or broker controls appear.
+- Every thesis claim cites evidence.
+- LLM text is separated from deterministic scores.
+- Invalidation conditions are visible.
+- No ticker screen contains order buttons, live trading controls, or broker links.
 
 ### Out Of Scope
 
-- Generic company profile terminal.
-- Options strategy builder.
-- Broker margin or account views.
-- UI-side target generation.
-- Automated trade submission.
+- Broker position sync.
+- Live order entry.
+- UI-generated scores.
+- Uncited thesis recommendations.
 
-## 5. Trade Plan + Entry/Exit Workbench
+## 5. Valuation & Price Target Workbench
 
 ### User Question
 
-What is the advisory trade plan for this ticker, what levels and conditions govern manual action, and what must be true before I record anything in the local journal?
+What valuation scenarios are reasonable for this ticker, what assumptions drive them, and how do they compare with current price and thesis risk?
 
-### Primary Decisions Supported
+### Primary Decision Supported
 
-- Decide whether to draft, update, pause, invalidate, or retire a trade plan.
-- Decide whether a manual intended-trade journal entry is ready to record locally.
-- Decide whether risk constraints, concentration, correlation, or stale evidence block action.
-- Decide which entry, add, trim, exit, and invalidation levels need review.
+Decide whether valuation supports watch, hold, accumulate, trim, avoid, or thesis review as advisory labels.
 
-### Required Data Objects
+### Primary Data Objects
 
-- `TradePlan`
-- `EntryExitLevels`
+- `ValuationContext`
 - `PriceTargetScenario`
-- `RecommendationArtifact`
-- `SignalBundle`
-- `TargetWeights`
-- `ImplementationEstimate`
-- `PortfolioSnapshot`
+- `FinancialSnapshot`
+- `MarketSnapshot`
+- `EquityImpactAssessment`
+- `EvidenceClaim`
 - `RiskRegimeUpdate`
-- `EvidenceItem`
-- `TradeEntry`
 
 ### Sections
 
-- Plan header: ticker, plan id, status, advisory label, latest validation timestamp.
-- Plan thesis: why the plan exists and which catalysts support it.
-- Entry/add/trim/exit matrix: deterministic levels, conditions, and time horizon.
-- Readiness checklist: evidence, risk, concentration, correlation, target-weight, and stale-data checks.
-- Position sizing context: current weight, target-weight suggestion, max allowed exposure, and cash impact, all rendered from deterministic objects.
-- Scenario panel: bull/base/bear upside/downside and invalidation path.
-- Manual journal draft: local-only intended-trade or completed-trade note fields.
-- Audit panel: evidence, signal bundle, recommendation artifact, target weights, model runs, and deterministic checks.
+- Scenario header: ticker, as_of, current price, advisory-only label.
+- Scenario table: bear, base, bull, stress, and upside/downside cases.
+- Assumption panel: growth, margins, capex, multiple, discount, terminal, and segment drivers.
+- Evidence support: source claims and financial snapshots behind assumptions.
+- Sensitivity grid.
+- Risk and invalidation panel.
+- Comparison to trade plan guidance.
 
 ### Card/Table Fields
 
-- Plan id.
-- Ticker.
-- Plan status: draft, active, paused, invalidated, retired.
-- Advisory action label.
-- Entry zone.
-- Add zone.
-- Trim zone.
-- Exit zone.
-- Invalidation level.
-- Invalidation condition.
-- Target weight suggestion id.
-- Current weight.
-- Max allowed weight.
-- Correlation exposure flag.
-- Concentration flag.
-- Liquidity flag.
-- Evidence status.
-- Journal readiness.
-- Last reviewed at.
+- Scenario id
+- Scenario label
+- Time horizon
+- Assumption set
+- Implied price target
+- Upside/downside
+- Probability/weight if provided
+- Evidence ids
+- Financial snapshot id
+- Risk flags
+- Invalidation condition
+- Last updated
 
-### Proactive LLM Suggestions
+### LLM-Generated Elements
 
-- Critique whether the plan is internally consistent with the latest evidence.
-- Explain blocked readiness items in plain language.
-- Suggest journal wording for an intended manual trade.
-- Compare the plan against the current risk regime.
-- Flag when the plan uses stale levels or stale thesis assumptions.
+- Assumption narrative.
+- Scenario explanation.
+- Risk commentary.
+- Comparison with thesis.
+- Questions for analyst review.
 
-### Empty, Loading, And Error States
+### Deterministic Elements
 
-- Empty: no trade plan exists; show requirements for creating an advisory plan from validated ticker assessment data.
-- Loading: show plan skeleton and latest successful validation timestamp.
-- Error: distinguish missing levels, missing recommendation artifact, failed target-weight check, stale evidence, and portfolio snapshot mismatch.
-- Partial: show plan thesis but mark journal readiness unavailable until deterministic checks are present.
+- Scenario math.
+- Upside/downside calculation.
+- Financial ratios.
+- Sensitivity outputs.
+- Current price comparison.
+- Staleness/data-quality checks.
+
+### Empty/Loading/Error State
+
+- Empty: no valuation context; show required inputs and evidence gaps.
+- Loading: show financial snapshot, assumptions, and scenario calculation stages.
+- Error: show invalid assumptions, stale market price, or missing financial snapshot.
 
 ### Acceptance Criteria
 
-- Trade plan language is advisory and local-journal-oriented.
-- Manual entry fields are labeled local journal only.
-- No submit, place order, execute, route, transmit, fill, or broker wording appears.
-- Entry/exit levels and target weights are rendered from deterministic objects.
-- Journal readiness is blocked when evidence, risk, or constraints are missing.
-- Every plan links to evidence and audit ids.
+- Price targets are labeled scenarios.
+- Assumptions and evidence ids are visible.
+- LLM commentary cannot overwrite scenario math.
+- No target is presented as a guaranteed outcome or executable instruction.
 
 ### Out Of Scope
 
-- Live order ticket.
-- Broker API connection.
-- Execution simulator.
-- Broker cash or margin controls.
-- LLM-generated sizing or levels.
+- Automated order sizing.
+- Broker target orders.
+- UI-side valuation calculation.
+- Uncited price targets.
 
-## 6. Portfolio + Exposure Balancer
+## 6. Trade Plan Workbench
 
 ### User Question
 
-How is the AI infrastructure portfolio exposed today, where are concentration and correlation risks, and what advisory balancing changes should I review manually?
+What is the advisory trade plan for this ticker, what conditions must be true, and what would invalidate or pause the plan?
 
-### Primary Decisions Supported
+### Primary Decision Supported
 
-- Decide whether exposure is too concentrated by ticker, segment, supplier bottleneck, customer, geography, or risk regime.
-- Decide whether a suggested target-weight change deserves trade-plan review.
-- Decide whether a planned add or trim is blocked by portfolio constraints.
-- Decide which holdings should move to watch, hold, trim, or exit-candidate review.
+Decide whether a manual trade plan is ready, blocked, stale, invalidated, or journal-ready.
 
-### Required Data Objects
+### Primary Data Objects
 
-- `PortfolioSnapshot`
-- `Position`
-- `TargetWeights`
-- `SignalBundle`
-- `RecommendationArtifact`
-- `CorrelationExposure`
-- `RiskRegimeUpdate`
-- `PnLSummary`
 - `TradePlan`
-- `TradeJournal`
+- `EntryExitLevelSet`
+- `RecommendationArtifact`
+- `SignalBundle`
+- `ValuationContext`
+- `RiskRegimeUpdate`
+- `EvidenceItem`
+- `ManualTradeJournalEntry`
 
 ### Sections
 
-- Portfolio header: as_of, total market value, cash placeholder if available, advisory-only label, deterministic calculation timestamp.
-- Segment exposure: accelerators, HBM, CoWoS, semicap, networking, datacenter REITs, power/grid, cloud platforms, and policy exposure.
-- Concentration table: ticker weights, top exposures, max allowed weights, and breach flags.
-- Correlation map: shared drivers such as hyperscaler capex, HBM supply, CoWoS, power availability, and export controls.
-- Target-weight comparison: current weights versus deterministic target-weight suggestions.
-- Suggested review actions: adds, trims, holds, pauses, and exit-candidate reviews.
-- PnL context: realized, unrealized, daily, and thesis-bucket PnL from provided summaries.
-- Blockers: stale prices, missing positions, failed risk checks, or incomplete target-weight artifacts.
+- Plan header: ticker, advisory action, horizon, status, and local-only labels.
+- Setup conditions: catalyst, valuation, technical, risk, liquidity, and portfolio conditions.
+- Entry guidance: scenario-based entry zones.
+- Exit/trim guidance: scenario-based exit and trim zones.
+- Invalidation panel.
+- Blocking checks.
+- Journal readiness panel.
+- Evidence and audit links.
 
 ### Card/Table Fields
 
-- Ticker.
-- Company.
-- Current market value.
-- Current weight.
-- Target weight.
-- Weight delta.
-- Segment exposures.
-- Correlation cluster.
-- Concentration flag.
-- Risk regime flags.
-- Open trade plan id.
-- Suggested review action.
-- Deterministic check ids.
-- PnL contribution.
-- Last price timestamp.
+- Trade plan id
+- Ticker
+- Advisory action
+- Horizon
+- Status
+- Entry guidance
+- Exit guidance
+- Trim guidance
+- Invalidation
+- Required evidence ids
+- Signal bundle id
+- Target weights id if relevant
+- Risk checks
+- Journal status
+- Last reviewed
 
-### Proactive LLM Suggestions
+### LLM-Generated Elements
 
-- Explain which exposure clusters drive the portfolio's current risk.
-- Summarize why a balancing suggestion exists, using deterministic output ids.
-- Critique whether the portfolio is over-dependent on one AI infrastructure bottleneck.
-- Flag suggested actions that conflict with current risk regimes or stale evidence.
-- Draft review notes for the analyst, without changing target weights.
+- Setup explanation.
+- Risk narrative.
+- Plan contradiction critique.
+- Analyst checklist.
+- Draft local journal note.
 
-### Empty, Loading, And Error States
+### Deterministic Elements
 
-- Empty: no portfolio snapshot exists; show that exposure balancing cannot run without positions.
-- Loading: show latest known snapshot and pending deterministic check stages.
-- Error: distinguish stale prices, missing positions, failed target-weight generation, and unavailable correlation exposures.
-- Partial: show positions but hide balancing recommendations until deterministic target weights and correlation exposures are present.
+- Entry/exit levels supplied by persisted objects.
+- Constraint checks.
+- Risk flags.
+- Target weight references.
+- Staleness and missing-evidence gates.
+- Publication/suppression checks.
+
+### Empty/Loading/Error State
+
+- Empty: no trade plan; show eligible source objects needed to create one in a future workflow.
+- Loading: show plan, evidence, signals, valuation, and risk checks.
+- Error: show missing evidence, invalid target weights, stale valuation, or active risk freeze.
 
 ### Acceptance Criteria
 
-- Exposure and PnL values are rendered from deterministic objects only.
-- Suggested balancing actions link to target-weight and risk-check artifacts.
-- Correlation exposure is tied to AI infrastructure drivers, not generic factor labels only.
-- No broker account, rebalance submit, or execution controls appear.
-- Manual follow-up routes into trade plans and local journal only.
+- Entry/exit levels are labeled trade-planning guidance only.
+- The screen cannot submit, route, place, or execute a trade.
+- Blocked plans fail closed.
+- Journal capture is local-only and separate from plan readiness.
 
 ### Out Of Scope
 
-- Broker portfolio sync.
+- Order tickets.
+- Routing choices.
+- Execution algos.
+- Broker sync.
+- Automated trade loops.
+
+## 7. Portfolio Exposure Balancer
+
+### User Question
+
+How does the current portfolio exposure line up with AI infrastructure segments, risk regimes, and advisory trade plans?
+
+### Primary Decision Supported
+
+Decide whether exposure requires review, diversification, concentration reduction, cash preservation, or plan suppression.
+
+### Primary Data Objects
+
+- `PortfolioExposureSnapshot`
+- `Position`
+- `TargetWeights`
+- `RiskRegimeUpdate`
+- `SegmentImpact`
+- `TradePlan`
+- `RecommendationAudit`
+
+### Sections
+
+- Portfolio summary: gross/net exposure, cash, concentration, and advisory-only label.
+- Segment exposure table.
+- Ticker concentration table.
+- Correlation and crowding view.
+- Risk regime impact.
+- Target weight comparison.
+- Rebalance review list.
+- Suppression and constraint warnings.
+
+### Card/Table Fields
+
+- Ticker
+- Position weight
+- Target weight
+- Weight difference
+- Segment
+- Risk contribution
+- Concentration flag
+- Liquidity/capacity flag
+- Open trade plan id
+- Advisory status
+- Evidence/risk links
+- Last updated
+
+### LLM-Generated Elements
+
+- Exposure narrative.
+- Concentration critique.
+- Segment crowding explanation.
+- Risk regime interpretation.
+- Analyst review prompts.
+
+### Deterministic Elements
+
+- Position weights.
+- Target weights.
+- Cash floor checks.
+- Concentration checks.
+- Theme exposure checks.
+- Correlation/crowding metrics.
+- Risk flags.
+- Constraint validation.
+
+### Empty/Loading/Error State
+
+- Empty: no portfolio snapshot; show required local input/import/journal sources.
+- Loading: show positions, target weights, risk, and segment exposure stages.
+- Error: show stale portfolio snapshot, invalid target weights, or failed risk load.
+
+### Acceptance Criteria
+
+- Balancing output is advisory review only.
+- Target weights are generated by deterministic portfolio code.
+- No rebalance action can become an order or broker instruction.
+- All warnings link to deterministic checks or evidence.
+
+### Out Of Scope
+
 - Automated rebalancing.
-- Execution cost optimizer as primary UX.
-- UI-side risk or PnL calculations.
-- Generic asset-allocation dashboard.
+- Broker allocation.
+- Order basket creation.
+- UI-side target-weight generation.
 
-## 7. Trade Journal + PnL Review
+## 8. Manual Trade Journal + PnL Review
 
 ### User Question
 
-What manual trade decisions were recorded, how did they perform, which theses were right or wrong, and what should improve in the next trading cycle?
+What manual trades did I record, how did they perform, and what should I learn from the decision process?
 
-### Primary Decisions Supported
+### Primary Decision Supported
 
-- Decide whether a past manual trade followed its advisory plan.
-- Decide whether a thesis outcome strengthens, weakens, or invalidates future trade plans.
-- Decide which PnL drivers came from catalysts, exposure, timing, or risk regime changes.
-- Decide what lessons should be carried into the next analyst cycle.
+Decide whether to update outcome notes, mark plan adherence, revise a thesis, or improve future trade plans.
 
-### Required Data Objects
+### Primary Data Objects
 
-- `TradeJournal`
-- `TradeEntry`
+- `ManualTradeJournalEntry`
 - `TradePlan`
-- `Position`
 - `PnLSummary`
-- `OutcomeJournal`
-- `RecommendationArtifact`
-- `SignalBundle`
+- `PortfolioSnapshot`
+- `MarketSnapshot`
 - `EvidenceItem`
-- `MarketEvent`
+- `OutcomeJournalEntry`
 
 ### Sections
 
-- Journal header: selected period, advisory-only label, local-only journal label, latest PnL calculation timestamp.
-- Manual trade entries: intended trades, completed manual trades, edits, notes, and outcome status.
-- Plan adherence: planned versus recorded entry/exit, invalidation adherence, and notes.
-- PnL summary: realized, unrealized, daily, period-to-date, and thesis-bucket PnL from deterministic calculations.
-- Attribution review: catalyst, segment, ticker, and risk-regime attribution where available.
-- Lessons learned: analyst notes, LLM critique, and follow-up actions.
-- Evidence replay: events and evidence that existed before each recorded decision.
-- Export/review controls: local report generation only, with no broker transmission.
+- Local journal entry form: intended or completed manual trade record.
+- Journal table.
+- PnL summary.
+- Plan adherence review.
+- Evidence available at decision time.
+- Outcome notes and lessons.
+- Repeated failure/success patterns.
 
 ### Card/Table Fields
 
-- Trade entry id.
-- Ticker.
-- Entry type: intended, completed_manual, note, correction.
-- Local-only status.
-- Linked trade plan id.
-- Advisory label at time of entry.
-- Recorded price.
-- Recorded quantity.
-- Recorded timestamp.
-- Deterministic PnL id.
-- Realized PnL.
-- Unrealized PnL.
-- Plan adherence status.
-- Outcome label.
-- Evidence ids available at decision time.
-- Analyst note.
+- Journal entry id
+- Ticker
+- Side
+- Quantity
+- Manual price
+- Trade date
+- Settlement date
+- Account label
+- Status
+- Linked trade plan id
+- Evidence available at decision time
+- Realized PnL
+- Unrealized PnL
+- Plan adherence
+- Outcome label
+- Analyst note
 
-### Proactive LLM Suggestions
+### LLM-Generated Elements
 
-- Summarize why a trade worked or failed using journal, evidence, and PnL objects.
-- Critique whether the manual decision followed the trade plan.
-- Identify repeated failure modes such as late entries, ignored invalidations, or stale evidence.
-- Draft lessons learned for the outcome journal.
-- Compare the decision-time evidence set with later evidence without hindsight bias.
+- Outcome narrative.
+- Plan adherence critique.
+- Lesson summary.
+- Repeated mistake/success pattern.
+- Draft journal follow-up note.
 
-### Empty, Loading, And Error States
+### Deterministic Elements
 
-- Empty: no local journal entries for the selected period; show prompt to review open trade plans, not to place trades.
-- Loading: show latest journal and PnL calculation timestamps.
-- Error: distinguish journal API failure, PnL calculation unavailable, missing linked trade plan, and stale price data.
-- Partial: show journal entries but mark PnL and attribution unavailable until deterministic calculations are present.
+- PnL calculations.
+- Price snapshots.
+- Plan adherence flags from supplied criteria.
+- Journal validation.
+- Evidence availability timestamps.
+- Outcome metrics.
+
+### Empty/Loading/Error State
+
+- Empty: no local journal entries; show local journal form and remind that entries do not transmit externally.
+- Loading: show journal, PnL, and linked plan load stages.
+- Error: show journal persistence failure, missing market snapshot, or unavailable PnL.
 
 ### Acceptance Criteria
 
-- Journal screens are explicitly local-only and advisory-only.
-- PnL is read from deterministic `PnLSummary` objects.
-- Every completed manual trade can link back to a trade plan or be marked as unplanned.
-- Outcome review shows evidence available at decision time.
-- No broker upload, transmit, sync, order, route, or execution controls appear.
-- LLM critique never rewrites PnL, risk, or target-weight calculations.
+- Manual trade entry is local journal only.
+- PnL is deterministic and never LLM-generated.
+- Each completed manual trade can link to a plan or be marked unplanned.
+- No broker sync, upload, transmit, order, or execution control appears.
 
 ### Out Of Scope
 
-- Tax-lot accounting as a primary workflow.
 - Broker reconciliation.
+- Tax-lot accounting.
+- Live fills.
 - Automated execution review.
-- Live fills or order status.
-- UI-side PnL calculation.
+- External trade transmission.
+
+## 9. Advisory Update History
+
+### User Question
+
+How did advisory labels, thesis views, trade plans, and risk flags change over time, and what evidence caused each update?
+
+### Primary Decision Supported
+
+Decide whether an advisory changed for valid evidence-backed reasons and whether old assumptions need review.
+
+### Primary Data Objects
+
+- `RecommendationArtifact`
+- `RecommendationAudit`
+- `AnalystBrief`
+- `TradePlan`
+- `ModelRun`
+- `EvidenceItem`
+- `SignalBundle`
+- `RunArtifact`
+
+### Sections
+
+- Timeline of advisory updates.
+- Change diff panel.
+- Evidence delta panel.
+- Model run and audit links.
+- Suppression and blocked-publication history.
+- Ticker and segment filters.
+- Exportable report view.
+
+### Card/Table Fields
+
+- Update id
+- Ticker/portfolio scope
+- Previous advisory
+- New advisory
+- Changed fields
+- Reason summary
+- Evidence ids
+- Signal bundle id
+- Target weights id
+- Model run ids
+- Audit id
+- Run id
+- Published at
+- Suppression reason
+
+### LLM-Generated Elements
+
+- Change explanation.
+- Evidence delta summary.
+- Contradiction commentary.
+- Analyst memo draft.
+
+### Deterministic Elements
+
+- Diff calculation.
+- Audit linkage.
+- Schema validation status.
+- Suppression reason.
+- Timestamps.
+- Artifact hashes.
+- Signal/target-weight ids.
+
+### Empty/Loading/Error State
+
+- Empty: no advisory artifacts; show required upstream chain.
+- Loading: show timeline and audit fetch progress.
+- Error: show missing audit, invalid artifact, or stale run references.
+
+### Acceptance Criteria
+
+- Every update has evidence ids or is marked suppressed/unavailable.
+- Historical advisory changes are immutable read-only records.
+- No update history item can trigger a trade.
+- LLM-generated explanations are linked to model run ids.
+
+### Out Of Scope
+
+- Editing historical recommendations.
+- Broker audit import.
+- Compliance-grade order surveillance.
+- Execution history.
+
+## 10. Evidence Library
+
+### User Question
+
+What evidence supports the workstation's advisory insights, where did it come from, and is it fresh, licensed, and usable?
+
+### Primary Decision Supported
+
+Decide whether evidence can support a thesis, catalyst, valuation assumption, risk flag, or trade plan.
+
+### Primary Data Objects
+
+- `EvidenceItem`
+- `EvidenceChunk`
+- `EvidenceClaim`
+- `SourceItem`
+- `MarketEvent`
+- `ModelRun`
+- `DataQualityCheck`
+
+### Sections
+
+- Search and filters: ticker, segment, source, date, data class, license, review status.
+- Evidence table.
+- Claim browser.
+- Source provenance drawer.
+- Chunk/span viewer.
+- License and data-class panel.
+- Model run extraction audit.
+- Evidence-to-advisory usage links.
+
+### Card/Table Fields
+
+- Evidence id
+- Source URI
+- Source type
+- License label
+- Data class
+- Tickers/themes
+- Content hash
+- Ingested at
+- Available at
+- Claim ids
+- Span refs
+- Model run ids
+- Review status
+- Usage links
+
+### LLM-Generated Elements
+
+- Evidence summary.
+- Claim extraction.
+- Ticker/theme classification.
+- Contradiction notes.
+- Source quality commentary.
+
+### Deterministic Elements
+
+- Content hash.
+- Chunk ids.
+- Span refs.
+- Data-class policy.
+- License metadata.
+- Freshness status.
+- Quarantine/rejection status.
+- Evidence usage links.
+
+### Empty/Loading/Error State
+
+- Empty: no evidence for filters; show source-monitoring and manual evidence entry paths.
+- Loading: show search/index retrieval progress.
+- Error: show failed query, inaccessible source, policy denial, or missing provenance.
+
+### Acceptance Criteria
+
+- Every evidence item displays provenance, content hash, data class, and license label.
+- Private research is clearly local-only.
+- Quarantined evidence cannot be used by advisory screens.
+- All advisory insights can navigate back to supporting evidence.
+
+### Out Of Scope
+
+- Committing private reports.
+- Redistributing licensed content.
+- Editing source text in place.
+- Broker or execution functions.

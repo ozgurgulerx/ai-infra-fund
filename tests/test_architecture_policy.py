@@ -106,6 +106,68 @@ FORBIDDEN_PRODUCTION_PATTERNS = [
     r"\bbrokerage\b",
 ]
 
+ADVISORY_WORKSTATION_CONTRACT_DOCS = [
+    "docs/ANALYST_OBJECT_MODEL.md",
+    "docs/specs/0003-data-contracts.md",
+]
+
+ADVISORY_WORKSTATION_CONTRACT_OBJECTS = [
+    "SourceSignal",
+    "FinancialSnapshot",
+    "ValuationContext",
+    "MacroRegimeSnapshot",
+    "TradingAdvisory",
+    "AdvisoryUpdate",
+]
+
+FORBIDDEN_ADVISORY_CONTRACT_FIELD_TERMS = [
+    "broker",
+    "order",
+    "route",
+    "fill",
+    "execution",
+    "exchange",
+    "auto_trade",
+]
+
+TRADING_ADVISORY_POLICY_PHRASES = [
+    "`TradingAdvisory` is an advisory-only output",
+    "`advisory_label` must be advisory-only",
+    "Entry, add, trim, exit, and invalidation levels are planning guidance, not orders",
+    "Target scenarios are scenarios, not predictions",
+    "Deterministic code owns PnL, exposure, risk-limit checks, accounting, stale-data gates, and publication policy checks",
+]
+
+CRAWLER_BOUNDARY_PHRASES = [
+    "crawling arbitrary internet sources without watchlist or source-registry configuration",
+    "broker, order, route, fill, execution, or automated trading outputs",
+    "any live market action endpoint or UI control",
+    "any execution/trading action",
+    "using LLM output to produce deterministic scores, constraints, or target weights directly",
+    "They must never contain broker, order, route, fill, execution, automated-trading, or live-market-action instructions",
+]
+
+CRAWL_RUNTIME_BOUNDARY_PHRASES = [
+    "must not crawl arbitrary internet sources without watchlist or source-registry configuration",
+    "Forbidden runtime outputs:",
+    "broker records",
+    "order records",
+    "route records",
+    "fill records",
+    "execution state",
+    "automated trading actions",
+    "live-market-action UI state",
+    "No extractor may emit broker/order/execution outputs, automated trading actions, trade instructions, or live-market-action UI state",
+    "Never scores, weights, constraints, broker records, order records, execution records, or trade instructions",
+]
+
+DETERMINISTIC_OWNERSHIP_PHRASES = [
+    "LLMs must not own final scores, risk, constraints, target weights, portfolio exposure, entry/exit levels, or PnL calculations",
+    "Deterministic code owns scores, risk, constraints, target weights, correlation exposure, concentration checks, entry/exit levels, scenario values, PnL, exposure, risk-limit checks, and accounting",
+    "UI consumers must render fields as provided. They must not compute scores, weights, PnL, target prices, entry/exit levels, or constraints",
+    "Deterministic code owns PnL, exposure, risk-limit checks, and accounting",
+]
+
 
 def read_text(relative_path: str) -> str:
     return (ROOT / relative_path).read_text(encoding="utf-8")
@@ -131,6 +193,31 @@ def existing_text_files(*roots: str) -> list[Path]:
                 if path.is_file() and not ignored_parts.intersection(path.parts)
             )
     return files
+
+
+def markdown_section(text: str, heading: str) -> str:
+    match = re.search(
+        rf"^## {re.escape(heading)}\n(?P<body>.*?)(?=^## |\Z)",
+        text,
+        re.MULTILINE | re.DOTALL,
+    )
+    return match.group("body") if match else ""
+
+
+def contract_field_names(section_body: str) -> set[str]:
+    fields_match = re.search(
+        r"(?:### Fields|Required fields:)\n(?P<body>.*?)(?=^### |^## |\Z)",
+        section_body,
+        re.MULTILINE | re.DOTALL,
+    )
+    fields_body = fields_match.group("body") if fields_match else section_body
+    names: set[str] = set()
+    for line in fields_body.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("- `"):
+            continue
+        names.add(stripped.removeprefix("- `").split("`", 1)[0])
+    return names
 
 
 class ArchitecturePolicyTests(unittest.TestCase):
@@ -415,6 +502,62 @@ class ArchitecturePolicyTests(unittest.TestCase):
                 if re.search(pattern, text, re.IGNORECASE):
                     offenders.append(f"{path.relative_to(ROOT)} matches {pattern}")
         self.assertEqual([], offenders)
+
+    def test_trading_advisory_contract_is_advisory_only(self) -> None:
+        data_contract = read_text("docs/specs/0003-data-contracts.md")
+        object_model = read_text("docs/ANALYST_OBJECT_MODEL.md")
+        trading_advisory = markdown_section(data_contract, "TradingAdvisory")
+        combined = f"{object_model}\n{trading_advisory}"
+
+        missing = [phrase for phrase in TRADING_ADVISORY_POLICY_PHRASES if phrase not in combined]
+        self.assertEqual([], missing)
+
+    def test_advisory_workstation_contract_fields_exclude_execution_surfaces(self) -> None:
+        offenders: list[str] = []
+        for relative_path in ADVISORY_WORKSTATION_CONTRACT_DOCS:
+            text = read_text(relative_path)
+            for object_name in ADVISORY_WORKSTATION_CONTRACT_OBJECTS:
+                body = markdown_section(text, object_name)
+                self.assertTrue(body, f"{relative_path} missing {object_name}")
+                for field_name in contract_field_names(body):
+                    lowered = field_name.lower()
+                    for forbidden in FORBIDDEN_ADVISORY_CONTRACT_FIELD_TERMS:
+                        if forbidden in lowered:
+                            offenders.append(
+                                f"{relative_path} {object_name}.{field_name} contains {forbidden}"
+                            )
+
+        self.assertEqual([], offenders)
+
+    def test_crawler_specs_forbid_arbitrary_crawling_and_execution_outputs(self) -> None:
+        crawler_spec = read_text("docs/specs/0016-equity-intelligence-crawler.md")
+        runtime_spec = read_text("docs/specs/0017-crawl-pipeline-runtime.md")
+
+        missing_crawler = [
+            phrase for phrase in CRAWLER_BOUNDARY_PHRASES if phrase not in crawler_spec
+        ]
+        missing_runtime = [
+            phrase for phrase in CRAWL_RUNTIME_BOUNDARY_PHRASES if phrase not in runtime_spec
+        ]
+
+        self.assertEqual([], missing_crawler, "0016 crawler policy gaps")
+        self.assertEqual([], missing_runtime, "0017 runtime policy gaps")
+
+    def test_deterministic_ownership_remains_protected(self) -> None:
+        combined = "\n".join(
+            read_text(relative_path)
+            for relative_path in (
+                "docs/ANALYST_OBJECT_MODEL.md",
+                "docs/specs/0003-data-contracts.md",
+                "docs/specs/0016-equity-intelligence-crawler.md",
+                "docs/specs/0017-crawl-pipeline-runtime.md",
+            )
+        )
+
+        missing = [
+            phrase for phrase in DETERMINISTIC_OWNERSHIP_PHRASES if phrase not in combined
+        ]
+        self.assertEqual([], missing)
 
 
 if __name__ == "__main__":

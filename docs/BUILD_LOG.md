@@ -1,5 +1,53 @@
 # Build Log
 
+## 2026-05-16 Advisory Workstation Contract And Policy Alignment
+
+Aligned the advisory workstation contract/spec layer and added regression tests for the reporting-only boundary.
+
+- Added first-class advisory workstation contract documentation for `SourceSignal`, `FinancialSnapshot`, `ValuationContext`, `MacroRegimeSnapshot`, `TradingAdvisory`, and `AdvisoryUpdate`.
+- Updated `docs/specs/0003-data-contracts.md` so the same contracts are canonical in the data-contract spec.
+- Added `tests/test_advisory_workstation_contract_docs.py` to keep the object model and data-contract spec aligned.
+- Extended architecture policy tests for `TradingAdvisory` advisory-only language, forbidden execution-style fields, crawler no-arbitrary-crawling/no-execution-output boundaries, and deterministic ownership.
+- Preserved boundaries: no product code, runtime behavior, database migration, dependency, broker integration, live order placement, execution endpoint, or execution UI changes.
+
+Verification:
+
+- `./.venv/bin/python -m unittest tests.test_advisory_workstation_contract_docs` passed, 4 tests.
+- `./.venv/bin/python -m unittest tests.test_architecture_policy tests.test_advisory_workstation_contract_docs` passed, 31 tests.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 584 tests, 3 skipped.
+- `python3 -m compileall packages services tests` passed.
+- `npm run build --prefix apps/web` passed.
+- `npm audit --omit=dev --prefix apps/web` passed, 0 vulnerabilities.
+- `git diff --check` passed.
+
+## 2026-05-16 UI Screen Specs Reframe
+
+Updated `docs/UI_SCREEN_SPECS.md` so the UX matches an advisory/reporting-only trading workstation used daily for manual trading decisions.
+
+- Defined ten primary screens: Daily Trading Cockpit, Live Source Monitoring / Sentiment Radar, AI Infrastructure Segment Map, Ticker Analyst Workbench, Valuation & Price Target Workbench, Trade Plan Workbench, Portfolio Exposure Balancer, Manual Trade Journal + PnL Review, Advisory Update History, and Evidence Library.
+- For each screen, specified user question, primary decision supported, data objects, sections, card/table fields, LLM-generated elements, deterministic elements, empty/loading/error states, acceptance criteria, and out-of-scope boundaries.
+- Reaffirmed hard UX boundaries: no broker integration, no live trading, no execution UI, no automated trading, manual journal only, evidence-cited advisory insights, scenario-only price targets, and trade-planning-only entry/exit levels.
+
+Verification:
+
+- `git diff --check` passed.
+- No app code was modified.
+
+## 2026-05-16 Crawler Advisory Workstation Alignment
+
+Updated crawler specs to align the equity-intelligence crawler with the advisory and reporting-only AI Infrastructure Trading Advisory Workstation.
+
+- Updated `docs/specs/0016-equity-intelligence-crawler.md` to define the crawler as a configured public-source monitor that detects macro, micro, thematic, company, financial, and segment-level changes.
+- Added the crawler output flow: `SourceFrontier -> SourceSignal -> EvidenceItem -> MarketEvent -> SegmentImpact -> TradingAdvisory candidate update`.
+- Added monitored public-source categories for company investor relations, SEC filings, earnings releases/transcripts, hyperscaler capex commentary, semiconductor supply chain, HBM/memory, CoWoS/advanced packaging, datacenter leasing and power contracts, utility load growth, export controls/geopolitical policy, macro/rates/liquidity commentary, and public sentiment/news flow.
+- Updated `docs/specs/0017-crawl-pipeline-runtime.md` to carry the same advisory runtime boundary and prohibited-output rules.
+- Preserved hard boundaries: no paid-report scraping, no sensitive private financial document ingestion, no arbitrary unconfigured crawling, no broker/order outputs, no execution outputs, no automated trading actions, and no trade instructions.
+
+Verification:
+
+- `git diff --check` passed.
+- No crawler code, backend code, application code, dependency, broker, order-placement, execution, or database changes were made.
+
 ## 2026-05-16 Agent Product Boundary
 
 Updated `AGENTS.md` with the product boundary for the AI Infrastructure Trading Advisory Workstation.
