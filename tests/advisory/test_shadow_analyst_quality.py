@@ -41,6 +41,7 @@ class ShadowAnalystDraftQualityTests(unittest.TestCase):
         )
         self.assertEqual((), evaluation.blocking_issues)
         self.assertTrue(evaluation.evaluator_findings)
+        self.assertEqual(100, evaluation.ticker_specificity_score)
 
     def test_generic_but_valid_draft_stays_review_required(self) -> None:
         draft = _high_quality_brief(
@@ -56,6 +57,7 @@ class ShadowAnalystDraftQualityTests(unittest.TestCase):
                 ),
             ),
             headline="Mixed conditions require monitoring",
+            ticker_implications=(),
         )
 
         evaluation = evaluate_shadow_analyst_draft(draft, _quality_context())
@@ -65,8 +67,91 @@ class ShadowAnalystDraftQualityTests(unittest.TestCase):
             evaluation.recommendation,
         )
         self.assertEqual((), evaluation.blocking_issues)
+        self.assertEqual(0, evaluation.ticker_specificity_score)
         self.assertTrue(
             any("specific" in warning.lower() for warning in evaluation.non_blocking_warnings)
+        )
+
+    def test_thematic_only_draft_stays_review_required(self) -> None:
+        draft = _high_quality_brief(ticker_implications=())
+
+        evaluation = evaluate_shadow_analyst_draft(draft, _quality_context())
+
+        self.assertEqual(
+            DraftQualityRecommendation.KEEP_REVIEW_REQUIRED,
+            evaluation.recommendation,
+        )
+        self.assertEqual(0, evaluation.ticker_specificity_score)
+        self.assertTrue(
+            any("ticker implications" in warning.lower() for warning in evaluation.non_blocking_warnings)
+        )
+
+    def test_missing_explicit_advisory_only_framing_stays_review_required(self) -> None:
+        draft = _high_quality_brief(
+            decision_rationale=(
+                "The draft links evidence-capex to NVDA accelerator demand, HBM scarcity, "
+                "and CoWoS packaging constraints. Valuation, policy risk, and customer "
+                "monetization require continued monitoring before any manual analyst action."
+            )
+        )
+
+        evaluation = evaluate_shadow_analyst_draft(draft, _quality_context())
+
+        self.assertEqual(
+            DraftQualityRecommendation.KEEP_REVIEW_REQUIRED,
+            evaluation.recommendation,
+        )
+        self.assertTrue(
+            any("advisory-only" in warning.lower() for warning in evaluation.non_blocking_warnings)
+        )
+
+    def test_ticker_implication_without_invalidation_is_not_eligible(self) -> None:
+        implications = [dict(item) for item in _ticker_implications()]
+        implications[0]["invalidation_signal"] = ""
+        draft = _high_quality_brief(ticker_implications=tuple(implications))
+
+        evaluation = evaluate_shadow_analyst_draft(draft, _quality_context())
+
+        self.assertEqual(
+            DraftQualityRecommendation.KEEP_REVIEW_REQUIRED,
+            evaluation.recommendation,
+        )
+        self.assertLess(evaluation.ticker_specificity_score, 100)
+        self.assertTrue(
+            any("invalidation_signal" in warning for warning in evaluation.non_blocking_warnings)
+        )
+
+    def test_missing_claim_classification_separation_is_not_eligible(self) -> None:
+        draft = _high_quality_brief(supported_claim="", weak_inference="", monitor_only_hypothesis="")
+
+        evaluation = evaluate_shadow_analyst_draft(draft, _quality_context())
+
+        self.assertEqual(
+            DraftQualityRecommendation.KEEP_REVIEW_REQUIRED,
+            evaluation.recommendation,
+        )
+        self.assertTrue(
+            any("supported_claim" in warning for warning in evaluation.non_blocking_warnings)
+        )
+
+    def test_claim_evidence_must_be_subset_of_top_level_evidence_ids(self) -> None:
+        draft = _high_quality_brief(
+            material_claims=(
+                MaterialClaimDraft(
+                    claim=(
+                        "Hyperscaler capex supports NVDA accelerator demand, while HBM "
+                        "and CoWoS bottlenecks constrain supply."
+                    ),
+                    evidence_ids=("evidence-capex", "evidence-outside"),
+                ),
+            )
+        )
+
+        evaluation = evaluate_shadow_analyst_draft(draft, _quality_context())
+
+        self.assertEqual(DraftQualityRecommendation.REJECT, evaluation.recommendation)
+        self.assertTrue(
+            any("subset of top-level" in issue for issue in evaluation.blocking_issues)
         )
 
     def test_missing_evidence_blocks_promotion(self) -> None:
@@ -180,7 +265,8 @@ def _quality_context(
                 evidence_id="evidence-capex",
                 text=(
                     "Hyperscaler capex and NVDA accelerator demand remain strong, "
-                    "with HBM and CoWoS bottlenecks supporting suppliers."
+                    "with HBM and CoWoS bottlenecks supporting TSM, ASML, MU, "
+                    "and MSFT AI infrastructure suppliers."
                 ),
                 available_at=NOW - timedelta(days=1),
                 source_uri="https://example.com/capex",
@@ -211,7 +297,7 @@ def _high_quality_brief(**overrides: object) -> AnalystBriefDraft:
         "payload": {
             "advisory_label": "advisory_only",
             "segments": ["accelerators", "hbm", "advanced_packaging"],
-            "tickers": ["NVDA", "TSM"],
+            "tickers": ["NVDA", "TSM", "ASML", "MU", "MSFT"],
         },
         "model_run_id": "model-run-1",
         "review_status": DraftReviewStatus.REVIEW_REQUIRED,
@@ -228,9 +314,51 @@ def _high_quality_brief(**overrides: object) -> AnalystBriefDraft:
             "monitoring before any manual analyst action."
         ),
         "context_used": ("evidence-capex", "source-signal-capex", "market-event-capex"),
+        "ticker_implications": _ticker_implications(),
+        "supported_claim": (
+            "Hyperscaler capex evidence supports NVDA accelerator demand and upstream "
+            "TSM, ASML, MU, and MSFT infrastructure implications."
+        ),
+        "weak_inference": (
+            "The relative timing of supplier revenue conversion remains an inference "
+            "that requires monitoring."
+        ),
+        "monitor_only_hypothesis": (
+            "If cloud AI monetization slows, this remains monitor-only rather than a "
+            "stronger advisory posture."
+        ),
     }
     data.update(overrides)
     return AnalystBriefDraft(**data)
+
+
+def _ticker_implications() -> tuple[dict[str, object], ...]:
+    tickers = (
+        ("NVDA", "accelerators", "positive", "Accelerator demand remains supported."),
+        ("TSM", "advanced_packaging", "positive", "CoWoS bottlenecks support foundry leverage."),
+        ("ASML", "semiconductor_equipment", "mixed", "Capacity expansion supports demand but timing is slower."),
+        ("MU", "hbm", "positive", "HBM scarcity supports memory pricing leverage."),
+        ("MSFT", "hyperscaler_capex", "mixed", "Azure capex confirms demand but monetization risk remains."),
+    )
+    return tuple(
+        {
+            "ticker": ticker,
+            "theme_or_segment": segment,
+            "direction": direction,
+            "confidence_delta": "higher confidence from current public evidence",
+            "time_horizon": "short-to-medium",
+            "what_changed": f"{ticker} {detail}",
+            "why_it_matters": (
+                f"{ticker} is linked to hyperscaler capex, NVDA accelerator demand, "
+                "HBM, CoWoS, TSM, ASML, MU, and MSFT AI infrastructure evidence."
+            ),
+            "risk_flags": ("valuation risk", "policy risk"),
+            "invalidation_signal": "Watch for capex cuts, HBM easing, or CoWoS capacity normalization.",
+            "evidence_ids": ("evidence-capex",),
+            "advisory_stance": "watch",
+        }
+        for ticker, segment, direction, detail in tickers
+    )
 
 
 if __name__ == "__main__":

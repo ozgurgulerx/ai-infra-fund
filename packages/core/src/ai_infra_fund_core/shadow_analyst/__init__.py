@@ -14,6 +14,7 @@ from .drafts import (
     RejectedAnalystDraft,
     RiskRegimeUpdateDraft,
     SegmentImpactDraft,
+    TickerImplicationDraft,
     TradingAdvisoryDraft,
     ValuationContextDraft,
 )
@@ -43,6 +44,7 @@ __all__ = [
     "RiskRegimeUpdateDraft",
     "SegmentImpactDraft",
     "ShadowAnalystResult",
+    "TickerImplicationDraft",
     "TradingAdvisoryDraft",
     "ValuationContextDraft",
     "build_sanitized_publication_payload",

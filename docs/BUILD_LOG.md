@@ -1,5 +1,33 @@
 # Build Log
 
+## 2026-05-17 Shadow Analyst Ticker Specificity Gate
+
+Tightened the governed shadow analyst draft contract so `analyst_brief_draft` outputs must be ticker-specific, evidence-linked, explicitly advisory-only, and falsifiable before they can become eligible for human review.
+
+- Added `TickerImplicationDraft` to the shadow analyst contract with ticker, segment, direction, confidence delta, horizon, what changed, why it matters, risk flags, invalidation signal, evidence IDs, and advisory stance.
+- Advanced the shadow analyst output schema to `shadow_analyst_drafts_v2_ticker_implications`.
+- Updated the model-client prompt envelope and `LLM_ANALYST_PROMPT_PACK.md` to require explicit advisory-only framing, `ticker_implications`, `supported_claim`, `weak_inference`, `monitor_only_hypothesis`, evidence ID subset rules, and invalidation signals.
+- Hardened deterministic quality evaluation:
+  - ticker specificity is 100 only when complete ticker implications carry valid tickers, evidence IDs, risk flags, invalidation, valid direction, valid advisory stance, and support from supplied evidence,
+  - theme-only drafts stay `review_required`,
+  - missing advisory-only framing stays `review_required`,
+  - missing invalidation or claim classification separation stays `review_required`,
+  - unsupported or out-of-scope evidence remains blocking.
+- Preserved the publication boundary: no raw draft publication, no automatic promotion, no broker integration, no order/execution behavior, and no LLM-owned PnL, accounting, target weights, or deterministic scores.
+
+Verification from clean detached worktree:
+
+- `/Users/ozgurguler/Developer/Projects/ai-infra-fund/.venv/bin/python -m unittest tests.advisory.test_shadow_analyst_quality` passed, 13 tests.
+- `/Users/ozgurguler/Developer/Projects/ai-infra-fund/.venv/bin/python -m unittest tests.test_architecture_policy` passed, 42 tests.
+- `/Users/ozgurguler/Developer/Projects/ai-infra-fund/.venv/bin/python -m unittest discover -s tests/model_routing` passed, 6 tests.
+- `/Users/ozgurguler/Developer/Projects/ai-infra-fund/.venv/bin/python -m unittest discover -s tests/advisory` passed, 24 tests.
+- `/Users/ozgurguler/Developer/Projects/ai-infra-fund/.venv/bin/python -m unittest discover -s tests/llm_analysis` passed, 1 test.
+- `/Users/ozgurguler/Developer/Projects/ai-infra-fund/.venv/bin/python -m unittest discover -s tests/worker` passed, 8 tests.
+- `/Users/ozgurguler/Developer/Projects/ai-infra-fund/.venv/bin/python -m unittest discover -s tests` passed, 725 tests, 3 skipped after rebasing onto current `origin/main`.
+- `python3 -m compileall packages services tests` passed.
+- `docker compose config` passed.
+- `git diff --check` passed.
+
 ## 2026-05-17 Ticker Theme Intelligence v1
 
 Implemented live DB-backed ticker/theme intelligence for the ticker analyst workbench.

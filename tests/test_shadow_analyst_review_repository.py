@@ -193,7 +193,7 @@ def _draft_payload() -> dict[str, object]:
         "payload": {
             "advisory_label": "advisory_only",
             "segments": ["accelerators", "hbm", "advanced_packaging"],
-            "tickers": ["NVDA", "TSM"],
+            "tickers": ["NVDA", "TSM", "ASML", "MU", "MSFT"],
         },
         "model_run_id": "model-run-1",
         "review_status": "review_required",
@@ -208,6 +208,13 @@ def _draft_payload() -> dict[str, object]:
             "valuation, policy risk, and customer monetization require monitoring."
         ),
         "context_used": ["evidence-capex", "source-signal-capex", "market-event-capex"],
+        "ticker_implications": _ticker_implications(),
+        "supported_claim": (
+            "Hyperscaler capex evidence supports NVDA accelerator demand and upstream "
+            "TSM, ASML, MU, and MSFT infrastructure implications."
+        ),
+        "weak_inference": "Supplier revenue conversion timing remains an inference to monitor.",
+        "monitor_only_hypothesis": "If cloud AI monetization slows, this remains monitor-only.",
     }
 
 
@@ -221,14 +228,43 @@ def _evidence_row() -> tuple[object, ...]:
         NOW,
         "a" * 64,
         "public_evidence",
-        ["NVDA", "TSM"],
+        ["NVDA", "TSM", "ASML", "MU", "MSFT"],
         ["accelerators", "hbm", "advanced_packaging"],
         (
             "Hyperscaler capex and NVDA accelerator demand remain strong, with HBM "
-            "and CoWoS bottlenecks supporting suppliers."
+            "and CoWoS bottlenecks supporting TSM, ASML, MU, and MSFT suppliers."
         ),
         NOW,
     )
+
+
+def _ticker_implications() -> list[dict[str, object]]:
+    tickers = (
+        ("NVDA", "accelerators", "positive", "Accelerator demand remains supported."),
+        ("TSM", "advanced_packaging", "positive", "CoWoS bottlenecks support foundry leverage."),
+        ("ASML", "semiconductor_equipment", "mixed", "Capacity expansion supports demand but timing is slower."),
+        ("MU", "hbm", "positive", "HBM scarcity supports memory pricing leverage."),
+        ("MSFT", "hyperscaler_capex", "mixed", "Azure capex confirms demand but monetization risk remains."),
+    )
+    return [
+        {
+            "ticker": ticker,
+            "theme_or_segment": segment,
+            "direction": direction,
+            "confidence_delta": "higher confidence from current public evidence",
+            "time_horizon": "short-to-medium",
+            "what_changed": f"{ticker} {detail}",
+            "why_it_matters": (
+                f"{ticker} is linked to hyperscaler capex, NVDA accelerator demand, "
+                "HBM, CoWoS, TSM, ASML, MU, and MSFT AI infrastructure evidence."
+            ),
+            "risk_flags": ["valuation risk", "policy risk"],
+            "invalidation_signal": "Watch for capex cuts, HBM easing, or CoWoS capacity normalization.",
+            "evidence_ids": ["evidence-capex"],
+            "advisory_stance": "watch",
+        }
+        for ticker, segment, direction, detail in tickers
+    ]
 
 
 if __name__ == "__main__":

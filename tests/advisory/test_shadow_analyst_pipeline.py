@@ -92,6 +92,10 @@ class ShadowAnalystPipelineTests(unittest.TestCase):
                 self.assertFalse(draft.can_publish_directly)
                 self.assertEqual(recorder.records[0].model_run_id, draft.model_run_id)
                 self.assertIn("evidence-nvda-capex", draft.evidence_ids)
+        analyst_brief = next(draft for draft in result.drafts if draft.draft_type == "AnalystBriefDraft")
+        self.assertEqual("NVDA", analyst_brief.ticker_implications[0].ticker)
+        self.assertEqual("watch", analyst_brief.ticker_implications[0].advisory_stance)
+        self.assertIn("Capex evidence", analyst_brief.supported_claim)
 
     def test_private_research_bundle_is_denied_and_audited_without_model_call(self) -> None:
         rows = _sample_context_rows()
@@ -393,8 +397,26 @@ def _valid_shadow_response() -> dict[str, object]:
                 **common,
                 "headline": "AI capex signal keeps accelerator demand in focus.",
                 "summary": "NVDA remains linked to hyperscaler capex evidence.",
-                "decision_rationale": "The brief links capex evidence to review-required accelerator exposure.",
+                "decision_rationale": "The advisory-only brief links capex evidence to review-required accelerator exposure.",
                 "context_used": ("evidence-nvda-capex", "market-event-nvda-capex"),
+                "ticker_implications": (
+                    {
+                        "ticker": "NVDA",
+                        "theme_or_segment": "accelerators",
+                        "direction": "positive",
+                        "confidence_delta": "higher confidence from public capex evidence",
+                        "time_horizon": "short-to-medium",
+                        "what_changed": "NVDA remains linked to hyperscaler capex.",
+                        "why_it_matters": "NVDA accelerator demand is supported by capex evidence.",
+                        "risk_flags": ("valuation risk",),
+                        "invalidation_signal": "Capex revisions roll over.",
+                        "evidence_ids": ("evidence-nvda-capex",),
+                        "advisory_stance": "watch",
+                    },
+                ),
+                "supported_claim": "Capex evidence supports NVDA accelerator demand.",
+                "weak_inference": "Supplier revenue timing still needs monitoring.",
+                "monitor_only_hypothesis": "If capex rolls over, keep this monitor-only.",
             },
         ),
     }

@@ -326,7 +326,10 @@ def _messages(
             "Do not emit title, key_claims, brief_id, review_required, tickers_mentioned, "
             "recommended_next_checks, implications_for_portfolio, or near_term_triggers_to_watch. "
             "Do not invent IDs. evidence_ids must be a non-empty subset of supplied evidence_ids. "
-            "context_used must be a non-empty subset of supplied evidence_ids or object_ids."
+            "context_used must be a non-empty subset of supplied evidence_ids or object_ids. "
+            "Analyst brief wording must explicitly state advisory-only framing. "
+            "For analyst_briefs, ticker_implications evidence_ids and material_claims evidence_ids "
+            "must be non-empty subsets of the same top-level evidence_ids."
         ),
         "exact_output_contract": _exact_output_contract(sections),
         "scope": bundle.scope.value,
@@ -342,7 +345,11 @@ def _messages(
             "material_claims": "Each material claim requires evidence_ids drawn from evidence_ids.",
             "trust_fields": {
                 "trading_advisories": "Each item must include rationale and context_used.",
-                "analyst_briefs": "Each item must include decision_rationale and context_used.",
+                "analyst_briefs": (
+                    "Each item must include decision_rationale, context_used, supported_claim, "
+                    "weak_inference, monitor_only_hypothesis, and ticker_implications with "
+                    "invalidation_signal and evidence_ids."
+                ),
                 "context_used": "Use only supplied evidence_ids or object_ids.",
             },
         },
@@ -426,6 +433,24 @@ def _exact_output_contract(sections: tuple[str, ...]) -> dict[str, object]:
                 "summary": "brief summary",
                 "decision_rationale": "why this brief matters and what decision it informs",
                 "context_used": ["IDs from supplied evidence_ids or object_ids"],
+                "supported_claim": "evidence-backed claim supported by supplied evidence_ids",
+                "weak_inference": "clearly labeled inference that requires monitoring",
+                "monitor_only_hypothesis": "watch-only hypothesis that is not publication-ready",
+                "ticker_implications": [
+                    {
+                        "ticker": "ticker from supplied context",
+                        "theme_or_segment": "AI infrastructure theme or segment",
+                        "direction": "positive | negative | mixed | neutral",
+                        "confidence_delta": "plain-text confidence change, not a score",
+                        "time_horizon": "short | medium | long or comparable text",
+                        "what_changed": "ticker-specific catalyst or update",
+                        "why_it_matters": "ticker-specific implication",
+                        "risk_flags": ["risk flag"],
+                        "invalidation_signal": "falsifiable monitor that would weaken the implication",
+                        "evidence_ids": ["one or more IDs from top-level evidence_ids"],
+                        "advisory_stance": "watch | accumulate | hold | trim | avoid | exit-candidate | review",
+                    }
+                ],
             }
         ]
     return contracts

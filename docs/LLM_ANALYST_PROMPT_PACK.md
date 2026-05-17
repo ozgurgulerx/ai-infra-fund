@@ -455,6 +455,7 @@ Every role response should include:
 
 - Daily or intraday analyst brief narrative.
 - Top catalysts, affected tickers, theme propagation, evidence links, risk flags, invalidation conditions, confidence, and advisory label explanations.
+- Structured `ticker_implications` that make ticker-specific, evidence-linked implications explicit without creating executable instructions.
 
 ### Forbidden outputs
 
@@ -467,6 +468,17 @@ Every role response should include:
 - Output must conform to `AnalystBrief`.
 - Every material statement must link to evidence IDs or upstream object IDs.
 - Advisory labels must come from upstream advisory artifacts, not from the model.
+- The draft text must explicitly state that the output is advisory-only.
+- `ticker_implications` are required when ticker-level evidence is present.
+- Include at least five ticker implications when at least five watchlist tickers have evidence or upstream context.
+- Each ticker implication must include `ticker`, `theme_or_segment`, `direction`, `confidence_delta`, `time_horizon`, `what_changed`, `why_it_matters`, `risk_flags`, `invalidation_signal`, `advisory_stance`, and `evidence_ids`.
+- `direction` must be one of: positive, negative, mixed, neutral.
+- `advisory_stance` must be one of: watch, accumulate, hold, trim, avoid, exit-candidate, review.
+- Ticker implication evidence_ids must be non-empty and drawn from top-level `evidence_ids`.
+- claim-level evidence IDs must be a subset of top-level evidence_ids.
+- Each ticker implication must include a falsifiable `invalidation_signal`.
+- Separate `supported_claim`, `weak_inference`, and `monitor_only_hypothesis`.
+- Missing ticker implication evidence, missing invalidation, or missing advisory-only wording keeps the draft review-required.
 
 ### ModelRun audit requirements
 

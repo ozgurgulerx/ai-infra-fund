@@ -29,8 +29,8 @@ from .drafts import (
 
 
 DEFAULT_TASK_ROLE = "evidence_summary"
-PROMPT_VERSION = "shadow_analyst_drafts_v1"
-OUTPUT_SCHEMA = "shadow_analyst_drafts_v1"
+PROMPT_VERSION = "shadow_analyst_drafts_v2_ticker_implications"
+OUTPUT_SCHEMA = "shadow_analyst_drafts_v2_ticker_implications"
 UNRESOLVED_ROUTE_VALUE = "unresolved_route"
 ROUTER_PROVIDER = "model_router"
 
@@ -258,7 +258,16 @@ def _parse_shadow_output(
             "analyst_briefs",
             "AnalystBriefDraft",
             AnalystBriefDraft,
-            ("headline", "summary", "decision_rationale", "context_used"),
+            (
+                "headline",
+                "summary",
+                "decision_rationale",
+                "context_used",
+                "ticker_implications",
+                "supported_claim",
+                "weak_inference",
+                "monitor_only_hypothesis",
+            ),
         ),
     )
     drafts: list[object] = []

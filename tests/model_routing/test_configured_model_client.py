@@ -220,7 +220,28 @@ class ConfiguredModelClientTests(unittest.TestCase):
         analyst_contract = user_payload["exact_output_contract"]["analyst_briefs"][0]
         self.assertIn("decision_rationale", analyst_contract)
         self.assertIn("context_used", analyst_contract)
+        self.assertIn("supported_claim", analyst_contract)
+        self.assertIn("weak_inference", analyst_contract)
+        self.assertIn("monitor_only_hypothesis", analyst_contract)
+        self.assertIn("ticker_implications", analyst_contract)
+        implication_contract = analyst_contract["ticker_implications"][0]
+        for field_name in (
+            "ticker",
+            "theme_or_segment",
+            "direction",
+            "confidence_delta",
+            "time_horizon",
+            "what_changed",
+            "why_it_matters",
+            "risk_flags",
+            "invalidation_signal",
+            "evidence_ids",
+            "advisory_stance",
+        ):
+            self.assertIn(field_name, implication_contract)
         self.assertIn("Do not emit title", user_payload["format_rules"])
+        self.assertIn("advisory-only", user_payload["format_rules"])
+        self.assertIn("ticker_implications", user_payload["draft_contract"]["trust_fields"]["analyst_briefs"])
 
     def test_ollama_local_route_uses_local_chat_endpoint(self) -> None:
         transport = RecordingTransport(

@@ -96,13 +96,34 @@ class ShadowAnalystRealModelClientIntegrationTests(unittest.TestCase):
                                             ],
                                             "payload": {"summary": "Draft only."},
                                             "headline": "AI infrastructure brief draft",
-                                            "summary": "Public evidence supports analyst review.",
-                                            "decision_rationale": "The draft ties public evidence to a review-required analyst brief.",
+                                            "summary": "Public evidence supports advisory-only analyst review.",
+                                            "decision_rationale": (
+                                                "The advisory-only draft ties public evidence to a review-required "
+                                                "analyst brief."
+                                            ),
                                             "context_used": [
                                                 "evidence-1",
                                                 "source-signal-1",
                                                 "market-event-1",
                                             ],
+                                            "ticker_implications": [
+                                                {
+                                                    "ticker": "NVDA",
+                                                    "theme_or_segment": "accelerators",
+                                                    "direction": "positive",
+                                                    "confidence_delta": "higher confidence from public evidence",
+                                                    "time_horizon": "short-to-medium",
+                                                    "what_changed": "NVDA is linked to AI capex evidence.",
+                                                    "why_it_matters": "NVDA accelerator demand remains a key implication.",
+                                                    "risk_flags": ["valuation risk"],
+                                                    "invalidation_signal": "Capex evidence weakens.",
+                                                    "evidence_ids": ["evidence-1"],
+                                                    "advisory_stance": "watch",
+                                                }
+                                            ],
+                                            "supported_claim": "AI capex evidence supports NVDA monitoring.",
+                                            "weak_inference": "Revenue conversion timing remains uncertain.",
+                                            "monitor_only_hypothesis": "Monitor-only until more evidence arrives.",
                                         }
                                     ]
                                 }
@@ -143,6 +164,7 @@ class ShadowAnalystRealModelClientIntegrationTests(unittest.TestCase):
             draft_recorder.records[0].model_run_id,
         )
         self.assertFalse(draft_recorder.records[0].can_publish_directly)
+        self.assertEqual("NVDA", draft_recorder.records[0].ticker_implications[0].ticker)
         self.assertEqual(1, len(transport.calls))
 
     def test_daily_worker_enables_real_client_only_when_env_requests_it(self) -> None:

@@ -62,6 +62,7 @@ class DraftQualityContext:
 @dataclass(frozen=True, slots=True)
 class DraftQualityEvaluation:
     draft_quality_score: int
+    ticker_specificity_score: int
     evaluator_findings: tuple[str, ...]
     blocking_issues: tuple[str, ...]
     non_blocking_warnings: tuple[str, ...]
@@ -70,6 +71,7 @@ class DraftQualityEvaluation:
     def to_dict(self) -> dict[str, object]:
         return {
             "draft_quality_score": self.draft_quality_score,
+            "ticker_specificity_score": self.ticker_specificity_score,
             "evaluator_findings": list(self.evaluator_findings),
             "blocking_issues": list(self.blocking_issues),
             "non_blocking_warnings": list(self.non_blocking_warnings),
@@ -158,11 +160,23 @@ WHITELISTED_PUBLICATION_FIELDS = frozenset(
         "decision_rationale",
         "headline",
         "market_event_ids",
+        "monitor_only_hypothesis",
         "rationale",
         "summary",
+        "supported_claim",
         "ticker",
+        "ticker_implications",
+        "weak_inference",
     }
 )
+
+ALLOWED_TICKER_IMPLICATION_DIRECTIONS = frozenset(
+    {"positive", "negative", "mixed", "neutral"}
+)
+ALLOWED_TICKER_IMPLICATION_STANCES = frozenset(
+    {"watch", "accumulate", "hold", "trim", "avoid", "exit-candidate", "review"}
+)
+MIN_TICKER_IMPLICATIONS_FOR_DAILY_BRIEF = 5
 
 
 def evaluate_shadow_analyst_draft(
@@ -175,10 +189,12 @@ def evaluate_shadow_analyst_draft(
     material_claims = _material_claims(draft)
     payload = _payload(draft)
     text = _draft_text(draft)
+    visible_text = _visible_draft_text(draft)
     findings: list[str] = []
     blocking: list[str] = []
     warnings: list[str] = []
     score = 100
+    ticker_specificity_score = 0
 
     if not evidence_ids:
         blocking.append("missing evidence IDs")
@@ -200,6 +216,14 @@ def evaluate_shadow_analyst_draft(
             blocking.append(f"claim has no evidence IDs: {claim_text[:80]}")
             score -= 20
             continue
+        claim_not_top_level = sorted(set(claim_evidence_ids) - set(evidence_ids))
+        if evidence_ids and claim_not_top_level:
+            blocking.append(
+                "claim evidence IDs must be a subset of top-level evidence IDs: "
+                + ", ".join(claim_not_top_level)
+            )
+            score -= 25
+            continue
         claim_unknown = sorted(set(claim_evidence_ids) - set(evidence_by_id))
         if claim_unknown:
             blocking.append(f"claim references unknown evidence IDs: {', '.join(claim_unknown)}")
@@ -220,13 +244,60 @@ def evaluate_shadow_analyst_draft(
         blocking.append(f"forbidden execution language: {', '.join(forbidden_hits)}")
         score -= 35
 
-    if "advisory_only" in text.lower() or "advisory-only" in text.lower():
+    if "advisory_only" in visible_text.lower() or "advisory-only" in visible_text.lower():
         findings.append("Draft uses advisory-only framing.")
     else:
         warnings.append("advisory-only framing is not explicit in draft text")
         score -= 5
 
-    specificity_score = _specificity_score(text, context)
+    valid_ticker_implications, implication_blocking, implication_warnings = _ticker_implication_audit(
+        draft,
+        context,
+        evidence_by_id,
+        top_level_evidence_ids=evidence_ids,
+    )
+    ticker_specificity_score = _ticker_specificity_score(
+        valid_count=len(valid_ticker_implications),
+        total_count=len(_ticker_implications(draft)),
+    )
+    blocking.extend(implication_blocking)
+    warnings.extend(implication_warnings)
+    score -= 25 * len(implication_blocking)
+    score -= 10 * len(implication_warnings)
+
+    if _is_analyst_brief_draft(draft_type):
+        ticker_implications = _ticker_implications(draft)
+        required_implication_count = _required_ticker_implication_count(context)
+        if not ticker_implications:
+            warnings.append("analyst brief draft is missing ticker implications")
+            score -= 20
+        elif ticker_specificity_score < 80:
+            warnings.append(
+                "analyst brief draft lacks enough complete evidence-linked ticker implications "
+                "with invalidation"
+            )
+            score -= 20
+        elif required_implication_count and len(valid_ticker_implications) < required_implication_count:
+            warnings.append(
+                "analyst brief draft has fewer than "
+                f"{required_implication_count} complete ticker implications"
+            )
+            score -= 15
+        else:
+            findings.append(
+                f"Ticker implication specificity score is {ticker_specificity_score}."
+            )
+        missing_separation = _missing_claim_separation_fields(draft)
+        if missing_separation:
+            warnings.append(
+                "analyst brief draft does not separate supported_claim, weak_inference, "
+                f"and monitor_only_hypothesis: missing {', '.join(missing_separation)}"
+            )
+            score -= 5
+        else:
+            findings.append("Draft separates supported claim, weak inference, and monitor-only hypothesis.")
+
+    specificity_score = _specificity_score(text, context, valid_ticker_implications)
     if specificity_score < 2:
         warnings.append("draft is too generic and lacks enough ticker or segment specificity")
         score -= 25
@@ -236,7 +307,11 @@ def evaluate_shadow_analyst_draft(
     else:
         findings.append("Draft has ticker or AI infrastructure segment specificity.")
 
-    unknown_tickers = _unknown_payload_tickers(payload, context.known_tickers)
+    searchable_payload = {
+        **payload,
+        "ticker_implications": _jsonable(_ticker_implications(draft)),
+    }
+    unknown_tickers = _unknown_payload_tickers(searchable_payload, context.known_tickers)
     if unknown_tickers:
         blocking.append(f"unknown ticker references: {', '.join(unknown_tickers)}")
         score -= 25
@@ -267,6 +342,7 @@ def evaluate_shadow_analyst_draft(
     recommendation = _recommendation(score, blocking, warnings)
     return DraftQualityEvaluation(
         draft_quality_score=score,
+        ticker_specificity_score=ticker_specificity_score,
         evaluator_findings=tuple(findings),
         blocking_issues=tuple(dict.fromkeys(blocking)),
         non_blocking_warnings=tuple(dict.fromkeys(warnings)),
@@ -378,13 +454,38 @@ def _draft_text(draft: object) -> str:
         "bull_case",
         "bear_case",
         "invalidation_condition",
+        "supported_claim",
+        "weak_inference",
+        "monitor_only_hypothesis",
     ):
         value = _field(draft, name)
         if value:
             parts.append(str(value))
     for claim, _evidence_ids in _material_claims(draft):
         parts.append(claim)
+    for implication in _ticker_implications(draft):
+        parts.append(str(_jsonable(implication)))
     parts.append(str(_payload(draft)))
+    return " ".join(parts)
+
+
+def _visible_draft_text(draft: object) -> str:
+    parts: list[str] = []
+    for name in (
+        "headline",
+        "summary",
+        "decision_rationale",
+        "rationale",
+        "assessment",
+        "bull_case",
+        "bear_case",
+        "supported_claim",
+        "weak_inference",
+        "monitor_only_hypothesis",
+    ):
+        value = _field(draft, name)
+        if value:
+            parts.append(str(value))
     return " ".join(parts)
 
 
@@ -410,12 +511,23 @@ def _forbidden_execution_hits(text: str) -> tuple[str, ...]:
     return tuple(hits)
 
 
-def _specificity_score(text: str, context: DraftQualityContext) -> int:
+def _specificity_score(
+    text: str,
+    context: DraftQualityContext,
+    valid_ticker_implications: Sequence[object],
+) -> int:
     lowered = text.lower()
     tokens = _meaningful_tokens(text)
     score = 0
     score += sum(1 for ticker in context.known_tickers if re.search(rf"\b{re.escape(ticker)}\b", text))
     score += sum(1 for segment in context.known_segments if segment.replace("_", " ") in lowered or segment in lowered)
+    score += len(
+        {
+            _implication_text(implication, "ticker").upper()
+            for implication in valid_ticker_implications
+            if _implication_text(implication, "ticker")
+        }
+    )
     if len(tokens - GENERIC_TERMS) >= 8:
         score += 1
     return score
@@ -529,6 +641,125 @@ def _accepted_fields(draft: object) -> dict[str, object]:
         for claim, evidence_ids in _material_claims(draft)
     ]
     return fields
+
+
+def _ticker_implication_audit(
+    draft: object,
+    context: DraftQualityContext,
+    evidence_by_id: Mapping[str, DraftEvidenceReference],
+    *,
+    top_level_evidence_ids: Sequence[str],
+) -> tuple[tuple[object, ...], tuple[str, ...], tuple[str, ...]]:
+    valid: list[object] = []
+    blocking: list[str] = []
+    warnings: list[str] = []
+    known_tickers = set(context.known_tickers)
+    top_level_set = set(top_level_evidence_ids)
+
+    for index, implication in enumerate(_ticker_implications(draft), start=1):
+        label = f"ticker implication {index}"
+        ticker = _implication_text(implication, "ticker").upper()
+        direction = _implication_text(implication, "direction").lower()
+        stance = _implication_text(implication, "advisory_stance").lower()
+        evidence_ids = _text_tuple(_implication_value(implication, "evidence_ids"))
+        required_text_fields = (
+            "theme_or_segment",
+            "confidence_delta",
+            "time_horizon",
+            "what_changed",
+            "why_it_matters",
+            "invalidation_signal",
+        )
+        missing_fields = [
+            field_name
+            for field_name in required_text_fields
+            if not _implication_text(implication, field_name)
+        ]
+        if not ticker:
+            missing_fields.append("ticker")
+        if not evidence_ids:
+            missing_fields.append("evidence_ids")
+        if not _text_tuple(_implication_value(implication, "risk_flags")):
+            missing_fields.append("risk_flags")
+        if missing_fields:
+            warnings.append(f"{label} missing required fields: {', '.join(missing_fields)}")
+            continue
+        if known_tickers and ticker not in known_tickers:
+            blocking.append(f"{label} references unknown ticker: {ticker}")
+            continue
+        if direction not in ALLOWED_TICKER_IMPLICATION_DIRECTIONS:
+            warnings.append(f"{label} has invalid direction: {direction}")
+            continue
+        if stance not in ALLOWED_TICKER_IMPLICATION_STANCES:
+            warnings.append(f"{label} has invalid advisory stance: {stance}")
+            continue
+        not_top_level = sorted(set(evidence_ids) - top_level_set)
+        if top_level_set and not_top_level:
+            blocking.append(
+                f"{label} evidence IDs must be a subset of top-level evidence IDs: "
+                + ", ".join(not_top_level)
+            )
+            continue
+        unknown_evidence = sorted(set(evidence_ids) - set(evidence_by_id))
+        if unknown_evidence:
+            blocking.append(f"{label} references unknown evidence IDs: {', '.join(unknown_evidence)}")
+            continue
+
+        support_text = " ".join(
+            _implication_text(implication, field_name)
+            for field_name in ("ticker", "theme_or_segment", "what_changed", "why_it_matters")
+        )
+        if not _claim_supported_by_evidence(support_text, evidence_ids, evidence_by_id):
+            warnings.append(f"{label} is not clearly supported by cited evidence")
+            continue
+        valid.append(implication)
+
+    return tuple(valid), tuple(blocking), tuple(warnings)
+
+
+def _ticker_specificity_score(*, valid_count: int, total_count: int) -> int:
+    if total_count <= 0:
+        return 0
+    return max(0, min(100, round((valid_count / total_count) * 100)))
+
+
+def _required_ticker_implication_count(context: DraftQualityContext) -> int:
+    if len(context.known_tickers) >= MIN_TICKER_IMPLICATIONS_FOR_DAILY_BRIEF:
+        return MIN_TICKER_IMPLICATIONS_FOR_DAILY_BRIEF
+    return len(context.known_tickers)
+
+
+def _missing_claim_separation_fields(draft: object) -> tuple[str, ...]:
+    missing: list[str] = []
+    for field_name in ("supported_claim", "weak_inference", "monitor_only_hypothesis"):
+        if not str(_field(draft, field_name) or "").strip():
+            missing.append(field_name)
+    return tuple(missing)
+
+
+def _ticker_implications(draft: object) -> tuple[object, ...]:
+    raw = _field(draft, "ticker_implications")
+    if raw is None:
+        payload = _payload(draft)
+        raw = payload.get("ticker_implications")
+    return tuple(normalize_tuple(raw, "ticker_implications"))
+
+
+def _implication_value(implication: object, field_name: str) -> object | None:
+    if isinstance(implication, Mapping):
+        return implication.get(field_name)
+    return getattr(implication, field_name, None)
+
+
+def _implication_text(implication: object, field_name: str) -> str:
+    value = _implication_value(implication, field_name)
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def _is_analyst_brief_draft(draft_type: object) -> bool:
+    return str(draft_type).lower() in {"analystbriefdraft", "analyst_brief_draft"}
 
 
 def _jsonable(value: object) -> object:
