@@ -68,6 +68,7 @@ models:
     allowed_data_classes:
       - public_market_data
       - public_evidence
+      - user_portfolio
       - run_audit
       - derived_analytics
     fallback_chain:
