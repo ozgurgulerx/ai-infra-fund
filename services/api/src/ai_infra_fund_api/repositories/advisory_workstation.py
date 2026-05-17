@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 import json
+import re
 from typing import Protocol
 
 
@@ -18,6 +19,52 @@ class Cursor(Protocol):
 
 class Connection(Protocol):
     def cursor(self) -> object: ...
+
+
+SOURCE_DISPLAY_FALLBACK = "Source captured; summary pending review"
+DISPLAY_TITLE_KEYS = (
+    "title",
+    "headline",
+    "source_title",
+    "event_title",
+    "article_title",
+    "name",
+    "summary",
+    "description",
+    "snippet",
+    "abstract",
+)
+DISPLAY_SUMMARY_KEYS = (
+    "summary",
+    "description",
+    "snippet",
+    "abstract",
+    "ai_relevance",
+    "catalyst",
+    "title",
+    "headline",
+    "source_title",
+    "event_title",
+    "article_title",
+)
+DISPLAY_COLLECTION_KEYS = (
+    "articles",
+    "items",
+    "results",
+    "entries",
+    "data",
+    "news",
+    "documents",
+    "records",
+)
+RAW_PROVIDER_MARKERS = (
+    '"articles"',
+    '\\"articles\\"',
+    "url_mobile",
+    "payload_json",
+    "provider_payload",
+)
+URL_ONLY_RE = re.compile(r"^https?://\S+$", re.IGNORECASE)
 
 
 LATEST_SOURCE_SIGNALS_SQL = """
@@ -645,11 +692,24 @@ class AdvisoryWorkstationRepository:
 
 
 def _source_signal_payload(row: Mapping[str, object]) -> dict[str, object]:
+    payload = _json_value(row.get("payload_json"))
+    title = _source_display_text_or_none(
+        row.get("title"),
+        payload=payload,
+        preferred_keys=DISPLAY_TITLE_KEYS,
+    )
+    summary = _source_display_text_or_none(
+        row.get("title"),
+        payload=payload,
+        preferred_keys=DISPLAY_SUMMARY_KEYS,
+    ) or title
     return {
         "signal_id": row.get("signal_id"),
         "source_type": row.get("source_type"),
         "signal_category": row.get("signal_category"),
-        "title": row.get("title"),
+        "title": title,
+        "summary": summary,
+        "display_text": title,
         "observed_at": _iso_or_none(row.get("observed_at")),
         "available_at": _iso_or_none(row.get("available_at")),
         "tickers": _text_list(row.get("tickers")),
@@ -658,11 +718,22 @@ def _source_signal_payload(row: Mapping[str, object]) -> dict[str, object]:
         "derived_market_event_ids": _text_list(row.get("derived_market_event_ids")),
         "confidence": row.get("confidence"),
         "review_status": row.get("review_status"),
-        "payload": _json_value(row.get("payload_json")),
+        "payload": payload,
     }
 
 
 def _market_event_payload(row: Mapping[str, object]) -> dict[str, object]:
+    payload = _json_value(row.get("payload_json"))
+    catalyst = _source_display_text_or_none(
+        row.get("catalyst"),
+        payload=payload,
+        preferred_keys=DISPLAY_TITLE_KEYS,
+    )
+    ai_relevance = _source_display_text_or_none(
+        row.get("ai_relevance"),
+        payload=payload,
+        preferred_keys=DISPLAY_SUMMARY_KEYS,
+    )
     return {
         "event_id": row.get("event_id"),
         "event_type": row.get("event_type"),
@@ -672,8 +743,9 @@ def _market_event_payload(row: Mapping[str, object]) -> dict[str, object]:
         "tickers": _text_list(row.get("tickers")),
         "companies": _text_list(row.get("companies")),
         "themes": _text_list(row.get("themes")),
-        "catalyst": row.get("catalyst"),
-        "ai_relevance": row.get("ai_relevance"),
+        "catalyst": catalyst,
+        "ai_relevance": ai_relevance,
+        "display_text": catalyst or ai_relevance,
         "direction": row.get("direction"),
         "time_horizon": row.get("time_horizon"),
         "confidence": row.get("confidence"),
@@ -682,7 +754,7 @@ def _market_event_payload(row: Mapping[str, object]) -> dict[str, object]:
         "content_hash": row.get("content_hash"),
         "extracted_by_model_run_id": row.get("extracted_by_model_run_id"),
         "review_status": row.get("review_status"),
-        "payload": _json_value(row.get("payload_json")),
+        "payload": payload,
     }
 
 
@@ -1302,8 +1374,14 @@ def _next_watch_items(
         if plan.get("readiness"):
             items.append(f"Trade plan readiness: {plan.get('readiness')}")
     for event in market_events[:2]:
-        if event.get("catalyst"):
-            items.append(f"Review catalyst: {event.get('catalyst')}")
+        catalyst = _source_display_text_or_none(
+            event.get("catalyst"),
+            event.get("display_text"),
+            payload=event.get("payload"),
+            preferred_keys=DISPLAY_TITLE_KEYS,
+        )
+        if catalyst:
+            items.append(f"Review catalyst: {catalyst}")
     return _unique_texts(items)[:8]
 
 
@@ -1326,13 +1404,137 @@ def _trade_plan_note(plan: Mapping[str, object]) -> dict[str, object]:
     }
 
 
+def _source_display_text_or_none(
+    *values: object,
+    payload: object = None,
+    preferred_keys: Sequence[str] = DISPLAY_TITLE_KEYS,
+) -> str | None:
+    saw_raw_payload = False
+    for value in (*values, payload):
+        text, is_raw = _display_candidate(value, preferred_keys=preferred_keys)
+        saw_raw_payload = saw_raw_payload or is_raw
+        if text:
+            return text
+    return SOURCE_DISPLAY_FALLBACK if saw_raw_payload else None
+
+
+def _display_candidate(
+    value: object,
+    *,
+    preferred_keys: Sequence[str],
+) -> tuple[str | None, bool]:
+    if value is None:
+        return None, False
+    if isinstance(value, Mapping):
+        return _display_from_mapping(value, preferred_keys=preferred_keys)
+    if isinstance(value, str):
+        return _display_from_text(value, preferred_keys=preferred_keys)
+    if isinstance(value, Sequence):
+        saw_raw_payload = False
+        for item in value:
+            text, is_raw = _display_candidate(item, preferred_keys=preferred_keys)
+            saw_raw_payload = saw_raw_payload or is_raw
+            if text:
+                return text, saw_raw_payload
+        return None, saw_raw_payload
+    return _clean_display_text(str(value)), False
+
+
+def _display_from_text(
+    value: str,
+    *,
+    preferred_keys: Sequence[str],
+) -> tuple[str | None, bool]:
+    text = value.strip()
+    if not text:
+        return None, False
+    if URL_ONLY_RE.match(text):
+        return None, True
+    if _looks_raw_provider_payload(text):
+        parsed = _parse_jsonish_text(text)
+        if parsed is not None and parsed != value:
+            extracted, _ = _display_candidate(parsed, preferred_keys=preferred_keys)
+            return extracted, True
+        return None, True
+    return _clean_display_text(text), False
+
+
+def _display_from_mapping(
+    value: Mapping[str, object],
+    *,
+    preferred_keys: Sequence[str],
+) -> tuple[str | None, bool]:
+    saw_raw_payload = False
+    for key in preferred_keys:
+        if key not in value:
+            continue
+        text, is_raw = _display_candidate(value.get(key), preferred_keys=preferred_keys)
+        saw_raw_payload = saw_raw_payload or is_raw
+        if text:
+            return text, saw_raw_payload
+
+    for key in DISPLAY_COLLECTION_KEYS:
+        if key not in value:
+            continue
+        text, is_raw = _display_candidate(value.get(key), preferred_keys=preferred_keys)
+        saw_raw_payload = saw_raw_payload or is_raw
+        if text:
+            return text, saw_raw_payload
+
+    for key, child in value.items():
+        if key in preferred_keys or key in DISPLAY_COLLECTION_KEYS:
+            continue
+        if isinstance(child, str):
+            saw_raw_payload = saw_raw_payload or "url" in key.lower()
+            saw_raw_payload = saw_raw_payload or URL_ONLY_RE.match(child.strip()) is not None
+            continue
+        if not isinstance(child, Mapping) and not (
+            isinstance(child, Sequence) and not isinstance(child, str)
+        ):
+            continue
+        text, is_raw = _display_candidate(child, preferred_keys=preferred_keys)
+        saw_raw_payload = saw_raw_payload or is_raw
+        if text:
+            return text, saw_raw_payload
+    return None, saw_raw_payload
+
+
+def _looks_raw_provider_payload(value: str) -> bool:
+    text = value.strip()
+    lower = text.lower()
+    return (
+        text.startswith(("{", "["))
+        or any(marker in lower for marker in RAW_PROVIDER_MARKERS)
+        or (text.count('":') >= 2 and ("{" in text or "[" in text))
+    )
+
+
+def _parse_jsonish_text(value: str) -> object | None:
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return None
+
+
+def _clean_display_text(value: str) -> str | None:
+    text = " ".join(value.strip().strip("\"'").split())
+    if not text or URL_ONLY_RE.match(text) or _looks_raw_provider_payload(text):
+        return None
+    return text
+
+
 def _why_now(
     market_events: Sequence[Mapping[str, object]],
     advisories: Sequence[Mapping[str, object]],
     assessments: Sequence[Mapping[str, object]],
 ) -> str:
     for event in market_events:
-        value = str(event.get("catalyst") or "").strip()
+        value = _source_display_text_or_none(
+            event.get("catalyst"),
+            event.get("display_text"),
+            payload=event.get("payload"),
+            preferred_keys=DISPLAY_TITLE_KEYS,
+        )
         if value:
             return value
     for advisory in advisories:
@@ -1351,11 +1553,23 @@ def _what_changed(
     market_events: Sequence[Mapping[str, object]],
 ) -> str:
     for signal in source_signals:
-        value = str(signal.get("title") or "").strip()
+        value = _source_display_text_or_none(
+            signal.get("title"),
+            signal.get("summary"),
+            signal.get("display_text"),
+            payload=signal.get("payload"),
+            preferred_keys=DISPLAY_TITLE_KEYS,
+        )
         if value:
             return value
     for event in market_events:
-        value = str(event.get("ai_relevance") or event.get("catalyst") or "").strip()
+        value = _source_display_text_or_none(
+            event.get("ai_relevance"),
+            event.get("catalyst"),
+            event.get("display_text"),
+            payload=event.get("payload"),
+            preferred_keys=DISPLAY_SUMMARY_KEYS,
+        )
         if value:
             return value
     return "No validated source delta is available."

@@ -1139,3 +1139,26 @@ Cloud deployment validation:
   - `https://ai-infra-fund-frontend.azurewebsites.net/api/backend/ready` returned `200`, with advisory boundary, database, model profiles, production internal token, and source policy checks OK.
 - Verified new internal shadow-review route on the cloud API with a deliberately invalid payload and redacted internal token.
   - POST `/internal/shadow-analyst/drafts/draft-smoke/review` returned `422 invalid_shadow_draft_review`, confirming the route is deployed and validates payload before touching persistence.
+
+## 2026-05-17 Ticker Workbench Source Display Normalization
+
+Normalized ticker workbench source-signal and MarketEvent display text so raw provider-shaped JSON snippets do not appear in analyst-facing fields.
+
+- Added deterministic source-display normalization in the API read model.
+  - Extracts readable title/headline/summary fields from JSON-like provider snippets.
+  - Uses `Source captured; summary pending review` when a raw payload has no clean display text.
+  - Keeps raw provider payloads in `payload` for provenance/audit while normalizing `why_now`, `what_changed`, source-signal titles/summaries, and MarketEvent display fields.
+- Added CEG-like regression fixtures covering:
+  - readable title/summary extraction from JSON-like article payloads,
+  - safe fallback for URL-only raw provider payloads,
+  - evidence ID preservation.
+
+Verification:
+
+- RED checkpoint: `./.venv/bin/python -m unittest tests.test_ticker_theme_intelligence` failed on raw JSON-like `why_now` / `what_changed` display text.
+- `./.venv/bin/python -m unittest tests.test_ticker_theme_intelligence` passed, 6 tests.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 719 tests, 3 skipped.
+- `python3 -m compileall packages services tests` passed.
+- `npm run build --prefix apps/web` passed.
+- `npm audit --omit=dev --prefix apps/web` passed with 0 vulnerabilities.
+- `git diff --check` passed.
