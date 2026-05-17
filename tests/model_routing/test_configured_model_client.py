@@ -120,6 +120,57 @@ class ConfiguredModelClientTests(unittest.TestCase):
         self.assertNotIn("api_key", str(raised.exception).lower())
         self.assertIn("azure", str(raised.exception).lower())
 
+    def test_azure_foundry_managed_identity_route_uses_bearer_token(self) -> None:
+        transport = RecordingTransport(
+            {
+                "analyst_briefs": [
+                    {
+                        "evidence_ids": ["evidence-1"],
+                        "material_claims": [
+                            {"claim": "Test.", "evidence_ids": ["evidence-1"]}
+                        ],
+                        "payload": {"summary": "Draft only."},
+                        "headline": "Test",
+                        "summary": "Test.",
+                    }
+                ]
+            }
+        )
+        token_provider = RecordingTokenProvider("test-token")
+        route = ModelRouter(_catalog()).resolve(
+            "analyst_brief_draft",
+            data_classes=(DataClass.PUBLIC_EVIDENCE,),
+        )
+        client = ConfiguredModelClient(
+            settings=ConfiguredModelClientSettings(
+                azure_endpoint="https://example.openai.azure.com",
+                azure_api_key=None,
+                azure_api_version="2024-10-21",
+                azure_auth_mode="managed_identity",
+                azure_token_resource="https://cognitiveservices.azure.com/",
+                azure_managed_identity_client_id="client-id-1",
+                ollama_base_url="http://localhost:11434",
+                timeout_seconds=3,
+            ),
+            transport=transport,
+            token_provider=token_provider,
+        )
+
+        output = client.generate_structured(
+            route=route,
+            bundle=_bundle(),
+            output_schema="shadow_analyst_drafts_v1",
+        )
+
+        self.assertIn("analyst_briefs", output)
+        call = transport.calls[0]
+        self.assertEqual("Bearer test-token", call["headers"]["Authorization"])
+        self.assertNotIn("api-key", call["headers"])
+        self.assertEqual(
+            [("https://cognitiveservices.azure.com/", "client-id-1", 3)],
+            token_provider.calls,
+        )
+
     def test_ollama_local_route_uses_local_chat_endpoint(self) -> None:
         transport = RecordingTransport(
             {
@@ -209,6 +260,22 @@ class RecordingTransport:
             }
         )
         return self.response
+
+
+class RecordingTokenProvider:
+    def __init__(self, token: str) -> None:
+        self.token = token
+        self.calls: list[tuple[str, str | None, float]] = []
+
+    def get_token(
+        self,
+        *,
+        resource: str,
+        client_id: str | None,
+        timeout_seconds: float,
+    ) -> str:
+        self.calls.append((resource, client_id, timeout_seconds))
+        return self.token
 
 
 def _catalog(*, endpoint_type: str = "azure_ai_foundry", provider: str = "azure_foundry") -> ModelProfileCatalog:

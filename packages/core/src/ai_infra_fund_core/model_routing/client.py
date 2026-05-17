@@ -12,6 +12,8 @@ from ai_infra_fund_core.shadow_analyst.bundles import AnalystContextBundle
 
 
 DEFAULT_AZURE_API_VERSION = "2024-10-21"
+DEFAULT_AZURE_AUTH_MODE = "api_key"
+DEFAULT_AZURE_TOKEN_RESOURCE = "https://cognitiveservices.azure.com/"
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 DEFAULT_TIMEOUT_SECONDS = 45.0
 
@@ -57,11 +59,25 @@ class JsonHttpTransport(Protocol):
         ...
 
 
+class BearerTokenProvider(Protocol):
+    def get_token(
+        self,
+        *,
+        resource: str,
+        client_id: str | None,
+        timeout_seconds: float,
+    ) -> str:
+        ...
+
+
 @dataclass(frozen=True, slots=True)
 class ConfiguredModelClientSettings:
     azure_endpoint: str | None
     azure_api_key: str | None
     azure_api_version: str = DEFAULT_AZURE_API_VERSION
+    azure_auth_mode: str = DEFAULT_AZURE_AUTH_MODE
+    azure_token_resource: str = DEFAULT_AZURE_TOKEN_RESOURCE
+    azure_managed_identity_client_id: str | None = None
     ollama_base_url: str = DEFAULT_OLLAMA_BASE_URL
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
 
@@ -76,6 +92,18 @@ class ConfiguredModelClientSettings:
             azure_api_key=_optional_text(source.get("AZURE_AI_FOUNDRY_API_KEY")),
             azure_api_version=_optional_text(source.get("AZURE_AI_FOUNDRY_API_VERSION"))
             or DEFAULT_AZURE_API_VERSION,
+            azure_auth_mode=(
+                _optional_text(source.get("AZURE_AI_FOUNDRY_AUTH_MODE"))
+                or DEFAULT_AZURE_AUTH_MODE
+            ).lower(),
+            azure_token_resource=(
+                _optional_text(source.get("AZURE_AI_FOUNDRY_TOKEN_RESOURCE"))
+                or DEFAULT_AZURE_TOKEN_RESOURCE
+            ),
+            azure_managed_identity_client_id=_optional_text(
+                source.get("AZURE_AI_FOUNDRY_MANAGED_IDENTITY_CLIENT_ID")
+            )
+            or _optional_text(source.get("AZURE_CLIENT_ID")),
             ollama_base_url=_optional_text(source.get("OLLAMA_BASE_URL"))
             or DEFAULT_OLLAMA_BASE_URL,
             timeout_seconds=_timeout_seconds(
@@ -90,9 +118,11 @@ class ConfiguredModelClient:
         *,
         settings: ConfiguredModelClientSettings,
         transport: JsonHttpTransport | None = None,
+        token_provider: BearerTokenProvider | None = None,
     ) -> None:
         self._settings = settings
         self._transport = transport or UrllibJsonTransport()
+        self._token_provider = token_provider or ImdsBearerTokenProvider()
 
     @classmethod
     def from_environment(
@@ -100,10 +130,12 @@ class ConfiguredModelClient:
         env: Mapping[str, str] | None = None,
         *,
         transport: JsonHttpTransport | None = None,
+        token_provider: BearerTokenProvider | None = None,
     ) -> "ConfiguredModelClient":
         return cls(
             settings=ConfiguredModelClientSettings.from_environment(env),
             transport=transport,
+            token_provider=token_provider,
         )
 
     def generate_structured(
@@ -148,11 +180,8 @@ class ConfiguredModelClient:
         output_schema: str,
     ) -> Mapping[str, object]:
         endpoint = _optional_text(self._settings.azure_endpoint)
-        credential = _optional_text(self._settings.azure_api_key)
         if endpoint is None:
             raise ModelClientConfigurationError("Azure model endpoint is not configured")
-        if credential is None:
-            raise ModelClientConfigurationError("Azure model credential is not configured")
 
         deployment = parse.quote(route.profile.deployment, safe="")
         api_version = parse.quote(self._settings.azure_api_version, safe="")
@@ -162,17 +191,35 @@ class ConfiguredModelClient:
         )
         return self._transport.post_json(
             url=url,
-            headers={
-                "Content-Type": "application/json",
-                "api-key": credential,
-            },
+            headers=self._azure_headers(),
             payload={
                 "messages": _messages(route=route, bundle=bundle, output_schema=output_schema),
-                "temperature": 0,
                 "response_format": {"type": "json_object"},
             },
             timeout_seconds=self._settings.timeout_seconds,
         )
+
+    def _azure_headers(self) -> dict[str, str]:
+        auth_mode = _optional_text(self._settings.azure_auth_mode) or DEFAULT_AZURE_AUTH_MODE
+        if auth_mode == "api_key":
+            credential = _optional_text(self._settings.azure_api_key)
+            if credential is None:
+                raise ModelClientConfigurationError("Azure model credential is not configured")
+            return {
+                "Content-Type": "application/json",
+                "api-key": credential,
+            }
+        if auth_mode == "managed_identity":
+            token = self._token_provider.get_token(
+                resource=self._settings.azure_token_resource,
+                client_id=self._settings.azure_managed_identity_client_id,
+                timeout_seconds=self._settings.timeout_seconds,
+            )
+            return {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {token}",
+            }
+        raise ModelClientConfigurationError(f"unsupported Azure auth mode: {auth_mode}")
 
     def _post_ollama_chat(
         self,
@@ -217,6 +264,36 @@ class UrllibJsonTransport:
         if not isinstance(decoded, Mapping):
             raise ModelClientResponseError("model response must be a JSON object")
         return decoded
+
+
+class ImdsBearerTokenProvider:
+    def get_token(
+        self,
+        *,
+        resource: str,
+        client_id: str | None,
+        timeout_seconds: float,
+    ) -> str:
+        params: dict[str, str] = {
+            "api-version": "2018-02-01",
+            "resource": resource,
+        }
+        if client_id:
+            params["client_id"] = client_id
+        token_url = (
+            "http://169.254.169.254/metadata/identity/oauth2/token?"
+            + parse.urlencode(params)
+        )
+        req = request.Request(token_url, headers={"Metadata": "true"}, method="GET")
+        with request.urlopen(req, timeout=timeout_seconds) as response:  # noqa: S310
+            body = response.read().decode("utf-8")
+        decoded = json.loads(body)
+        if not isinstance(decoded, Mapping):
+            raise ModelClientResponseError("managed identity token response must be a JSON object")
+        token = _optional_text(decoded.get("access_token"))
+        if token is None:
+            raise ModelClientResponseError("managed identity token response did not include an access token")
+        return token
 
 
 def _messages(

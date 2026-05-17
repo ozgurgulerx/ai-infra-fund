@@ -57,6 +57,7 @@ models:
       - source_classification
       - evidence_summary
       - evidence_claim_extraction
+      - analyst_brief_draft
       - orchestration_validation
       - adversarial_review
     quota_rpm: null
