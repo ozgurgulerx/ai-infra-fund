@@ -176,6 +176,36 @@ class TickerThemeIntelligenceTests(unittest.TestCase):
         self.assertEqual(fallback, first["market_events"][0]["ai_relevance"])
         self.assertEqual(["evidence-1"], first["evidence_ids"])
 
+    def test_backend_does_not_use_internal_evidence_ids_as_display_text(self) -> None:
+        from ai_infra_fund_api.repositories.advisory_workstation import (
+            AdvisoryWorkstationRepository,
+        )
+
+        payload = AdvisoryWorkstationRepository(
+            _workbench_connection(
+                source_signal_fixture=_source_signal_row_with_internal_id_title(),
+                market_event_fixture=_market_event_row_with_internal_id_catalyst(),
+            )
+        ).get_ticker_workbench("ceg")
+
+        first = payload["theme_groups"][0]
+        fallback = "Source captured; summary pending review"
+        self.assertEqual(
+            "Configured public-source crawl produced an AI infrastructure advisory signal.",
+            first["why_now"],
+        )
+        self.assertEqual(
+            "Configured public-source crawl produced an AI infrastructure advisory signal.",
+            first["what_changed"],
+        )
+        self.assertEqual(fallback, first["source_signals"][0]["title"])
+        self.assertEqual(fallback, first["source_signals"][0]["summary"])
+        self.assertEqual(
+            "Configured public-source crawl produced an AI infrastructure advisory signal.",
+            first["market_events"][0]["catalyst"],
+        )
+        self.assertIn("evidence-capture-123", first["evidence_ids"])
+
     def test_ticker_page_uses_live_workbench_data_without_mock_default(self) -> None:
         page = read_web("app/ticker/[ticker]/page.tsx")
         advisory_lib = read_web("lib/advisory/ticker-workbench.ts")
@@ -290,6 +320,36 @@ def _market_event_row_with_unextractable_raw_display_text() -> tuple[object, ...
         '"url_mobile":"https://m.example.test/power"}]}'
     )
     row[8] = '{"url":"https://example.test/power"}'
+    return tuple(row)
+
+
+def _source_signal_row_with_internal_id_title() -> tuple[object, ...]:
+    row = list(source_signal_row())
+    row[3] = "evidence-capture-123"
+    row[6] = ["CEG"]
+    row[7] = ["datacenter power procurement"]
+    row[8] = ["evidence-capture-123"]
+    row[12] = {
+        "source_url": "https://api.gdeltproject.org/api/v2/doc/doc?query=CEG",
+        "source_kind": "public_sentiment_news_flow",
+        "evidence_ids": ["evidence-capture-123"],
+    }
+    return tuple(row)
+
+
+def _market_event_row_with_internal_id_catalyst() -> tuple[object, ...]:
+    row = list(market_event_row())
+    row[3] = ["evidence-capture-123"]
+    row[4] = ["CEG"]
+    row[5] = ["Constellation Energy"]
+    row[6] = ["datacenter power procurement"]
+    row[7] = "evidence-capture-123"
+    row[8] = "Configured public-source crawl produced an AI infrastructure advisory signal."
+    row[17] = {
+        "source_url": "https://api.gdeltproject.org/api/v2/doc/doc?query=CEG",
+        "source_kind": "public_sentiment_news_flow",
+        "evidence_ids": ["evidence-capture-123"],
+    }
     return tuple(row)
 
 

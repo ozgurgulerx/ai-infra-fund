@@ -1151,13 +1151,14 @@ Normalized ticker workbench source-signal and MarketEvent display text so raw pr
 - Added CEG-like regression fixtures covering:
   - readable title/summary extraction from JSON-like article payloads,
   - safe fallback for URL-only raw provider payloads,
-  - evidence ID preservation.
+  - evidence ID preservation,
+  - internal `evidence-capture-*` IDs rejected as analyst-facing display text.
 
 Verification:
 
 - RED checkpoint: `./.venv/bin/python -m unittest tests.test_ticker_theme_intelligence` failed on raw JSON-like `why_now` / `what_changed` display text.
-- `./.venv/bin/python -m unittest tests.test_ticker_theme_intelligence` passed, 6 tests.
-- `./.venv/bin/python -m unittest discover -s tests` passed, 719 tests, 3 skipped.
+- `./.venv/bin/python -m unittest tests.test_ticker_theme_intelligence` passed, 7 tests.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 720 tests, 3 skipped.
 - `python3 -m compileall packages services tests` passed.
 - `npm run build --prefix apps/web` passed.
 - `npm audit --omit=dev --prefix apps/web` passed with 0 vulnerabilities.

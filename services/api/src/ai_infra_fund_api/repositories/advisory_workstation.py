@@ -65,6 +65,11 @@ RAW_PROVIDER_MARKERS = (
     "provider_payload",
 )
 URL_ONLY_RE = re.compile(r"^https?://\S+$", re.IGNORECASE)
+INTERNAL_DISPLAY_ID_RE = re.compile(
+    r"^(?:evid|evidence|capture|event|frontier|source|signal|market-event|source-signal)"
+    r"[-_][A-Za-z0-9_.:-]+$",
+    re.IGNORECASE,
+)
 
 
 LATEST_SOURCE_SIGNALS_SQL = """
@@ -734,6 +739,8 @@ def _market_event_payload(row: Mapping[str, object]) -> dict[str, object]:
         payload=payload,
         preferred_keys=DISPLAY_SUMMARY_KEYS,
     )
+    if _is_source_display_fallback(catalyst) and ai_relevance:
+        catalyst = ai_relevance
     return {
         "event_id": row.get("event_id"),
         "event_type": row.get("event_type"),
@@ -1516,9 +1523,18 @@ def _parse_jsonish_text(value: str) -> object | None:
         return None
 
 
+def _is_source_display_fallback(value: object) -> bool:
+    return str(value or "") == SOURCE_DISPLAY_FALLBACK
+
+
 def _clean_display_text(value: str) -> str | None:
     text = " ".join(value.strip().strip("\"'").split())
-    if not text or URL_ONLY_RE.match(text) or _looks_raw_provider_payload(text):
+    if (
+        not text
+        or URL_ONLY_RE.match(text)
+        or INTERNAL_DISPLAY_ID_RE.match(text)
+        or _looks_raw_provider_payload(text)
+    ):
         return None
     return text
 
@@ -1528,6 +1544,7 @@ def _why_now(
     advisories: Sequence[Mapping[str, object]],
     assessments: Sequence[Mapping[str, object]],
 ) -> str:
+    fallback_value: str | None = None
     for event in market_events:
         value = _source_display_text_or_none(
             event.get("catalyst"),
@@ -1536,7 +1553,12 @@ def _why_now(
             preferred_keys=DISPLAY_TITLE_KEYS,
         )
         if value:
+            if _is_source_display_fallback(value):
+                fallback_value = fallback_value or value
+                continue
             return value
+    if fallback_value:
+        return fallback_value
     for advisory in advisories:
         value = str(advisory.get("advisory_summary") or "").strip()
         if value:
@@ -1552,6 +1574,7 @@ def _what_changed(
     source_signals: Sequence[Mapping[str, object]],
     market_events: Sequence[Mapping[str, object]],
 ) -> str:
+    fallback_value: str | None = None
     for signal in source_signals:
         value = _source_display_text_or_none(
             signal.get("title"),
@@ -1561,6 +1584,9 @@ def _what_changed(
             preferred_keys=DISPLAY_TITLE_KEYS,
         )
         if value:
+            if _is_source_display_fallback(value):
+                fallback_value = fallback_value or value
+                continue
             return value
     for event in market_events:
         value = _source_display_text_or_none(
@@ -1571,7 +1597,12 @@ def _what_changed(
             preferred_keys=DISPLAY_SUMMARY_KEYS,
         )
         if value:
+            if _is_source_display_fallback(value):
+                fallback_value = fallback_value or value
+                continue
             return value
+    if fallback_value:
+        return fallback_value
     return "No validated source delta is available."
 
 
