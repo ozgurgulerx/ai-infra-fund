@@ -321,6 +321,14 @@ def _messages(
         "task_role": route.task_role,
         "output_schema": output_schema,
         "required_top_level_sections": sections,
+        "format_rules": (
+            "Return a single JSON object using exactly the required_top_level_sections. "
+            "Do not emit title, key_claims, brief_id, review_required, tickers_mentioned, "
+            "recommended_next_checks, implications_for_portfolio, or near_term_triggers_to_watch. "
+            "Do not invent IDs. evidence_ids must be a non-empty subset of supplied evidence_ids. "
+            "context_used must be a non-empty subset of supplied evidence_ids or object_ids."
+        ),
+        "exact_output_contract": _exact_output_contract(sections),
         "scope": bundle.scope.value,
         "ticker": bundle.ticker,
         "as_of": bundle.as_of,
@@ -346,6 +354,81 @@ def _messages(
             "content": json.dumps(canonicalize(user_payload), sort_keys=True),
         },
     ]
+
+
+def _exact_output_contract(sections: tuple[str, ...]) -> dict[str, object]:
+    base = {
+        "evidence_ids": ["one or more IDs from supplied evidence_ids"],
+        "material_claims": [
+            {
+                "claim": "plain-text material claim",
+                "evidence_ids": ["one or more IDs from supplied evidence_ids"],
+            }
+        ],
+        "payload": {"summary": "non-empty review notes only"},
+    }
+    contracts: dict[str, object] = {}
+    if "segment_impacts" in sections:
+        contracts["segment_impacts"] = [
+            {
+                **base,
+                "segment_name": "AI infrastructure segment name",
+                "linked_event_ids": ["IDs from supplied object_ids"],
+                "first_order_tickers": ["ticker"],
+                "second_order_tickers": ["ticker"],
+            }
+        ]
+    if "equity_impact_assessments" in sections:
+        contracts["equity_impact_assessments"] = [
+            {
+                **base,
+                "ticker": "ticker",
+                "assessment": "concise assessment",
+                "bull_case": "evidence-linked bull case",
+                "bear_case": "evidence-linked bear case",
+                "risk_flags": ["risk flag"],
+                "invalidation_condition": "falsifiable invalidation condition",
+            }
+        ]
+    if "valuation_contexts" in sections:
+        contracts["valuation_contexts"] = [
+            {
+                **base,
+                "ticker": "ticker",
+                "valuation_summary": "valuation context summary",
+            }
+        ]
+    if "risk_regime_updates" in sections:
+        contracts["risk_regime_updates"] = [
+            {
+                **base,
+                "risk_type": "risk type",
+                "affected_tickers": ["ticker"],
+                "summary": "risk regime summary",
+            }
+        ]
+    if "trading_advisories" in sections:
+        contracts["trading_advisories"] = [
+            {
+                **base,
+                "ticker": "ticker",
+                "analyst_action": "watch | accumulate | hold | trim | avoid",
+                "rationale": "decision rationale for trust",
+                "context_used": ["IDs from supplied evidence_ids or object_ids"],
+                "market_event_ids": ["IDs from supplied object_ids"],
+            }
+        ]
+    if "analyst_briefs" in sections:
+        contracts["analyst_briefs"] = [
+            {
+                **base,
+                "headline": "brief headline",
+                "summary": "brief summary",
+                "decision_rationale": "why this brief matters and what decision it informs",
+                "context_used": ["IDs from supplied evidence_ids or object_ids"],
+            }
+        ]
+    return contracts
 
 
 def _extract_structured_response(response: Mapping[str, object]) -> Mapping[str, object]:

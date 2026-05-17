@@ -215,6 +215,12 @@ class ConfiguredModelClientTests(unittest.TestCase):
         payload = transport.calls[0]["payload"]
         self.assertEqual("high", payload["reasoning_effort"])
         self.assertNotIn("temperature", payload)
+        user_payload = json.loads(payload["messages"][1]["content"])
+        self.assertIn("exact_output_contract", user_payload)
+        analyst_contract = user_payload["exact_output_contract"]["analyst_briefs"][0]
+        self.assertIn("decision_rationale", analyst_contract)
+        self.assertIn("context_used", analyst_contract)
+        self.assertIn("Do not emit title", user_payload["format_rules"])
 
     def test_ollama_local_route_uses_local_chat_endpoint(self) -> None:
         transport = RecordingTransport(
