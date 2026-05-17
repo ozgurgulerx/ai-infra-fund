@@ -1036,3 +1036,43 @@ Cloud deployment validation:
   - `/internal/ticker/NVDA/workbench` returned `200`, `status=available`, 10 source signals, 10 market events, and 3 trading advisories.
   - `/internal/portfolio/exposure/latest` returned `200`, `status=available`, snapshot `pexp_20260516_ai_infra_core`, 22 positions, and `advisory_only`.
 - Verified the hosted cockpit HTML rendered brief `brief-daily-ai-infra-20260516T203319Z-268cb5ec`, 25 MarketEvents, 22 suggested advisory actions, evidence-linked labels, and advisory-only/no transaction surface labels.
+
+## 2026-05-17 Shadow Analyst Manual Review Gate
+
+Implemented deterministic quality evaluation and manual acceptance workflow for governed shadow analyst drafts.
+
+- Added pure core draft-quality evaluation for shadow analyst outputs:
+  - evidence coverage and evidence ID validity,
+  - deterministic claim-to-evidence support heuristic,
+  - forbidden execution-language checks,
+  - advisory-only framing checks,
+  - specificity, ticker/segment coverage, uncertainty, context completeness, rationale usefulness, hallucinated context/ticker detection, and stale evidence blocking.
+- Added sanitized publication payload generation for human-accepted drafts.
+  - The accepted payload includes `advisory_only`, evidence IDs, source `ModelRun` ID, quality score, evaluator findings, and readiness checks.
+  - Raw draft payload is not blindly copied into publication payloads.
+- Added `analyst.shadow_analyst_draft_reviews` migration and indexes.
+- Added API repository and internal POST route:
+  - `/internal/shadow-analyst/drafts/{draft_id}/review`
+  - `accepted_for_publication` is allowed only when deterministic quality checks return `eligible_for_human_review` with no blocking issues.
+  - `rejected` and `keep_review_required` decisions are persisted as manual review records.
+- Preserved advisory-only boundaries:
+  - no broker integration,
+  - no live order placement,
+  - no execution endpoint or execution UI,
+  - no automatic promotion,
+  - no LLM-owned scores, target weights, PnL, accounting, or publication gates.
+
+Verification:
+
+- RED checkpoint: `./.venv/bin/python -m unittest tests.advisory.test_shadow_analyst_quality` failed on missing `ai_infra_fund_core.shadow_analyst.quality`.
+- RED checkpoint: `./.venv/bin/python -m unittest tests.test_shadow_analyst_review_repository tests.test_shadow_analyst_review_api tests.test_advisory_workstation_read_model_migration` failed on missing review repository, route injection, and review migration table.
+- `./.venv/bin/python -m unittest tests.advisory.test_shadow_analyst_quality tests.test_shadow_analyst_review_repository tests.test_shadow_analyst_review_api tests.test_advisory_workstation_read_model_migration` passed, 16 tests.
+- `./.venv/bin/python -m unittest tests.test_openapi_export_sync tests.test_shadow_analyst_review_api tests.test_shadow_analyst_review_repository tests.advisory.test_shadow_analyst_quality tests.test_advisory_workstation_read_model_migration` passed, 18 tests.
+- `./.venv/bin/python -m unittest tests.test_architecture_policy` passed, 42 tests.
+- `python3 -m compileall packages services tests` passed.
+- `docker compose config` passed.
+- `git diff --check` passed.
+
+Known unrelated verification drift in the current worktree:
+
+- `./.venv/bin/python -m unittest discover -s tests` currently fails outside this shadow-review change on ticker-workbench/theme-intelligence tests tied to unrelated modified/untracked frontend/read-model files in the worktree.

@@ -60,6 +60,10 @@ from ai_infra_fund_api.routes.shadow_portfolio import (
     ShadowPortfolioService,
     register_shadow_portfolio_routes,
 )
+from ai_infra_fund_api.routes.shadow_analyst_reviews import (
+    ShadowAnalystReviewService,
+    register_shadow_analyst_review_routes,
+)
 from ai_infra_fund_api.routes.trade_journal import (
     TradeJournalPersistenceRepository,
     register_trade_journal_routes,
@@ -163,6 +167,7 @@ def create_app(
     events_repository: ExperimentEventsReadRepository | None = None,
     backtest_request_service: BacktestRequestService | None = None,
     shadow_portfolio_service: ShadowPortfolioService | None = None,
+    shadow_analyst_review_service: ShadowAnalystReviewService | None = None,
     agent_skill_path: Path | None = None,
     agent_openapi_yaml_path: Path | None = None,
     internal_token: str | None | object = ...,
@@ -293,6 +298,11 @@ def create_app(
     register_shadow_portfolio_routes(
         app,
         shadow_portfolio_service=shadow_portfolio_service,
+        settings_provider=settings_provider,
+    )
+    register_shadow_analyst_review_routes(
+        app,
+        shadow_analyst_review_service=shadow_analyst_review_service,
         settings_provider=settings_provider,
     )
     resolved_skill_path = agent_skill_path or DEFAULT_AGENT_SKILL_PATH

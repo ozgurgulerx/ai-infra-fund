@@ -29,6 +29,7 @@ class AdvisoryWorkstationReadModelMigrationTests(unittest.TestCase):
             "CREATE TABLE IF NOT EXISTS analyst.portfolio_exposure_snapshots",
             "CREATE TABLE IF NOT EXISTS analyst.llm_analyst_notes",
             "CREATE TABLE IF NOT EXISTS analyst.shadow_analyst_drafts",
+            "CREATE TABLE IF NOT EXISTS analyst.shadow_analyst_draft_reviews",
             "CREATE TABLE IF NOT EXISTS analyst.analyst_briefs",
             "evidence_ids TEXT[] NOT NULL",
             "model_run_ids TEXT[] NOT NULL DEFAULT '{}'",
@@ -40,6 +41,9 @@ class AdvisoryWorkstationReadModelMigrationTests(unittest.TestCase):
             "source_model_run_id TEXT NOT NULL REFERENCES audit.model_runs(model_run_id)",
             "scope TEXT NOT NULL CHECK (scope IN ('daily', 'ticker'))",
             "status TEXT NOT NULL CHECK (status IN ('review_required', 'rejected', 'fallback', 'accepted_for_publication', 'denied'))",
+            "decision TEXT NOT NULL CHECK (decision IN ('accepted_for_publication', 'rejected', 'keep_review_required'))",
+            "draft_quality_score NUMERIC NOT NULL CHECK (draft_quality_score >= 0 AND draft_quality_score <= 100)",
+            "CHECK (decision <> 'accepted_for_publication' OR accepted_payload_json ->> 'advisory_label' = 'advisory_only')",
         ]
         missing = [snippet for snippet in required_snippets if snippet not in sql]
 
