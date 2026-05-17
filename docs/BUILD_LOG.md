@@ -22,6 +22,29 @@ Verification:
 - `./.venv/bin/python -m compileall packages services tests` passed.
 - `git diff --check` passed.
 
+Cloud deployment validation:
+
+- Pushed implementation commit `01e3e61` (`feat: add ticker theme intelligence workbench`) to `origin/main`.
+- Pushed web-copy follow-up commit `7c21cf9` (`fix: remove restricted wording from app shell`) to `origin/main`.
+- Built and pushed API image `aistartuptr.azurecr.io/ai-infra-fund-api:01e3e61-runtime` with digest `sha256:e7a096efb3a1fa9a043d3bff0661de935266151f3a5a18472402fc3492578599`.
+- Built and pushed web images:
+  - `aistartuptr.azurecr.io/ai-infra-fund-web:01e3e61` with digest `sha256:037432b39476c79896157f13bfb14c067e4adc3497cda46cd6cc3cfcc1a9e5bb`.
+  - `aistartuptr.azurecr.io/ai-infra-fund-web:7c21cf9` with digest `sha256:d4c8758a8f8a654829a9db15f9b2cf9365b9fe3c9ab70dcbcd15654854f5046d`.
+- Rolled AKS deployment `ai-infra-fund-api` in namespace `ai-infra-fund` to `aistartuptr.azurecr.io/ai-infra-fund-api:01e3e61-runtime`; rollout completed and the deployment reported `1/1` ready.
+- Updated Azure App Service `ai-infra-fund-frontend` to `DOCKER|aistartuptr.azurecr.io/ai-infra-fund-web:7c21cf9`; the first public probes hit cold-start timeouts, then the container served successfully.
+- Verified cloud endpoints through `https://ai-infra-fund-frontend.azurewebsites.net`:
+  - `/api/backend/health` returned `status=ok`.
+  - `/api/backend/ready` returned `status=ready`, with `database=ok`, `model_profiles=ok`, `production_internal_token=ok`, `advisory_boundary=ok`, and `source_policy=ok`.
+  - `/api/backend/internal/ticker/NVDA/workbench` returned `status=available`, `theme_group_count=6`, first theme `Ai Infrastructure`, first stance `accumulate`, tone `positive`, freshness `current`, 17 evidence IDs, 8 related tickers, 13 risk flags, 10 source signals, 10 MarketEvents, and 3 LLM notes.
+  - `/api/backend/internal/ticker/CEG/workbench` returned `status=available`, `theme_group_count=21`, first theme `Ai Infrastructure`, first stance `hold`, tone `neutral`, freshness `current`, 19 evidence IDs, 8 related tickers, 9 risk flags, 7 source signals, 7 MarketEvents, and 4 LLM notes.
+- Verified `https://ai-infra-fund-frontend.azurewebsites.net/ticker/NVDA` and `/ticker/CEG` rendered `Ticker Analyst Workbench`, advisory stance, `Summary`, `Themes`, `News / Events`, `Notes`, `Related Tickers`, `Risk watch`, `Evidence trail`, risk chips, and evidence ID pills.
+- Confirmed no broker, execution, or order-action UI wording appeared in the final NVDA/CEG ticker HTML.
+- Post-copy targeted verification passed:
+  - `./.venv/bin/python -m unittest tests.test_control_room_ui tests.test_ticker_theme_intelligence tests.test_trade_journal_ui` passed, 33 tests.
+  - `npm run build --prefix apps/web` passed.
+  - `npm audit --omit=dev --prefix apps/web` passed with 0 vulnerabilities.
+  - `git diff --check -- apps/web/components/app-shell.tsx` passed.
+
 ## 2026-05-17 Fallback-Safe Governed Model Client Cloud Rollout
 
 Rolled the governed model-client code path to cloud without enabling real provider calls.
