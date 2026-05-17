@@ -48,6 +48,7 @@ class ModelProfile:
     fallback_chain: tuple[str, ...]
     structured_output_support: bool
     notes: str
+    reasoning_effort: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,6 +129,10 @@ def _profile_from_mapping(profile_id: str, raw_profile: object) -> ModelProfile:
             f"{profile_id}.structured_output_support",
         ),
         notes=_required_string(raw_profile["notes"], f"{profile_id}.notes"),
+        reasoning_effort=_optional_reasoning_effort(
+            raw_profile.get("reasoning_effort"),
+            f"{profile_id}.reasoning_effort",
+        ),
     )
 
 
@@ -178,6 +183,17 @@ def _required_bool(value: object, field_name: str) -> bool:
     if not isinstance(value, bool):
         raise ModelProfileConfigError(f"{field_name} must be a boolean")
     return value
+
+
+def _optional_reasoning_effort(value: object, field_name: str) -> str | None:
+    if value is None:
+        return None
+    effort = _required_string(value, field_name).lower()
+    if effort not in {"low", "medium", "high"}:
+        raise ModelProfileConfigError(
+            f"{field_name} must be one of: low, medium, high"
+        )
+    return effort
 
 
 def _validate_fallbacks(profiles: dict[str, ModelProfile]) -> None:

@@ -132,6 +132,8 @@ class ConfiguredModelClientTests(unittest.TestCase):
                         "payload": {"summary": "Draft only."},
                         "headline": "Test",
                         "summary": "Test.",
+                        "decision_rationale": "Evidence supports a review-required analyst brief.",
+                        "context_used": ["evidence-1", "source-signal-1", "market-event-1"],
                     }
                 ]
             }
@@ -171,6 +173,49 @@ class ConfiguredModelClientTests(unittest.TestCase):
             token_provider.calls,
         )
 
+    def test_azure_foundry_payload_uses_profile_reasoning_effort_without_temperature(self) -> None:
+        transport = RecordingTransport(
+            {
+                "analyst_briefs": [
+                    {
+                        "evidence_ids": ["evidence-1"],
+                        "material_claims": [
+                            {"claim": "Test.", "evidence_ids": ["evidence-1"]}
+                        ],
+                        "payload": {"summary": "Draft only."},
+                        "headline": "Test",
+                        "summary": "Test.",
+                        "decision_rationale": "Evidence supports a review-required analyst brief.",
+                        "context_used": ["evidence-1", "source-signal-1", "market-event-1"],
+                    }
+                ]
+            }
+        )
+        route = ModelRouter(_catalog(reasoning_effort="high")).resolve(
+            "analyst_brief_draft",
+            data_classes=(DataClass.PUBLIC_EVIDENCE,),
+        )
+        client = ConfiguredModelClient(
+            settings=ConfiguredModelClientSettings(
+                azure_endpoint="https://example.openai.azure.com",
+                azure_api_key="test-secret",
+                azure_api_version="2024-10-21",
+                ollama_base_url="http://localhost:11434",
+                timeout_seconds=3,
+            ),
+            transport=transport,
+        )
+
+        client.generate_structured(
+            route=route,
+            bundle=_bundle(),
+            output_schema="shadow_analyst_drafts_v1",
+        )
+
+        payload = transport.calls[0]["payload"]
+        self.assertEqual("high", payload["reasoning_effort"])
+        self.assertNotIn("temperature", payload)
+
     def test_ollama_local_route_uses_local_chat_endpoint(self) -> None:
         transport = RecordingTransport(
             {
@@ -189,6 +234,8 @@ class ConfiguredModelClientTests(unittest.TestCase):
                                     "payload": {"summary": "Local draft."},
                                     "headline": "AI infrastructure brief",
                                     "summary": "Review-only summary.",
+                                    "decision_rationale": "Evidence supports a local review-required analyst brief.",
+                                    "context_used": ["evidence-1", "source-signal-1", "market-event-1"],
                                 }
                             ]
                         }
@@ -278,36 +325,51 @@ class RecordingTokenProvider:
         return self.token
 
 
-def _catalog(*, endpoint_type: str = "azure_ai_foundry", provider: str = "azure_foundry") -> ModelProfileCatalog:
+def _catalog(
+    *,
+    endpoint_type: str = "azure_ai_foundry",
+    provider: str = "azure_foundry",
+    reasoning_effort: str | None = None,
+) -> ModelProfileCatalog:
     return ModelProfileCatalog.from_mapping(
-        _profile_mapping(endpoint_type=endpoint_type, provider=provider)
+        _profile_mapping(
+            endpoint_type=endpoint_type,
+            provider=provider,
+            reasoning_effort=reasoning_effort,
+        )
     )
 
 
-def _profile_mapping(*, endpoint_type: str = "azure_ai_foundry", provider: str = "azure_foundry") -> dict[str, object]:
+def _profile_mapping(
+    *,
+    endpoint_type: str = "azure_ai_foundry",
+    provider: str = "azure_foundry",
+    reasoning_effort: str | None = None,
+) -> dict[str, object]:
     allowed = [DataClass.PUBLIC_EVIDENCE.value, DataClass.DERIVED_ANALYTICS.value]
     if endpoint_type == "local":
         allowed.append(DataClass.PRIVATE_RESEARCH.value)
+    profile: dict[str, object] = {
+        "model_id": "test-model",
+        "deployment": "test-deployment",
+        "provider": provider,
+        "endpoint_type": endpoint_type,
+        "task_roles": ["evidence_summary"],
+        "quota_rpm": None,
+        "quota_tpm": None,
+        "cost_class": "test",
+        "max_context": "unknown",
+        "privacy_class": "local" if endpoint_type == "local" else "cloud",
+        "allowed_data_classes": allowed,
+        "fallback_chain": [],
+        "structured_output_support": True,
+        "notes": "Test profile.",
+    }
+    if reasoning_effort is not None:
+        profile["reasoning_effort"] = reasoning_effort
     return {
         "version": 1,
-        "models": {
-            "test_profile": {
-                "model_id": "test-model",
-                "deployment": "test-deployment",
-                "provider": provider,
-                "endpoint_type": endpoint_type,
-                "task_roles": ["evidence_summary"],
-                "quota_rpm": None,
-                "quota_tpm": None,
-                "cost_class": "test",
-                "max_context": "unknown",
-                "privacy_class": "local" if endpoint_type == "local" else "cloud",
-                "allowed_data_classes": allowed,
-                "fallback_chain": [],
-                "structured_output_support": True,
-                "notes": "Test profile.",
-            }
-        },
+        "models": {"test_profile": profile},
     }
 
 

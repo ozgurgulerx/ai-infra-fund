@@ -83,6 +83,11 @@ MODEL_PROFILE_REQUIRED_ROLES = [
     "embeddings",
 ]
 
+FORBIDDEN_MODEL_PROFILE_TERMS = [
+    "gpt-4o-mini",
+    "gpt_4o_mini",
+]
+
 COMPOSE_REQUIRED_SERVICES = ["web", "api", "worker", "postgres", "migrate"]
 
 GENERATED_PATHS_THAT_MUST_BE_IGNORED = [
@@ -450,6 +455,11 @@ class ArchitecturePolicyTests(unittest.TestCase):
         self.assertEqual([], missing)
         self.assertIn("fallback_chain", text)
         self.assertIn("allowed_data_classes", text)
+
+    def test_model_profiles_do_not_route_to_gpt_4o_mini(self) -> None:
+        text = read_text("config/model_profiles.yaml").lower()
+        offenders = [term for term in FORBIDDEN_MODEL_PROFILE_TERMS if term in text]
+        self.assertEqual([], offenders)
 
     def test_container_scaffold_defines_required_services(self) -> None:
         text = read_text("docker-compose.yml")

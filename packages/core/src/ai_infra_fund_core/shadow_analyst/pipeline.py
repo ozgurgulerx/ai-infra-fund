@@ -248,8 +248,18 @@ def _parse_shadow_output(
         ),
         ("valuation_contexts", "ValuationContextDraft", ValuationContextDraft, ("ticker", "valuation_summary")),
         ("risk_regime_updates", "RiskRegimeUpdateDraft", RiskRegimeUpdateDraft, ("risk_type", "affected_tickers", "summary")),
-        ("trading_advisories", "TradingAdvisoryDraft", TradingAdvisoryDraft, ("ticker", "analyst_action", "rationale", "market_event_ids")),
-        ("analyst_briefs", "AnalystBriefDraft", AnalystBriefDraft, ("headline", "summary")),
+        (
+            "trading_advisories",
+            "TradingAdvisoryDraft",
+            TradingAdvisoryDraft,
+            ("ticker", "analyst_action", "rationale", "context_used", "market_event_ids"),
+        ),
+        (
+            "analyst_briefs",
+            "AnalystBriefDraft",
+            AnalystBriefDraft,
+            ("headline", "summary", "decision_rationale", "context_used"),
+        ),
     )
     drafts: list[object] = []
     rejection_reasons: list[str] = []

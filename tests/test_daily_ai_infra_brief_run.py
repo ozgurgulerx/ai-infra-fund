@@ -752,6 +752,7 @@ def _valid_shadow_response() -> dict[str, object]:
                 "ticker": "NVDA",
                 "analyst_action": "accumulate",
                 "rationale": "Constructive catalyst, pending deterministic gate.",
+                "context_used": ("evidence-1", "market-event-1"),
                 "market_event_ids": ("market-event-1",),
             },
         ),
@@ -760,6 +761,8 @@ def _valid_shadow_response() -> dict[str, object]:
                 **common,
                 "headline": "AI capex supports accelerator demand.",
                 "summary": "NVDA remains linked to hyperscaler capex evidence.",
+                "decision_rationale": "The draft links capex evidence to the review-required daily brief.",
+                "context_used": ("evidence-1", "market-event-1"),
             },
         ),
     }

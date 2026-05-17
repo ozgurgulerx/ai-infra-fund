@@ -384,6 +384,7 @@ def _valid_shadow_response() -> dict[str, object]:
                 "ticker": "NVDA",
                 "analyst_action": "watch",
                 "rationale": "Catalyst is constructive but needs deterministic gate checks.",
+                "context_used": ("evidence-nvda-capex", "market-event-nvda-capex"),
                 "market_event_ids": ("market-event-nvda-capex",),
             },
         ),
@@ -392,6 +393,8 @@ def _valid_shadow_response() -> dict[str, object]:
                 **common,
                 "headline": "AI capex signal keeps accelerator demand in focus.",
                 "summary": "NVDA remains linked to hyperscaler capex evidence.",
+                "decision_rationale": "The brief links capex evidence to review-required accelerator exposure.",
+                "context_used": ("evidence-nvda-capex", "market-event-nvda-capex"),
             },
         ),
     }

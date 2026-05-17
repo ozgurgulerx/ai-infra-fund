@@ -189,13 +189,17 @@ class ConfiguredModelClient:
             f"{endpoint.rstrip('/')}/openai/deployments/{deployment}/chat/completions"
             f"?api-version={api_version}"
         )
+        payload: dict[str, object] = {
+            "messages": _messages(route=route, bundle=bundle, output_schema=output_schema),
+            "response_format": {"type": "json_object"},
+        }
+        if route.profile.reasoning_effort is not None:
+            payload["reasoning_effort"] = route.profile.reasoning_effort
+
         return self._transport.post_json(
             url=url,
             headers=self._azure_headers(),
-            payload={
-                "messages": _messages(route=route, bundle=bundle, output_schema=output_schema),
-                "response_format": {"type": "json_object"},
-            },
+            payload=payload,
             timeout_seconds=self._settings.timeout_seconds,
         )
 
@@ -310,7 +314,8 @@ def _messages(
         "You are a governed AI infrastructure trading analyst. "
         "Return only valid JSON for review-required shadow analyst drafts. "
         "Do not produce broker, order, execution, accounting, PnL, target-weight, "
-        "or deterministic risk outputs. Every material claim must reference supplied evidence IDs."
+        "or deterministic risk outputs. Every material claim must reference supplied evidence IDs. "
+        "Expose decision rationale and the supplied context used for trust, but do not reveal hidden chain-of-thought."
     )
     user_payload = {
         "task_role": route.task_role,
@@ -327,6 +332,11 @@ def _messages(
             "review_status": "review_required",
             "can_publish_directly": False,
             "material_claims": "Each material claim requires evidence_ids drawn from evidence_ids.",
+            "trust_fields": {
+                "trading_advisories": "Each item must include rationale and context_used.",
+                "analyst_briefs": "Each item must include decision_rationale and context_used.",
+                "context_used": "Use only supplied evidence_ids or object_ids.",
+            },
         },
     }
     return [

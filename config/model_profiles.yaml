@@ -53,6 +53,7 @@ models:
     deployment: gpt-5-mini
     provider: azure_foundry
     endpoint_type: azure_ai_foundry
+    reasoning_effort: high
     task_roles:
       - source_classification
       - evidence_summary
@@ -74,7 +75,7 @@ models:
     fallback_chain:
       - qwen3_30b
     structured_output_support: true
-    notes: Structured workflow controller and validation fallback.
+    notes: High-reasoning advisory draft, structured workflow controller, and validation fallback.
 
   kimi_k2_6:
     model_id: Kimi-K2.6

@@ -97,6 +97,12 @@ class ShadowAnalystRealModelClientIntegrationTests(unittest.TestCase):
                                             "payload": {"summary": "Draft only."},
                                             "headline": "AI infrastructure brief draft",
                                             "summary": "Public evidence supports analyst review.",
+                                            "decision_rationale": "The draft ties public evidence to a review-required analyst brief.",
+                                            "context_used": [
+                                                "evidence-1",
+                                                "source-signal-1",
+                                                "market-event-1",
+                                            ],
                                         }
                                     ]
                                 }

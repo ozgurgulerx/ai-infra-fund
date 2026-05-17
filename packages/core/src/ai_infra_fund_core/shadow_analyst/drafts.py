@@ -136,6 +136,7 @@ class TradingAdvisoryDraft(BaseAnalystDraft):
     ticker: str = ""
     analyst_action: str = ""
     rationale: str = ""
+    context_used: tuple[str, ...] = ()
     market_event_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -143,6 +144,7 @@ class TradingAdvisoryDraft(BaseAnalystDraft):
         object.__setattr__(self, "ticker", require_text(self.ticker, "ticker").upper())
         object.__setattr__(self, "analyst_action", require_text(self.analyst_action, "analyst_action").strip())
         object.__setattr__(self, "rationale", require_text(self.rationale, "rationale").strip())
+        object.__setattr__(self, "context_used", _required_text_tuple(self.context_used, "context_used"))
         object.__setattr__(self, "market_event_ids", _required_text_tuple(self.market_event_ids, "market_event_ids"))
 
 
@@ -150,11 +152,19 @@ class TradingAdvisoryDraft(BaseAnalystDraft):
 class AnalystBriefDraft(BaseAnalystDraft):
     headline: str = ""
     summary: str = ""
+    decision_rationale: str = ""
+    context_used: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         BaseAnalystDraft.__post_init__(self)
         object.__setattr__(self, "headline", require_text(self.headline, "headline").strip())
         object.__setattr__(self, "summary", require_text(self.summary, "summary").strip())
+        object.__setattr__(
+            self,
+            "decision_rationale",
+            require_text(self.decision_rationale, "decision_rationale").strip(),
+        )
+        object.__setattr__(self, "context_used", _required_text_tuple(self.context_used, "context_used"))
 
 
 @dataclass(frozen=True, slots=True)
