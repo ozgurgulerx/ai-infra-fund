@@ -1,5 +1,27 @@
 # Build Log
 
+## 2026-05-17 Ticker Theme Intelligence v1
+
+Implemented live DB-backed ticker/theme intelligence for the ticker analyst workbench.
+
+- Extended the read-only ticker workbench payload with `theme_groups`, including `advisory_stance`, source signals, MarketEvents, impact assessments, LLM notes, trade-plan notes, related ticker rationale, risk flags, invalidation, next watch items, evidence IDs, relevance metadata, and latest availability timestamps.
+- Derived `advisory_stance` server-side from the latest stored `TradingAdvisory` and deterministic readiness/suppression state. Stale or suppressed advisory payloads now fall back to `review`/`unrated` stance semantics.
+- Added a server-side web adapter for `/internal/ticker/{ticker}/workbench` and updated the ticker page to render live API-backed data instead of `mockWorkstationData`.
+- Added ticker workbench tabs for Summary, Themes, News / Events, Notes, Related Tickers, Risks, and Evidence, with advisory-only, readiness/suppression, evidence trace, and degraded/empty states.
+- Preserved hard boundaries: no broker integration, no execution UI, no automated trading behavior, no crawler changes, no model calls, and no frontend-computed advisory stance.
+
+Verification:
+
+- RED checkpoint: `./.venv/bin/python -m unittest tests.test_ticker_theme_intelligence` failed on missing `theme_groups`, missing live ticker workbench adapter, and missing tabbed ticker page contract.
+- `./.venv/bin/python -m unittest tests.test_ticker_theme_intelligence` passed, 4 tests.
+- `./.venv/bin/python -m unittest tests.test_ticker_theme_intelligence tests.test_advisory_workstation_read_model_repository tests.test_control_room_ui tests.test_wave2_workstation_ui` passed, 44 tests.
+- `npm run build --prefix apps/web` passed.
+- `npm audit --omit=dev --prefix apps/web` passed with 0 vulnerabilities.
+- `./.venv/bin/python -m unittest tests.test_architecture_policy` passed, 42 tests.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 717 tests, 3 skipped.
+- `./.venv/bin/python -m compileall packages services tests` passed.
+- `git diff --check` passed.
+
 ## 2026-05-17 Fallback-Safe Governed Model Client Cloud Rollout
 
 Rolled the governed model-client code path to cloud without enabling real provider calls.
@@ -1076,3 +1098,21 @@ Verification:
 Known unrelated verification drift in the current worktree:
 
 - `./.venv/bin/python -m unittest discover -s tests` currently fails outside this shadow-review change on ticker-workbench/theme-intelligence tests tied to unrelated modified/untracked frontend/read-model files in the worktree.
+
+Cloud deployment validation:
+
+- Pushed commit `06cd2e6` to `origin/main`.
+- Built and pushed ACR images from a clean detached worktree at `06cd2e6`:
+  - `aistartuptr.azurecr.io/ai-infra-fund-api:06cd2e6`
+  - `aistartuptr.azurecr.io/ai-infra-fund-worker:06cd2e6`
+- Ran Kubernetes migration job `ai-infra-fund-migrate-06cd2e6`.
+  - Migration log confirmed `Applied migrations: 0016_shadow_analyst_manual_reviews.sql`.
+  - Verified `analyst.shadow_analyst_draft_reviews` exists in cloud PostgreSQL.
+- Rolled AKS deployments to `06cd2e6`.
+  - `ai-infra-fund-api`: `1/1` ready on `aistartuptr.azurecr.io/ai-infra-fund-api:06cd2e6`.
+  - `ai-infra-fund-worker`: `1/1` ready on `aistartuptr.azurecr.io/ai-infra-fund-worker:06cd2e6`.
+- Verified cloud frontend proxy:
+  - `https://ai-infra-fund-frontend.azurewebsites.net/api/backend/health` returned `200`.
+  - `https://ai-infra-fund-frontend.azurewebsites.net/api/backend/ready` returned `200`, with advisory boundary, database, model profiles, production internal token, and source policy checks OK.
+- Verified new internal shadow-review route on the cloud API with a deliberately invalid payload and redacted internal token.
+  - POST `/internal/shadow-analyst/drafts/draft-smoke/review` returned `422 invalid_shadow_draft_review`, confirming the route is deployed and validates payload before touching persistence.
