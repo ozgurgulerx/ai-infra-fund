@@ -4,8 +4,8 @@
 
 Moved the governed shadow analyst foundation into the live daily advisory workflow.
 
-- Added `analyst.shadow_analyst_drafts` persistence with `draft_type`, `scope`, `ticker`, `source_model_run_id`, `status`, `payload_json`, `evidence_ids`, `validation_errors`, and `created_at`.
-- Added idempotent contract migrations so pre-release `model_run_id`/`daily_brief` draft-table shapes are repaired forward to the requested `source_model_run_id` and `daily | ticker` scope contract.
+- Added `analyst.shadow_analyst_drafts` persistence with `draft_type`, `scope`, `ticker`, `model_run_id`, `status`, `payload_json`, `evidence_ids`, `validation_errors`, and `created_at`.
+- Added idempotent contract migrations so pre-release `source_model_run_id`/`daily` draft-table shapes are repaired forward to the requested `model_run_id` and `daily_brief | ticker` scope contract.
 - Added a worker-side shadow draft repository and model-run recorder that do not commit independently, so daily brief generation remains one transaction.
 - Updated the governed shadow analyst pipeline to record the `ModelRun` before saving draft rows, preserving database foreign-key lineage.
 - Wired `daily_ai_infra_brief_run.py` to build a daily `AnalystContextBundle`, route through `config/model_profiles.yaml`, invoke `GovernedShadowAnalystPipeline`, and persist `review_required`, `rejected`, `fallback`, or denied draft states.
@@ -16,10 +16,10 @@ Verification:
 
 - RED checkpoint committed in `f41363f`: focused tests failed on missing shadow draft repository, migration, daily worker integration, and brief status metadata.
 - `./.venv/bin/python -m unittest tests.advisory.test_shadow_analyst_pipeline tests.worker.test_shadow_analyst_draft_repository tests.test_daily_ai_infra_brief_run tests.test_advisory_workstation_read_model_migration tests.test_migration_prefix_uniqueness` passed, 18 tests.
-- `./.venv/bin/python -m unittest discover -s tests` failed on two unrelated frontend drift assertions in `tests/test_control_room_ui.py` (`Add Manual Journal Entry` missing and required operational CSS tokens missing). Current task forbids frontend/dependency changes, so those files were not modified as part of this slice.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 685 tests, 3 skipped.
 - `python3 -m compileall packages services tests` passed.
 - `docker compose config` passed.
-- `scripts/run_daily_ai_infra_brief_once.sh` passed after sandbox escalation for Docker buildx writes; local run applied `0015_shadow_analyst_drafts_contract_repair.sql` on the existing Compose database and produced `shadow_analyst_status=fallback`, `shadow_draft_count=1`, `shadow_model_run_count=1`, and `brief_id=brief-daily-ai-infra-20260517T045656Z-6f722d03`.
+- `scripts/run_daily_ai_infra_brief_once.sh` passed; the local Compose database reported no pending migrations after the shadow-draft contract repair and produced `shadow_analyst_status=fallback`, `shadow_draft_count=1`, `shadow_model_run_count=1`, and `brief_id=brief-daily-ai-infra-20260517T050157Z-6f722d03`.
 - `git diff --check` passed.
 
 ## 2026-05-16 Governed Shadow Analyst Pipeline
