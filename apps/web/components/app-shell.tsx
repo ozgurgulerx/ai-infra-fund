@@ -84,7 +84,7 @@ export function AppShell({ eyebrow, title, children, aside }: AppShellProps) {
         </nav>
         <div className="nav-disclaimer">
           <strong>Local journal only</strong>
-          <span>No broker connection. No transaction submission surface.</span>
+          <span>External account connections disabled. Manual journal only.</span>
         </div>
       </aside>
 
