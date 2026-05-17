@@ -9,11 +9,11 @@ Rolled the governed model-client code path to cloud without enabling real provid
 - Confirmed AKS deployments `ai-infra-fund-api` and `ai-infra-fund-worker` rolled out in namespace `ai-infra-fund` and report `1/1` ready on the `0cd409b` images.
 - Corrected the cloud runtime gate to fallback-safe mode: `SHADOW_ANALYST_MODE=fallback`; removed explicit `AI_INFRA_FUND_SHADOW_ANALYST_TASK_ROLE` from the API/worker deployment env so fallback mode does not force a cloud-only analyst role.
 - Ran cloud job `ai-infra-fund-daily-brief-0cd409b-fallback` with worker image `aistartuptr.azurecr.io/ai-infra-fund-worker:0cd409b`.
-- Cloud daily brief completed with `brief_id=brief-daily-ai-infra-20260517T063145Z-268cb5ec`, `shadow_analyst_status=fallback`, `shadow_draft_count=1`, and `shadow_model_run_count=1`.
-- Confirmed no model-provider network path was attempted in fallback mode: latest `audit.model_runs` row for `model-run-8f2f84a5c650de6208ec8902` has `task_role=evidence_summary`, `status=failure`, and `error_summary=shadow analyst model client unavailable in fallback mode`; matching `analyst.shadow_analyst_drafts` row is `ShadowAnalystFallback`.
+- Cloud daily brief completed with `brief_id=brief-daily-ai-infra-20260517T063758Z-268cb5ec`, `shadow_analyst_status=fallback`, `shadow_draft_count=1`, and `shadow_model_run_count=1`.
+- Confirmed no model-provider network path was attempted in fallback mode: latest `audit.model_runs` row for `model-run-e3357db464379c7b494890a2` has `task_role=evidence_summary`, `status=failure`, and `error_summary=shadow analyst model client unavailable in fallback mode`; matching `analyst.shadow_analyst_drafts` row is `ShadowAnalystFallback`.
 - Verified cloud API load balancer `/health` returned `status: ok` and `/ready` returned `status: ready` with `database`, `model_profiles`, `production_internal_token`, `advisory_boundary`, and `source_policy` checks ok.
 - Verified frontend proxy `/api/backend/internal/analyst-brief/latest` and `/api/backend/internal/trading-advisory/latest` returned HTTP 200 with advisory-only generated data.
-- Verified the canonical cockpit page at `https://ai-infra-fund-frontend.azurewebsites.net/` rendered the DB-backed brief `brief-daily-ai-infra-20260517T063145Z-268cb5ec`.
+- Verified the canonical cockpit page at `https://ai-infra-fund-frontend.azurewebsites.net/` rendered the DB-backed brief `brief-daily-ai-infra-20260517T063758Z-268cb5ec`.
 
 Validation:
 
