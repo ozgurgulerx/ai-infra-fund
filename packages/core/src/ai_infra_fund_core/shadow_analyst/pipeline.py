@@ -147,7 +147,6 @@ class GovernedShadowAnalystPipeline:
             model_run_id=model_run_id,
             bundle_evidence_ids=bundle.evidence_ids,
         )
-        self._save_drafts(drafts)
         schema_valid = not rejection_reasons
         run = self._record_profile_run(
             bundle=bundle,
@@ -160,6 +159,7 @@ class GovernedShadowAnalystPipeline:
             error_summary=None if schema_valid else "; ".join(rejection_reasons),
             model_run_id=model_run_id,
         )
+        self._save_drafts(drafts)
         return ShadowAnalystResult(
             bundle_id=bundle.bundle_id,
             status="review_required" if schema_valid else "rejected",

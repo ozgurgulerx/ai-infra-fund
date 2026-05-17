@@ -247,6 +247,40 @@ class DailyAiInfraBriefRunTests(unittest.TestCase):
         self.assertEqual(["evidence-1"], fallback_params[7])
         self.assertTrue(fallback_params[8])
 
+    def test_run_denies_private_research_shadow_path_without_model_call(self) -> None:
+        from ai_infra_fund_worker.daily_ai_infra_brief_run import (
+            run_daily_ai_infra_brief,
+        )
+
+        client = StubShadowAnalystModelClient(_valid_shadow_response())
+        connection = FakeConnection(evidence_rows=[private_evidence_row()])
+
+        result = run_daily_ai_infra_brief(
+            connection,
+            run_at=NOW,
+            shadow_model_client=client,
+        )
+
+        self.assertEqual("denied", result["shadow_analyst_status"])
+        self.assertEqual([], client.calls)
+        self.assertEqual(1, result["shadow_model_run_count"])
+
+        model_run_params = connection.cursor_instance.single_insert(
+            "INSERT INTO audit.model_runs"
+        )
+        self.assertFalse(model_run_params[12])
+        self.assertEqual("denied", model_run_params[15])
+        self.assertIn("private_research", model_run_params[16])
+
+        denied_params = connection.cursor_instance.single_insert(
+            "INSERT INTO analyst.shadow_analyst_drafts"
+        )
+        self.assertEqual("ShadowAnalystDenied", denied_params[1])
+        self.assertEqual("denied", denied_params[5])
+        self.assertEqual(model_run_params[0], denied_params[4])
+        self.assertEqual(["evidence-1"], denied_params[7])
+        self.assertTrue(denied_params[8])
+
     def test_run_script_exists_and_invokes_daily_worker_module(self) -> None:
         script = ROOT / "scripts" / "run_daily_ai_infra_brief_once.sh"
 
@@ -630,9 +664,20 @@ def evidence_row() -> tuple[object, ...]:
     )
 
 
+def private_evidence_row() -> tuple[object, ...]:
+    return (
+        "evidence-1",
+        "private_research",
+        NOW,
+        NOW,
+        "sha256:evidence-1",
+    )
+
+
 class StubShadowAnalystModelClient:
     def __init__(self, response: dict[str, object]) -> None:
         self.response = response
+        self.calls: list[dict[str, object]] = []
 
     def generate_structured(
         self,
@@ -641,6 +686,9 @@ class StubShadowAnalystModelClient:
         bundle: object,
         output_schema: str,
     ) -> dict[str, object]:
+        self.calls.append(
+            {"route": route, "bundle": bundle, "output_schema": output_schema}
+        )
         return self.response
 
 

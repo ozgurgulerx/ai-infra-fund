@@ -9,7 +9,13 @@ import os
 from typing import Protocol
 from urllib.parse import urlencode
 
+from ai_infra_fund_core.model_routing.profiles import load_model_profiles
+from ai_infra_fund_core.model_routing.router import ModelRouter
 from ai_infra_fund_core.runtime.config import RuntimeConfigError, RuntimeSettings
+from ai_infra_fund_core.shadow_analyst import (
+    GovernedShadowAnalystPipeline,
+    build_daily_analyst_context_bundle,
+)
 
 from .daily_ai_infra_brief_sql import (
     EVIDENCE_BY_IDS_SQL,
@@ -25,6 +31,11 @@ from .daily_ai_infra_brief_sql import (
     UPSERT_ANALYST_BRIEF_SQL,
     UPSERT_RUN_ARTIFACT_SQL,
     UPSERT_TRADING_ADVISORY_SQL,
+)
+from .shadow_analyst_drafts import (
+    BoundShadowAnalystDraftRecorder,
+    ShadowAnalystDraftRepository,
+    ShadowAnalystModelRunRecorder,
 )
 
 
@@ -62,11 +73,20 @@ def run_daily_ai_infra_brief(
     connection: Connection,
     *,
     run_at: datetime | None = None,
+    shadow_model_client: object | None = None,
+    model_profiles_path: str = "config/model_profiles.yaml",
 ) -> dict[str, object]:
     as_of = _aware_datetime(run_at)
     inputs = _fetch_inputs(connection)
     inputs_hash = _hash_payload("daily_ai_infra_brief_inputs", _input_summary(inputs))
     run_id = f"run-daily-ai-infra-brief-{inputs_hash[:16]}"
+    shadow_result = _run_shadow_analyst(
+        connection,
+        inputs=inputs,
+        as_of=as_of,
+        shadow_model_client=shadow_model_client,
+        model_profiles_path=model_profiles_path,
+    )
 
     candidates = _build_candidates(inputs, as_of=as_of, inputs_hash=inputs_hash)
     published = [candidate for candidate in candidates if candidate["publishable"]]
@@ -81,6 +101,7 @@ def run_daily_ai_infra_brief(
         suppressed=suppressed,
         as_of=as_of,
         inputs_hash=inputs_hash,
+        shadow_analyst=shadow_result,
     )
     output_hash = _hash_payload(
         "daily_ai_infra_brief_output",
@@ -88,6 +109,7 @@ def run_daily_ai_infra_brief(
             "brief_id": brief["brief_id"],
             "published_advisory_ids": brief["trading_advisory_ids"],
             "suppressed_candidates": suppressed,
+            "shadow_analyst": shadow_result,
         },
     )
     artifact_uri = _artifact_uri(
@@ -128,6 +150,9 @@ def run_daily_ai_infra_brief(
         "published_advisory_ids": published_ids,
         "published_advisory_count": len(published_ids),
         "suppressed_candidate_count": len(suppressed),
+        "shadow_analyst_status": shadow_result["status"],
+        "shadow_draft_count": shadow_result["draft_count"],
+        "shadow_model_run_count": shadow_result["model_run_count"],
         "inputs_hash": inputs_hash,
         "output_hash": output_hash,
         "artifact_uri": artifact_uri,
@@ -157,6 +182,117 @@ def _fetch_inputs(connection: Connection) -> dict[str, list[dict[str, object]]]:
         connection, EVIDENCE_BY_IDS_SQL, (evidence_ids,)
     )
     return inputs
+
+
+class UnavailableShadowAnalystModelClient:
+    def generate_structured(
+        self,
+        *,
+        route: object,
+        bundle: object,
+        output_schema: str,
+    ) -> Mapping[str, object]:
+        raise RuntimeError("shadow analyst model client unavailable")
+
+
+def _run_shadow_analyst(
+    connection: Connection,
+    *,
+    inputs: Mapping[str, list[dict[str, object]]],
+    as_of: datetime,
+    shadow_model_client: object | None,
+    model_profiles_path: str,
+) -> dict[str, object]:
+    bundle = build_daily_analyst_context_bundle(
+        _shadow_context_rows(inputs),
+        as_of=as_of,
+    )
+    draft_repository = ShadowAnalystDraftRepository(connection)
+    pipeline = GovernedShadowAnalystPipeline(
+        router=ModelRouter(load_model_profiles(model_profiles_path)),
+        model_client=shadow_model_client or UnavailableShadowAnalystModelClient(),
+        model_run_recorder=ShadowAnalystModelRunRecorder(connection),
+        draft_recorder=BoundShadowAnalystDraftRecorder(
+            draft_repository,
+            scope=bundle.scope.value,
+            ticker=bundle.ticker,
+            created_at=as_of,
+        ),
+        now=lambda: as_of,
+    )
+    result = pipeline.run(bundle)
+    draft_count = len(result.drafts)
+    if not result.drafts:
+        status = (
+            result.status
+            if result.status in {"fallback", "denied"}
+            else "fallback"
+        )
+        model_run_id = (
+            result.model_runs[0].model_run_id
+            if result.model_runs
+            else f"model-run-shadow-{status}-{bundle.content_hash[:16]}"
+        )
+        draft_repository.save_status(
+            draft_id=f"draft-shadow-analyst-{status}-{bundle.content_hash[:16]}",
+            draft_type=(
+                "ShadowAnalystDenied"
+                if status == "denied"
+                else "ShadowAnalystFallback"
+            ),
+            scope=bundle.scope.value,
+            ticker=bundle.ticker,
+            model_run_id=model_run_id,
+            status=status,
+            payload={
+                "bundle_id": bundle.bundle_id,
+                "status": result.status,
+                "fallback_used": result.fallback_used,
+                "model_run_ids": [run.model_run_id for run in result.model_runs],
+                "raw_drafts_published": False,
+            },
+            evidence_ids=bundle.evidence_ids,
+            validation_errors=result.rejection_reasons
+            or ("shadow analyst draft generation unavailable",),
+            created_at=as_of,
+        )
+        draft_count = 1
+
+    rejected_count = sum(
+        1
+        for draft in result.drafts
+        if str(getattr(getattr(draft, "review_status", ""), "value", "")) == "rejected"
+        or str(getattr(draft, "review_status", "")) == "rejected"
+    )
+    return {
+        "status": result.status,
+        "bundle_id": bundle.bundle_id,
+        "draft_count": draft_count,
+        "review_required_count": max(0, len(result.drafts) - rejected_count),
+        "rejected_count": rejected_count,
+        "model_run_count": len(result.model_runs),
+        "model_run_ids": [run.model_run_id for run in result.model_runs],
+        "fallback_used": result.fallback_used,
+        "validation_error_count": len(result.rejection_reasons),
+        "raw_drafts_published": False,
+    }
+
+
+def _shadow_context_rows(
+    inputs: Mapping[str, list[dict[str, object]]],
+) -> dict[str, list[dict[str, object]]]:
+    return {
+        "source_signals": list(inputs.get("source_signals", ())),
+        "evidence_items": list(inputs.get("evidence_items", ())),
+        "market_events": list(inputs.get("market_events", ())),
+        "segment_impacts": list(inputs.get("segment_impacts", ())),
+        "equity_impact_assessments": list(inputs.get("equity_assessments", ())),
+        "valuation_contexts": list(inputs.get("valuation_contexts", ())),
+        "risk_regime_updates": list(inputs.get("risk_regime_updates", ())),
+        "portfolio_exposures": list(inputs.get("portfolio_snapshots", ())),
+        "prior_advisories": [],
+        "outcome_journal_entries": list(inputs.get("outcomes", ())),
+    }
 
 
 def _fetch_many(
@@ -295,6 +431,7 @@ def _build_brief(
     suppressed: list[dict[str, object]],
     as_of: datetime,
     inputs_hash: str,
+    shadow_analyst: Mapping[str, object],
 ) -> dict[str, object]:
     market_event_ids = _unique_texts(
         event.get("event_id") for event in inputs["market_events"]
@@ -339,6 +476,18 @@ def _build_brief(
             "max_source_age_days": MAX_SOURCE_AGE.days,
             "allowed_evidence_data_classes": sorted(ALLOWED_EVIDENCE_DATA_CLASSES),
             "publication_gate": "deterministic",
+        },
+        "shadow_analyst": {
+            "status": shadow_analyst.get("status"),
+            "bundle_id": shadow_analyst.get("bundle_id"),
+            "draft_count": shadow_analyst.get("draft_count"),
+            "review_required_count": shadow_analyst.get("review_required_count"),
+            "rejected_count": shadow_analyst.get("rejected_count"),
+            "model_run_count": shadow_analyst.get("model_run_count"),
+            "model_run_ids": _text_list(shadow_analyst.get("model_run_ids")),
+            "fallback_used": shadow_analyst.get("fallback_used"),
+            "validation_error_count": shadow_analyst.get("validation_error_count"),
+            "raw_drafts_published": False,
         },
     }
     return {
@@ -741,7 +890,10 @@ def run_from_environment() -> dict[str, object]:
 
     settings = RuntimeSettings.from_env(os.environ, allow_defaults=True)
     with psycopg.connect(settings.database_url) as connection:
-        return run_daily_ai_infra_brief(connection)
+        return run_daily_ai_infra_brief(
+            connection,
+            model_profiles_path=settings.model_profiles_path,
+        )
 
 
 def main() -> None:

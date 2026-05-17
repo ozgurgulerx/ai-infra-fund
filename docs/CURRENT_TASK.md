@@ -2,15 +2,18 @@
 
 ## Task
 
-Finish the remaining v1.1 source-quality cleanup items from the cloud run:
+Implement LLM Intelligence v1: persist governed shadow analyst draft outputs and wire the daily AI infrastructure brief worker into the existing shadow analyst pipeline.
 
-1. Replace the Data Center Dynamics ticker search source that returns 403 with a crawlable configured public feed.
-2. Lower GDELT crawl pressure/backoff exposure so public sentiment/news flow does not generate bursty per-ticker 429s.
-3. Keep EIA/FRED/Finnhub as optional-secret sources, verify they skip cleanly when absent, and document the missing cloud secret state without storing placeholder secrets.
+1. Add durable `analyst.shadow_analyst_drafts` storage and repository support.
+2. Build an `AnalystContextBundle` from daily worker inputs.
+3. Invoke `GovernedShadowAnalystPipeline` from the daily brief worker in shadow/stub mode.
+4. Persist `review_required`, `rejected`, `fallback`, and denied audit outcomes without publishing raw LLM output.
+5. Record and link a `ModelRun` for every model-mediated or attempted model-mediated path.
+6. Preserve deterministic daily brief publication and fallback behavior when no model client is available.
 
 ## Product Objective
 
-Improve the reliability of DB-backed daily brief inputs by keeping crawler output configured, public, provenance-backed, evidence-linked, and low-pressure before downstream advisory generation.
+Move from deterministic-only DB-backed daily briefs toward governed, auditable LLM-mediated advisory intelligence while preserving deterministic publication gates and advisory-only boundaries.
 
 ## Governing Docs And Specs
 
@@ -21,20 +24,19 @@ Improve the reliability of DB-backed daily brief inputs by keeping crawler outpu
 - `docs/plans/active/current-plan.md`
 - `docs/specs/0003-data-contracts.md`
 - `docs/specs/0012-data-architecture.md`
-- `docs/specs/0016-equity-intelligence-crawler.md`
-- `docs/specs/0017-crawl-pipeline-runtime.md`
+- `docs/ANALYST_OBJECT_MODEL.md`
+- `docs/LLM_ANALYST_PROMPT_PACK.md`
 
 Specs are canonical. If this task conflicts with a spec, the spec wins.
 
 ## Allowed Files
 
-- configured public-source registry files under `config/`
-- source-registry validation and seed planning under `packages/core/src/ai_infra_fund_core/equity_intelligence/` only if needed
-- deterministic crawl failure/backoff handling under `services/worker/src/ai_infra_fund_worker/crawl/` only if needed
-- focused worker smoke scripts under `scripts/`
-- environment documentation templates
+- shadow analyst core package under `packages/core/src/ai_infra_fund_core/shadow_analyst/` only if needed
+- API migrations and repositories under `services/api/`
+- daily brief worker integration under `services/worker/src/ai_infra_fund_worker/daily_ai_infra_brief_run.py`
+- worker shadow-draft persistence helpers
+- focused daily worker and repository tests under `tests/`
 - active task and build-log docs
-- focused tests under `tests/`
 
 ## Forbidden Changes
 
@@ -44,29 +46,33 @@ Specs are canonical. If this task conflicts with a spec, the spec wins.
 - no live order placement
 - no execution endpoints
 - no execution-like UI controls
-- no arbitrary crawling
-- no private-document crawling
-- no paid-report scraping
 - no unmanaged model calls
+- no real LLM SDK calls in this slice
+- no raw LLM output publication
+- no private_research cloud calls
 - no model names hard-coded in business logic
 - no LLM-owned scores, risk, constraints, target weights, entry/exit levels, scenario math, PnL, readiness checks, or publication gates
 - no DuckDB/Parquet v1 dependency
 
 ## Acceptance Criteria
 
-- Data Center Dynamics uses a configured public RSS feed instead of the blocked search page.
-- GDELT uses lower-pressure configured crawling and avoids per-ticker burst fanout.
-- Registry changes stay within configured public sources and do not add new source categories.
-- Optional-secret sources still skip cleanly when credentials are absent and never store secret placeholders in frontier URLs.
+- Daily brief worker creates shadow draft records in stub/shadow mode.
+- Invalid shadow output is persisted as rejected with validation errors.
+- Fallback path is auditable and linked to a failed `ModelRun`.
+- Private data denial records a denied `ModelRun` and does not call the model client.
+- `ModelRun` IDs link to persisted draft rows and analyst brief payload metadata.
+- Existing deterministic daily brief generation still works.
 - No broker/order/execution route or UI surface is introduced.
-- No application frontend, read-only API, dependency, migration, or model-router changes are introduced.
+- No application frontend, dependency, or model-router changes are introduced.
 
 ## Tests To Run
 
 ```bash
-./.venv/bin/python -m unittest tests.equity_intelligence.test_source_registry tests.worker.test_source_registry_seed
-python3 -m compileall packages/core/src/ai_infra_fund_core/equity_intelligence services/worker/src/ai_infra_fund_worker/crawl tests
-./.venv/bin/python -m unittest tests.test_architecture_policy tests.test_crawl_scheduler_config tests.test_crawl_advisory_materialization
+./.venv/bin/python -m unittest tests.advisory.test_shadow_analyst_pipeline tests.worker.test_shadow_analyst_draft_repository tests.test_daily_ai_infra_brief_run tests.test_advisory_workstation_read_model_migration
+./.venv/bin/python -m unittest tests.test_architecture_policy
+python3 -m compileall packages services tests
+docker compose config
+scripts/run_daily_ai_infra_brief_once.sh
 git diff --check
 ```
 
@@ -79,6 +85,6 @@ Final integration may additionally run:
 ## Definition Of Done
 
 - Targeted verification passes.
-- Full Python verification passes unless explicitly deferred with reason.
-- `docs/BUILD_LOG.md` records the remaining source-quality cleanup and cloud secret status.
+- Full Python verification passes.
+- `docs/BUILD_LOG.md` records LLM Intelligence v1 implementation and verification.
 - Changes are committed.

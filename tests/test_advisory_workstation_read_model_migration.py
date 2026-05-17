@@ -37,6 +37,8 @@ class AdvisoryWorkstationReadModelMigrationTests(unittest.TestCase):
             "positions_json JSONB NOT NULL DEFAULT '[]'",
             "payload_json JSONB NOT NULL DEFAULT '{}'",
             "CHECK (advisory_label = 'advisory_only')",
+            "model_run_id TEXT NOT NULL REFERENCES audit.model_runs(model_run_id)",
+            "scope TEXT NOT NULL CHECK (scope IN ('daily_brief', 'ticker'))",
             "status TEXT NOT NULL CHECK (status IN ('review_required', 'rejected', 'fallback', 'denied'))",
         ]
         missing = [snippet for snippet in required_snippets if snippet not in sql]
