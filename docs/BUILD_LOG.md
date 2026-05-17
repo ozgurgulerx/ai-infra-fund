@@ -7,18 +7,22 @@ Enabled a real, governed model-client path for the shadow analyst pipeline while
 - Added `ConfiguredModelClient` behind `ai_infra_fund_core.model_routing`, with config-derived route handling for Azure AI Foundry chat completions and local Ollama chat completions.
 - Kept model and deployment selection in `config/model_profiles.yaml`; code only resolves task roles and consumes the selected route.
 - Added shadow analyst task-role support for `segment_impact_analysis`, `equity_impact_assessment`, `valuation_context_analysis`, `risk_regime_analysis`, `trading_advisory_draft`, and `analyst_brief_draft`.
-- Added worker env gating: `AI_INFRA_FUND_SHADOW_ANALYST_MODEL_CLIENT=real` enables the configured client; absent or disabled values keep the existing unavailable-client fallback. `AI_INFRA_FUND_SHADOW_ANALYST_TASK_ROLE` can select a shadow analyst role.
+- Added worker env gating: `SHADOW_ANALYST_MODE=disabled|fallback|real` controls the governed shadow analyst client; default `fallback` preserves the existing unavailable-client fallback. `AI_INFRA_FUND_SHADOW_ANALYST_MODEL_CLIENT=real` remains a compatibility alias, and `AI_INFRA_FUND_SHADOW_ANALYST_TASK_ROLE` can select a shadow analyst role.
 - Preserved audit behavior: successful, failed, denied, and fallback attempted paths still flow through `GovernedShadowAnalystPipeline` and `audit.model_runs`; shadow draft rows continue to link through `source_model_run_id`.
 - Preserved hard boundaries: no broker/order/execution behavior, no raw LLM publication, no model-owned PnL/accounting/target weights, no private-research cloud calls, no SDK imports, and no frontend changes.
 
 Verification:
 
 - RED checkpoint committed in `8050ce5`: new model-client and worker env tests failed because `ai_infra_fund_core.model_routing.client` did not exist.
-- `./.venv/bin/python -m unittest tests.model_routing.test_configured_model_client tests.advisory.test_shadow_analyst_real_model_client` passed, 7 tests.
-- `./.venv/bin/python -m unittest tests.advisory.test_shadow_analyst_pipeline tests.worker.test_shadow_analyst_draft_repository tests.test_daily_ai_infra_brief_run tests.test_model_routing tests.test_architecture_policy` passed, 67 tests.
-- `./.venv/bin/python -m unittest discover -s tests` passed, 690 tests, 3 skipped.
+- `./.venv/bin/python -m unittest tests.model_routing.test_configured_model_client tests.advisory.test_shadow_analyst_real_model_client` passed, 9 tests.
+- `./.venv/bin/python -m unittest tests.test_architecture_policy` passed, 41 tests.
+- `./.venv/bin/python -m unittest discover -s tests/model_routing` passed, 4 tests.
+- `./.venv/bin/python -m unittest discover -s tests/advisory` passed, 11 tests.
+- `./.venv/bin/python -m unittest discover -s tests/worker` passed, 8 tests.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 692 tests, 3 skipped.
 - `python3 -m compileall packages services tests` passed.
-- `scripts/run_daily_ai_infra_brief_once.sh` passed with default fallback mode, producing `shadow_analyst_status=fallback`, `shadow_draft_count=1`, `shadow_model_run_count=1`, and `brief_id=brief-daily-ai-infra-20260517T052707Z-6f722d03`.
+- `docker compose config` passed.
+- `scripts/run_daily_ai_infra_brief_once.sh` passed with default fallback mode, producing `shadow_analyst_status=fallback`, `shadow_draft_count=1`, `shadow_model_run_count=1`, and `brief_id=brief-daily-ai-infra-20260517T053319Z-6f722d03`.
 - `git diff --check` passed.
 
 ## 2026-05-17 Shadow Draft Persistence And Daily Worker Integration

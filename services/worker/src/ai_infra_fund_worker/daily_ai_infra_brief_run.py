@@ -42,7 +42,8 @@ from .shadow_analyst_drafts import (
 
 RUN_TYPE = "daily_ai_infra_brief"
 ADVISORY_LABEL = "advisory_only"
-SHADOW_MODEL_CLIENT_ENV = "AI_INFRA_FUND_SHADOW_ANALYST_MODEL_CLIENT"
+SHADOW_ANALYST_MODE_ENV = "SHADOW_ANALYST_MODE"
+LEGACY_SHADOW_MODEL_CLIENT_ENV = "AI_INFRA_FUND_SHADOW_ANALYST_MODEL_CLIENT"
 SHADOW_TASK_ROLE_ENV = "AI_INFRA_FUND_SHADOW_ANALYST_TASK_ROLE"
 MAX_SOURCE_AGE = timedelta(days=7)
 ALLOWED_EVIDENCE_DATA_CLASSES = frozenset(
@@ -190,6 +191,9 @@ def _fetch_inputs(connection: Connection) -> dict[str, list[dict[str, object]]]:
 
 
 class UnavailableShadowAnalystModelClient:
+    def __init__(self, reason: str = "shadow analyst model client unavailable") -> None:
+        self.reason = reason
+
     def generate_structured(
         self,
         *,
@@ -197,7 +201,7 @@ class UnavailableShadowAnalystModelClient:
         bundle: object,
         output_schema: str,
     ) -> Mapping[str, object]:
-        raise RuntimeError("shadow analyst model client unavailable")
+        raise RuntimeError(self.reason)
 
 
 def _run_shadow_analyst(
@@ -297,10 +301,25 @@ def _shadow_draft_scope(bundle_scope: str) -> str:
 
 
 def _shadow_model_client_from_environment(env: Mapping[str, str]) -> object:
-    mode = str(env.get(SHADOW_MODEL_CLIENT_ENV, "")).strip().lower()
+    mode = _shadow_analyst_mode(env)
     if mode in {"1", "true", "yes", "enabled", "real"}:
         return ConfiguredModelClient.from_environment(env)
-    return UnavailableShadowAnalystModelClient()
+    if mode == "disabled":
+        return UnavailableShadowAnalystModelClient("shadow analyst disabled")
+    if mode in {"", "0", "false", "no", "fallback"}:
+        return UnavailableShadowAnalystModelClient(
+            "shadow analyst model client unavailable in fallback mode"
+        )
+    return UnavailableShadowAnalystModelClient(
+        f"unsupported {SHADOW_ANALYST_MODE_ENV}: {mode}"
+    )
+
+
+def _shadow_analyst_mode(env: Mapping[str, str]) -> str:
+    explicit_mode = str(env.get(SHADOW_ANALYST_MODE_ENV, "")).strip().lower()
+    if explicit_mode:
+        return explicit_mode
+    return str(env.get(LEGACY_SHADOW_MODEL_CLIENT_ENV, "")).strip().lower()
 
 
 def _shadow_task_role_from_environment(env: Mapping[str, str]) -> str | None:
