@@ -1,5 +1,28 @@
 # Build Log
 
+## 2026-05-17 Fallback-Safe Governed Model Client Cloud Rollout
+
+Rolled the governed model-client code path to cloud without enabling real provider calls.
+
+- Pushed `main` through commit `0cd409b` (`feat: support managed identity model auth`), including the governed client commits `8050ce5`, `08434b7`, `9d78b75`, and `0cd409b`.
+- Confirmed ACR tags exist for `aistartuptr.azurecr.io/ai-infra-fund-api:0cd409b-runtime` and `aistartuptr.azurecr.io/ai-infra-fund-worker:0cd409b`.
+- Confirmed AKS deployments `ai-infra-fund-api` and `ai-infra-fund-worker` rolled out in namespace `ai-infra-fund` and report `1/1` ready on the `0cd409b` images.
+- Corrected the cloud runtime gate to fallback-safe mode: `SHADOW_ANALYST_MODE=fallback`; removed explicit `AI_INFRA_FUND_SHADOW_ANALYST_TASK_ROLE` from the API/worker deployment env so fallback mode does not force a cloud-only analyst role.
+- Ran cloud job `ai-infra-fund-daily-brief-0cd409b-fallback` with worker image `aistartuptr.azurecr.io/ai-infra-fund-worker:0cd409b`.
+- Cloud daily brief completed with `brief_id=brief-daily-ai-infra-20260517T063145Z-268cb5ec`, `shadow_analyst_status=fallback`, `shadow_draft_count=1`, and `shadow_model_run_count=1`.
+- Confirmed no model-provider network path was attempted in fallback mode: latest `audit.model_runs` row for `model-run-8f2f84a5c650de6208ec8902` has `task_role=evidence_summary`, `status=failure`, and `error_summary=shadow analyst model client unavailable in fallback mode`; matching `analyst.shadow_analyst_drafts` row is `ShadowAnalystFallback`.
+- Verified cloud API load balancer `/health` returned `status: ok` and `/ready` returned `status: ready` with `database`, `model_profiles`, `production_internal_token`, `advisory_boundary`, and `source_policy` checks ok.
+- Verified frontend proxy `/api/backend/internal/analyst-brief/latest` and `/api/backend/internal/trading-advisory/latest` returned HTTP 200 with advisory-only generated data.
+- Verified the canonical cockpit page at `https://ai-infra-fund-frontend.azurewebsites.net/` rendered the DB-backed brief `brief-daily-ai-infra-20260517T063145Z-268cb5ec`.
+
+Validation:
+
+- Full Python suite passed: 693 tests, 3 skipped.
+- `python3 -m compileall packages services tests` passed.
+- `docker compose config` passed from clean deploy worktree.
+- `scripts/run_daily_ai_infra_brief_once.sh` passed when rerun against the existing local Compose project; the first isolated-project run only failed because local port `5432` was already allocated by the existing project Postgres container.
+- `git diff --check` passed.
+
 ## 2026-05-17 Governed Real Shadow Model Client Path
 
 Enabled a real, governed model-client path for the shadow analyst pipeline while preserving deterministic fallback behavior by default.
