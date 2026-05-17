@@ -1,11 +1,32 @@
 # Build Log
 
+## 2026-05-17 Governed Real Shadow Model Client Path
+
+Enabled a real, governed model-client path for the shadow analyst pipeline while preserving deterministic fallback behavior by default.
+
+- Added `ConfiguredModelClient` behind `ai_infra_fund_core.model_routing`, with config-derived route handling for Azure AI Foundry chat completions and local Ollama chat completions.
+- Kept model and deployment selection in `config/model_profiles.yaml`; code only resolves task roles and consumes the selected route.
+- Added shadow analyst task-role support for `segment_impact_analysis`, `equity_impact_assessment`, `valuation_context_analysis`, `risk_regime_analysis`, `trading_advisory_draft`, and `analyst_brief_draft`.
+- Added worker env gating: `AI_INFRA_FUND_SHADOW_ANALYST_MODEL_CLIENT=real` enables the configured client; absent or disabled values keep the existing unavailable-client fallback. `AI_INFRA_FUND_SHADOW_ANALYST_TASK_ROLE` can select a shadow analyst role.
+- Preserved audit behavior: successful, failed, denied, and fallback attempted paths still flow through `GovernedShadowAnalystPipeline` and `audit.model_runs`; shadow draft rows continue to link through `source_model_run_id`.
+- Preserved hard boundaries: no broker/order/execution behavior, no raw LLM publication, no model-owned PnL/accounting/target weights, no private-research cloud calls, no SDK imports, and no frontend changes.
+
+Verification:
+
+- RED checkpoint committed in `8050ce5`: new model-client and worker env tests failed because `ai_infra_fund_core.model_routing.client` did not exist.
+- `./.venv/bin/python -m unittest tests.model_routing.test_configured_model_client tests.advisory.test_shadow_analyst_real_model_client` passed, 7 tests.
+- `./.venv/bin/python -m unittest tests.advisory.test_shadow_analyst_pipeline tests.worker.test_shadow_analyst_draft_repository tests.test_daily_ai_infra_brief_run tests.test_model_routing tests.test_architecture_policy` passed, 67 tests.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 690 tests, 3 skipped.
+- `python3 -m compileall packages services tests` passed.
+- `scripts/run_daily_ai_infra_brief_once.sh` passed with default fallback mode, producing `shadow_analyst_status=fallback`, `shadow_draft_count=1`, `shadow_model_run_count=1`, and `brief_id=brief-daily-ai-infra-20260517T052707Z-6f722d03`.
+- `git diff --check` passed.
+
 ## 2026-05-17 Shadow Draft Persistence And Daily Worker Integration
 
 Moved the governed shadow analyst foundation into the live daily advisory workflow.
 
-- Added `analyst.shadow_analyst_drafts` persistence with `draft_type`, `scope`, `ticker`, `model_run_id`, `status`, `payload_json`, `evidence_ids`, `validation_errors`, and `created_at`.
-- Added idempotent contract migrations so pre-release `source_model_run_id`/`daily` draft-table shapes are repaired forward to the requested `model_run_id` and `daily_brief | ticker` scope contract.
+- Added `analyst.shadow_analyst_drafts` persistence with `draft_type`, `scope`, `ticker`, `source_model_run_id`, `status`, `payload_json`, `evidence_ids`, `validation_errors`, and `created_at`.
+- Added idempotent contract migrations so pre-release `model_run_id`/`daily_brief` draft-table shapes are repaired forward to the requested `source_model_run_id` and `daily | ticker` scope contract.
 - Added a worker-side shadow draft repository and model-run recorder that do not commit independently, so daily brief generation remains one transaction.
 - Updated the governed shadow analyst pipeline to record the `ModelRun` before saving draft rows, preserving database foreign-key lineage.
 - Wired `daily_ai_infra_brief_run.py` to build a daily `AnalystContextBundle`, route through `config/model_profiles.yaml`, invoke `GovernedShadowAnalystPipeline`, and persist `review_required`, `rejected`, `fallback`, or denied draft states.

@@ -9,6 +9,7 @@ import os
 from typing import Protocol
 from urllib.parse import urlencode
 
+from ai_infra_fund_core.model_routing.client import ConfiguredModelClient
 from ai_infra_fund_core.model_routing.profiles import load_model_profiles
 from ai_infra_fund_core.model_routing.router import ModelRouter
 from ai_infra_fund_core.runtime.config import RuntimeConfigError, RuntimeSettings
@@ -41,6 +42,8 @@ from .shadow_analyst_drafts import (
 
 RUN_TYPE = "daily_ai_infra_brief"
 ADVISORY_LABEL = "advisory_only"
+SHADOW_MODEL_CLIENT_ENV = "AI_INFRA_FUND_SHADOW_ANALYST_MODEL_CLIENT"
+SHADOW_TASK_ROLE_ENV = "AI_INFRA_FUND_SHADOW_ANALYST_TASK_ROLE"
 MAX_SOURCE_AGE = timedelta(days=7)
 ALLOWED_EVIDENCE_DATA_CLASSES = frozenset(
     {
@@ -74,6 +77,7 @@ def run_daily_ai_infra_brief(
     *,
     run_at: datetime | None = None,
     shadow_model_client: object | None = None,
+    shadow_task_role: str | None = None,
     model_profiles_path: str = "config/model_profiles.yaml",
 ) -> dict[str, object]:
     as_of = _aware_datetime(run_at)
@@ -85,6 +89,7 @@ def run_daily_ai_infra_brief(
         inputs=inputs,
         as_of=as_of,
         shadow_model_client=shadow_model_client,
+        shadow_task_role=shadow_task_role,
         model_profiles_path=model_profiles_path,
     )
 
@@ -201,6 +206,7 @@ def _run_shadow_analyst(
     inputs: Mapping[str, list[dict[str, object]]],
     as_of: datetime,
     shadow_model_client: object | None,
+    shadow_task_role: str | None,
     model_profiles_path: str,
 ) -> dict[str, object]:
     bundle = build_daily_analyst_context_bundle(
@@ -211,7 +217,9 @@ def _run_shadow_analyst(
     draft_repository = ShadowAnalystDraftRepository(connection)
     pipeline = GovernedShadowAnalystPipeline(
         router=ModelRouter(load_model_profiles(model_profiles_path)),
-        model_client=shadow_model_client or UnavailableShadowAnalystModelClient(),
+        model_client=shadow_model_client
+        if shadow_model_client is not None
+        else _shadow_model_client_from_environment(os.environ),
         model_run_recorder=ShadowAnalystModelRunRecorder(connection),
         draft_recorder=BoundShadowAnalystDraftRecorder(
             draft_repository,
@@ -220,6 +228,9 @@ def _run_shadow_analyst(
             created_at=as_of,
         ),
         now=lambda: as_of,
+        **_shadow_pipeline_task_role_kwargs(
+            shadow_task_role or _shadow_task_role_from_environment(os.environ)
+        ),
     )
     result = pipeline.run(bundle)
     draft_count = len(result.drafts)
@@ -283,6 +294,24 @@ def _shadow_draft_scope(bundle_scope: str) -> str:
     if bundle_scope == "daily_brief":
         return "daily"
     return bundle_scope
+
+
+def _shadow_model_client_from_environment(env: Mapping[str, str]) -> object:
+    mode = str(env.get(SHADOW_MODEL_CLIENT_ENV, "")).strip().lower()
+    if mode in {"1", "true", "yes", "enabled", "real"}:
+        return ConfiguredModelClient.from_environment(env)
+    return UnavailableShadowAnalystModelClient()
+
+
+def _shadow_task_role_from_environment(env: Mapping[str, str]) -> str | None:
+    role = str(env.get(SHADOW_TASK_ROLE_ENV, "")).strip()
+    return role or None
+
+
+def _shadow_pipeline_task_role_kwargs(task_role: str | None) -> dict[str, str]:
+    if task_role is None:
+        return {}
+    return {"task_role": task_role}
 
 
 def _shadow_context_rows(

@@ -9,6 +9,18 @@ from .profiles import ModelProfile, ModelProfileCatalog, ModelProfileConfigError
 
 
 LOCAL_ENDPOINT_TYPE = "local"
+SHADOW_ANALYST_TASK_ROLES = (
+    "segment_impact_analysis",
+    "equity_impact_assessment",
+    "valuation_context_analysis",
+    "risk_regime_analysis",
+    "trading_advisory_draft",
+    "analyst_brief_draft",
+)
+SHADOW_ANALYST_ROUTE_FALLBACK_ROLE = "evidence_summary"
+SHADOW_ANALYST_TASK_ROLE_ALIASES = {
+    role: SHADOW_ANALYST_ROUTE_FALLBACK_ROLE for role in SHADOW_ANALYST_TASK_ROLES
+}
 
 
 class ModelRouteDenied(ValueError):
@@ -38,7 +50,7 @@ class ModelRouter:
         if DataClass.SECRETS in requested_classes:
             raise ModelRouteDenied(f"{role} cannot process secrets")
 
-        candidates = self._catalog.profiles_for_role(role)
+        candidates = self._profiles_for_role(role)
         if not candidates:
             raise ModelRouteDenied(f"no model profile is configured for task role: {role}")
 
@@ -72,6 +84,15 @@ class ModelRouter:
         if DataClass.PRIVATE_RESEARCH in requested_classes and profile.endpoint_type != LOCAL_ENDPOINT_TYPE:
             return False
         return all(data_class in profile.allowed_data_classes for data_class in requested_classes)
+
+    def _profiles_for_role(self, role: str) -> tuple[ModelProfile, ...]:
+        candidates = self._catalog.profiles_for_role(role)
+        if candidates:
+            return candidates
+        alias = SHADOW_ANALYST_TASK_ROLE_ALIASES.get(role)
+        if alias is None:
+            return ()
+        return self._catalog.profiles_for_role(alias)
 
 
 def _coerce_data_classes(data_classes: Iterable[DataClass | str]) -> tuple[DataClass, ...]:
