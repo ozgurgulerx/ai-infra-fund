@@ -359,6 +359,29 @@ class ControlRoomUiTests(unittest.TestCase):
         self.assertNotIn('get("x-forwarded-proto")', page)
         self.assertNotIn("next/headers", page)
 
+    def test_ticker_workbench_uses_live_theme_grouped_api_payload(self) -> None:
+        page = read_web("app/ticker/[ticker]/page.tsx")
+        advisory_lib = read_web("lib/advisory/ticker-workbench.ts")
+        combined = f"{page}\n{advisory_lib}"
+        required = [
+            'export const dynamic = "force-dynamic"',
+            "/internal/ticker/",
+            "/workbench",
+            "theme_groups",
+            "advisory_stance",
+            "News / Events",
+            "Notes",
+            "Related tickers",
+            "Evidence",
+            "degradedTickerWorkbench",
+        ]
+        self.assertEqual([], [text for text in required if text not in combined])
+        self.assertIn("AI_INFRA_FUND_INTERNAL_API_BASE_URL", advisory_lib)
+        self.assertIn("AI_INFRA_FUND_INTERNAL_TOKEN", advisory_lib)
+        self.assertNotIn("mockWorkstationData", combined)
+        self.assertNotIn("readFileSync", combined)
+        self.assertNotIn("existsSync", combined)
+
     def test_dashboard_summary_fetches_have_degraded_backend_fallbacks(self) -> None:
         api = read_web("lib/api.ts")
         self.assertIn("degraded", api)

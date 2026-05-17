@@ -5,41 +5,172 @@ import {
   RiskFlags,
 } from "../../../components/daily-cockpit/evidence-pills";
 import {
-  assessmentForTicker,
-  levelsForTicker,
-  marketEventsForTicker,
-  mockWorkstationData,
-  portfolioExposureForTicker,
-  priceScenarioForTicker,
-  tradePlansForTicker,
-} from "../../../lib/situational-awareness/mock-workstation-data";
+  readTickerWorkbenchPayload,
+  type RelatedTicker,
+  type ThemeGroup,
+  type TickerWorkbenchPayload,
+  type WorkbenchItem,
+} from "../../../lib/advisory/ticker-workbench";
+
+export const dynamic = "force-dynamic";
 
 type TickerPageProps = {
   params: Promise<{ ticker: string }>;
 };
 
+const TAB_LINKS = [
+  ["summary", "Summary"],
+  ["themes", "Themes"],
+  ["news-events", "News / Events"],
+  ["notes", "Notes"],
+  ["related-tickers", "Related Tickers"],
+  ["risks", "Risks"],
+  ["evidence", "Evidence"],
+] as const;
+
+function valueText(value: unknown, fallback = "Unavailable"): string {
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+function itemText(
+  item: WorkbenchItem | undefined,
+  keys: string[],
+  fallback: string,
+): string {
+  if (!item) {
+    return fallback;
+  }
+  for (const key of keys) {
+    const value = item[key];
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+  }
+  return fallback;
+}
+
+function stringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((item): item is string => typeof item === "string" && item.length > 0);
+}
+
+function formatTimestamp(value: unknown): string {
+  if (typeof value !== "string" || !value) {
+    return "No timestamp";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat("en", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "UTC",
+  }).format(date);
+}
+
+function evidenceIds(items: WorkbenchItem[]): string[] {
+  return Array.from(
+    new Set(items.flatMap((item) => stringList(item.evidence_ids))),
+  ).slice(0, 8);
+}
+
+function primaryCompany(payload: TickerWorkbenchPayload, symbol: string): string {
+  const assessment = payload.equity_impact_assessments?.[0];
+  return itemText(assessment, ["company"], symbol);
+}
+
+function primaryThesis(payload: TickerWorkbenchPayload, symbol: string): string {
+  const advisory = payload.trading_advisories?.[0];
+  const assessment = payload.equity_impact_assessments?.[0];
+  return (
+    itemText(advisory, ["advisory_summary"], "") ||
+    itemText(assessment, ["assessment"], `${symbol} has no API-backed thesis yet.`)
+  );
+}
+
+function firstTheme(payload: TickerWorkbenchPayload): ThemeGroup | undefined {
+  return payload.theme_groups?.[0];
+}
+
+function relatedLabel(item: RelatedTicker): string {
+  return `${item.ticker} · ${item.relationship_type}`;
+}
+
+function displayThemeGroups(theme_groups: ThemeGroup[]) {
+  if (theme_groups.length === 0) {
+    return (
+      <div className="wave2-empty-state">
+        No theme-grouped ticker intelligence has been published yet.
+      </div>
+    );
+  }
+  return theme_groups.map((theme) => (
+    <section className="section-panel" key={theme.theme_id}>
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Themes</p>
+          <h2>{theme.theme_label}</h2>
+        </div>
+        <AdvisoryPill label={theme.advisory_stance?.action ?? "unrated"} />
+      </div>
+      <div className="wave2-metric-grid">
+        <div>
+          <span>Internal rating</span>
+          <strong>{theme.advisory_stance?.action ?? "unrated"}</strong>
+        </div>
+        <div>
+          <span>Freshness</span>
+          <strong>{theme.advisory_stance?.freshness ?? "unknown"}</strong>
+        </div>
+        <div>
+          <span>Confidence</span>
+          <strong>{theme.advisory_stance?.confidence ?? "review"}</strong>
+        </div>
+      </div>
+      <div className="wave2-list">
+        <div>
+          <strong>Why now</strong>
+          <span>{theme.why_now}</span>
+        </div>
+        <div>
+          <strong>What changed</strong>
+          <span>{theme.what_changed}</span>
+        </div>
+        <div>
+          <strong>readiness / suppression</strong>
+          <span>
+            {theme.advisory_stance?.freshness === "suppressed"
+              ? "suppression active until stale or blocked inputs are cleared"
+              : "readiness depends on current evidence, checks, and manual review"}
+          </span>
+        </div>
+      </div>
+      <EvidencePills ids={theme.evidence_ids} />
+    </section>
+  ));
+}
+
 export default async function TickerPage({ params }: TickerPageProps) {
   const { ticker } = await params;
   const symbol = ticker.toUpperCase();
-  const assessment = assessmentForTicker(symbol) ?? mockWorkstationData.equityAssessments[0];
-  const events = marketEventsForTicker(symbol);
-  const scenario = priceScenarioForTicker(symbol);
-  const levels = levelsForTicker(symbol);
-  const plans = tradePlansForTicker(symbol);
-  const exposure = portfolioExposureForTicker(symbol);
-  const relatedTickers = Array.from(
-    new Set(
-      mockWorkstationData.segmentImpacts
-        .filter((segment) =>
-          [...segment.firstOrderBeneficiaries, ...segment.secondOrderBeneficiaries].includes(symbol),
-        )
-        .flatMap((segment) => [
-          ...segment.firstOrderBeneficiaries,
-          ...segment.secondOrderBeneficiaries,
-        ])
-        .filter((item) => item !== symbol),
-    ),
-  ).slice(0, 8);
+  const payload = await readTickerWorkbenchPayload(symbol);
+  const theme_groups = payload.theme_groups ?? [];
+  const primaryGroup = firstTheme(payload);
+  const company = primaryCompany(payload, symbol);
+  const degradedTickerWorkbench = payload.status === "degraded";
+  const valuation = payload.valuation_contexts?.[0];
+  const plan = payload.trade_plans?.[0];
+  const allEvidenceIds = primaryGroup?.evidence_ids ?? evidenceIds([
+    ...(payload.source_signals ?? []),
+    ...(payload.market_events ?? []),
+    ...(payload.equity_impact_assessments ?? []),
+    ...(payload.trading_advisories ?? []),
+  ]);
+  const hasValidatedEvidence =
+    payload.status === "available" && theme_groups.length > 0 && allEvidenceIds.length > 0;
 
   return (
     <div className="control-room-shell">
@@ -48,157 +179,253 @@ export default async function TickerPage({ params }: TickerPageProps) {
         title="Ticker Analyst Workbench"
         aside={<div className="advisory-badge">Advisory-only</div>}
       >
-        <div className="wave2-grid wave2-grid-2">
+        {payload.is_fixture_fallback ? (
+          <div className="readonly-label">Fixture/demo data</div>
+        ) : null}
+        <nav className="wave2-chip-row" aria-label="Ticker workbench tabs">
+          {TAB_LINKS.map(([id, label]) => (
+            <a className="wave2-chip" href={`#${id}`} key={id}>
+              {label}
+            </a>
+          ))}
+        </nav>
+        {!hasValidatedEvidence ? (
           <section className="section-panel">
             <div className="section-heading">
               <div>
-                <p className="eyebrow">Current thesis</p>
-                <h2>{assessment.company}</h2>
+                <p className="eyebrow">Degraded / empty state</p>
+                <h2>No validated evidence for {symbol}</h2>
               </div>
-              <AdvisoryPill label={assessment.advisoryImplication} />
+              <AdvisoryPill label="review" />
             </div>
-            <p className="wave2-lede">{assessment.currentThesis}</p>
+            <p className="panel-note">
+              {payload.detail ??
+                "The live read model has no validated evidence-linked ticker theme groups yet."}
+            </p>
+          </section>
+        ) : null}
+        <div className="wave2-grid wave2-grid-2">
+          <section className="section-panel" id="summary">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Summary</p>
+                <h2>{company}</h2>
+              </div>
+              <AdvisoryPill
+                label={primaryGroup?.advisory_stance?.action ?? "unrated"}
+              />
+            </div>
+            <p className="wave2-lede">{primaryThesis(payload, symbol)}</p>
             <div className="wave2-chip-row">
-              {assessment.segmentExposure.map((segment) => (
-                <span className="wave2-chip" key={segment}>
-                  {segment}
+              {theme_groups.slice(0, 6).map((theme) => (
+                <span className="wave2-chip" key={theme.theme_id}>
+                  {theme.theme_label}
                 </span>
               ))}
             </div>
-            <RiskFlags flags={assessment.riskFlags} />
+            <RiskFlags flags={primaryGroup?.risk_flags ?? []} />
             <div className="wave2-invalidation">
               <strong>Invalidation</strong>
-              <span>{assessment.invalidationCondition}</span>
+              <span>
+                {valueText(
+                  primaryGroup?.invalidation,
+                  "No invalidation condition has been linked to this ticker.",
+                )}
+              </span>
             </div>
-            <EvidencePills ids={assessment.evidenceIds} />
+            <EvidencePills ids={allEvidenceIds} />
           </section>
 
           <section className="section-panel">
             <div className="section-heading">
               <div>
-                <p className="eyebrow">Portfolio exposure</p>
-                <h2>Position and related tickers</h2>
+                <p className="eyebrow">Internal rating</p>
+                <h2>Theme-aware advisory state</h2>
+              </div>
+              <span className="readonly-label">{payload.status ?? "unknown"}</span>
+            </div>
+            <div className="wave2-metric-grid">
+              <div>
+                <span>Action</span>
+                <strong>{primaryGroup?.advisory_stance?.action ?? "unrated"}</strong>
+              </div>
+              <div>
+                <span>Tone</span>
+                <strong>{primaryGroup?.advisory_stance?.tone ?? "neutral"}</strong>
+              </div>
+              <div>
+                <span>Updated</span>
+                <strong>{formatTimestamp(primaryGroup?.latest_available_at)}</strong>
+              </div>
+            </div>
+            <p className="wave2-muted">
+              Ratings are internal advisory labels derived from persisted
+              evidence, advisory, and readiness records. They are advisory
+              review labels only.
+            </p>
+            {degradedTickerWorkbench ? (
+              <p className="wave2-muted">Backend fallback is active.</p>
+            ) : null}
+          </section>
+        </div>
+
+        <div className="wave2-grid wave2-grid-2" id="themes">
+          {displayThemeGroups(theme_groups)}
+        </div>
+
+        <div className="wave2-grid wave2-grid-3">
+          <section className="section-panel" id="news-events">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">News by theme</p>
+                <h2>News / Events</h2>
+              </div>
+            </div>
+            <div className="wave2-list">
+              {(primaryGroup?.market_events ?? payload.market_events ?? [])
+                .slice(0, 5)
+                .map((event, index) => (
+                  <div key={String(event.event_id ?? index)}>
+                    <strong>{itemText(event, ["catalyst", "event_type"], "Market event")}</strong>
+                    <span>
+                      {itemText(event, ["ai_relevance"], "No relevance note")} ·{" "}
+                      {formatTimestamp(event.available_at)}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          </section>
+
+          <section className="section-panel" id="notes">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Analyst notes</p>
+                <h2>Notes</h2>
+              </div>
+            </div>
+            <div className="wave2-list">
+              {(primaryGroup?.llm_notes ?? payload.llm_analyst_notes ?? [])
+                .slice(0, 4)
+                .map((note, index) => (
+                  <div key={String(note.note_id ?? index)}>
+                    <strong>{itemText(note, ["allowed_role", "scope"], "review note")}</strong>
+                    <span>{itemText(note, ["note"], "No note text")}</span>
+                  </div>
+                ))}
+              {(primaryGroup?.trade_plan_notes ?? []).slice(0, 3).map((note, index) => (
+                <div key={String(note.trade_plan_id ?? index)}>
+                  <strong>Trade plan readiness</strong>
+                  <span>{itemText(note, ["readiness"], "review")}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="section-panel" id="related-tickers">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Related tickers</p>
+                <h2>Related Tickers</h2>
+              </div>
+            </div>
+            <div className="wave2-list">
+              {(primaryGroup?.related_tickers ?? []).slice(0, 8).map((related) => (
+                <div key={`${related.ticker}-${related.relationship_type}`}>
+                  <strong>{relatedLabel(related)}</strong>
+                  <span>{related.reason}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <div className="wave2-grid wave2-grid-3">
+          <section className="section-panel" id="risks">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Risks</p>
+                <h2>Risk watch</h2>
+              </div>
+            </div>
+            <RiskFlags flags={primaryGroup?.risk_flags ?? []} />
+            <div className="wave2-list">
+              {(primaryGroup?.next_watch_items ?? []).slice(0, 5).map((item) => (
+                <div key={item}>
+                  <strong>Watch item</strong>
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="section-panel">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Valuation</p>
+                <h2>Price target scenarios</h2>
               </div>
             </div>
             <div className="wave2-metric-grid">
               <div>
-                <span>Current weight</span>
-                <strong>{exposure?.weight ?? "not held"}</strong>
+                <span>State</span>
+                <strong>{itemText(valuation, ["valuation_state"], "unrated")}</strong>
               </div>
               <div>
-                <span>Primary segment</span>
-                <strong>{exposure?.segment ?? assessment.segmentExposure[0]}</strong>
+                <span>Forward P/E</span>
+                <strong>{valueText(valuation?.forward_pe, "n/a")}</strong>
               </div>
               <div>
-                <span>Related tickers</span>
-                <strong>{relatedTickers.join(", ") || "None"}</strong>
+                <span>EV/Sales</span>
+                <strong>{valueText(valuation?.ev_sales, "n/a")}</strong>
+              </div>
+            </div>
+            <p className="wave2-muted">
+              Price targets are scenarios for manual planning and review.
+            </p>
+          </section>
+
+          <section className="section-panel">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Planning</p>
+                <h2>Entry / add / invalidation levels</h2>
+              </div>
+            </div>
+            <div className="wave2-list">
+              <div>
+                <strong>readiness</strong>
+                <span>{itemText(plan, ["readiness"], "No trade plan readiness record")}</span>
+              </div>
+              <div>
+                <strong>Manual journal only</strong>
+                <span>{plan?.manual_journal_only ? "yes" : "not recorded"}</span>
+              </div>
+              <div>
+                <strong>Bull case / Bear case</strong>
+                <span>
+                  Use the linked evidence trail and valuation scenarios before
+                  entering a manual trade plan.
+                </span>
               </div>
             </div>
           </section>
         </div>
 
-        <section className="section-panel">
+        <section className="section-panel" id="evidence">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">Recent MarketEvents</p>
-              <h2>Evidence-backed catalyst trail</h2>
+              <p className="eyebrow">Evidence</p>
+              <h2>Evidence trail</h2>
             </div>
+            <span className="readonly-label">Advisory-only</span>
           </div>
-          <div className="wave2-card-grid">
-            {events.map((event) => (
-              <article className="wave2-card" key={event.eventId}>
-                <div className="wave2-card-kicker">
-                  <span>{event.eventType.replaceAll("_", " ")}</span>
-                  <strong>{event.direction}</strong>
-                </div>
-                <h3>{event.catalyst}</h3>
-                <p>{event.aiRelevance}</p>
-                <EvidencePills ids={event.evidenceIds} />
-              </article>
-            ))}
-          </div>
+          <EvidencePills ids={allEvidenceIds} />
+          <p className="wave2-muted">
+            LLM analyst critique can explain and review cited evidence, but
+            deterministic modules own scores, risk, constraints, and target
+            weights.
+          </p>
         </section>
-
-        <div className="wave2-grid wave2-grid-2">
-          <section className="section-panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Bull case / bear case</p>
-                <h2>Thesis range</h2>
-              </div>
-            </div>
-            <div className="wave2-case-grid">
-              <span>Bull case</span>
-              <p>{assessment.bullCase}</p>
-              <span>Base case</span>
-              <p>{assessment.baseCase}</p>
-              <span>Bear case</span>
-              <p>{assessment.bearCase}</p>
-            </div>
-          </section>
-
-          <section className="section-panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Price target scenarios</p>
-                <h2>Scenarios, not predictions</h2>
-              </div>
-            </div>
-            {scenario ? (
-              <div className="wave2-scenario-row">
-                <div><span>Bear</span><strong>{scenario.bear}</strong></div>
-                <div><span>Base</span><strong>{scenario.base}</strong></div>
-                <div><span>Bull</span><strong>{scenario.bull}</strong></div>
-                <p>{scenario.invalidationCondition}</p>
-                <EvidencePills ids={scenario.evidenceIds} />
-              </div>
-            ) : (
-              <p className="panel-note">No static scenario is available for {symbol}.</p>
-            )}
-          </section>
-        </div>
-
-        <div className="wave2-grid wave2-grid-2">
-          <section className="section-panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Entry / add / invalidation levels</p>
-                <h2>Planning notes only</h2>
-              </div>
-            </div>
-            {levels ? (
-              <div className="wave2-metric-grid">
-                <div><span>Entry zone</span><strong>{levels.entryZone}</strong></div>
-                <div><span>Add zone</span><strong>{levels.addZone}</strong></div>
-                <div><span>Trim zone</span><strong>{levels.trimZone}</strong></div>
-              </div>
-            ) : (
-              <p className="panel-note">No planning levels are available for {symbol}.</p>
-            )}
-          </section>
-
-          <section className="section-panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">LLM analyst critique</p>
-                <h2>Review notes and trade history summary</h2>
-              </div>
-            </div>
-            <div className="wave2-stack">
-              {plans.map((plan) => (
-                <article className="wave2-list-card" key={plan.tradePlanId}>
-                  <strong>{plan.tradePlanId}</strong>
-                  <p>{plan.llmCritique}</p>
-                  <span>{plan.portfolioImpact}</span>
-                  <EvidencePills ids={plan.evidenceIds} />
-                </article>
-              ))}
-              <p className="panel-note">
-                Trade history summary if available: local journal entries remain manual and advisory-only.
-              </p>
-            </div>
-          </section>
-        </div>
       </AppShell>
     </div>
   );

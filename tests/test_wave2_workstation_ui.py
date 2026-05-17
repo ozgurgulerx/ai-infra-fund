@@ -70,6 +70,11 @@ class Wave2WorkstationUiTests(unittest.TestCase):
             ],
             "app/ticker/[ticker]/page.tsx": [
                 "Ticker Analyst Workbench",
+                "Summary",
+                "Themes",
+                "News / Events",
+                "Related Tickers",
+                "Evidence",
                 "Bull case",
                 "Bear case",
                 "Price target scenarios",

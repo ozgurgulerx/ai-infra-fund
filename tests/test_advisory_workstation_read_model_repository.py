@@ -156,6 +156,77 @@ class AdvisoryWorkstationReadModelRepositoryTests(unittest.TestCase):
         self.assertEqual("llm-note-1", payload["llm_analyst_notes"][0]["note_id"])
         self.assertEqual(9, len(connection.cursor_instance.executions))
 
+    def test_ticker_workbench_returns_theme_grouped_rating_news_notes_and_related_tickers(self) -> None:
+        from ai_infra_fund_api.repositories.advisory_workstation import (
+            AdvisoryWorkstationRepository,
+        )
+
+        connection = FakeConnection(
+            [
+                ResultSet([source_signal_row()], SOURCE_SIGNAL_COLUMNS),
+                ResultSet([market_event_row()], MARKET_EVENT_COLUMNS),
+                ResultSet([segment_impact_row()], SEGMENT_COLUMNS),
+                ResultSet([equity_assessment_row()], ASSESSMENT_COLUMNS),
+                ResultSet([valuation_row()], VALUATION_COLUMNS),
+                ResultSet([trading_advisory_row()], ADVISORY_COLUMNS),
+                ResultSet([trade_plan_row()], TRADE_PLAN_COLUMNS),
+                ResultSet([risk_regime_row()], RISK_COLUMNS),
+                ResultSet([llm_note_row()], LLM_NOTE_COLUMNS),
+            ]
+        )
+
+        payload = AdvisoryWorkstationRepository(connection).get_ticker_workbench("nvda")
+
+        groups = payload["theme_groups"]
+        self.assertGreaterEqual(len(groups), 1)
+        first = groups[0]
+        self.assertEqual("NVDA", first["ticker"])
+        self.assertEqual("advisory_only", first["advisory_label"])
+        self.assertIn("theme_id", first)
+        self.assertIn("theme_label", first)
+        self.assertEqual("watch", first["advisory_stance"]["action"])
+        self.assertEqual("advisory-1", first["advisory_stance"]["source_advisory_id"])
+        self.assertEqual(["evidence-1"], first["advisory_stance"]["evidence_ids"])
+        self.assertEqual(["model-run-1"], first["advisory_stance"]["model_run_ids"])
+        self.assertEqual(["source_signal_bundle_linked"], first["advisory_stance"]["deterministic_check_ids"])
+        self.assertEqual("source-signal-1", first["source_signals"][0]["signal_id"])
+        self.assertEqual("market-event-1", first["market_events"][0]["event_id"])
+        self.assertEqual("assessment-1", first["impact_assessments"][0]["assessment_id"])
+        self.assertEqual("llm-note-1", first["llm_notes"][0]["note_id"])
+        self.assertEqual("trade-plan-1", first["trade_plan_notes"][0]["trade_plan_id"])
+        self.assertEqual("TSM", first["related_tickers"][0]["ticker"])
+        self.assertIn("relationship_type", first["related_tickers"][0])
+        self.assertIn("reason", first["related_tickers"][0])
+        self.assertIn("valuation", first["risk_flags"])
+        self.assertEqual("Invalidate if capex evidence reverses.", first["invalidation"])
+        self.assertTrue(first["next_watch_items"])
+        self.assertEqual(["evidence-1"], first["evidence_ids"])
+
+    def test_ticker_workbench_theme_rating_falls_back_to_unrated_without_advisory(self) -> None:
+        from ai_infra_fund_api.repositories.advisory_workstation import (
+            AdvisoryWorkstationRepository,
+        )
+
+        connection = FakeConnection(
+            [
+                ResultSet([source_signal_row()], SOURCE_SIGNAL_COLUMNS),
+                ResultSet([market_event_row()], MARKET_EVENT_COLUMNS),
+                ResultSet([segment_impact_row()], SEGMENT_COLUMNS),
+                ResultSet([], ASSESSMENT_COLUMNS),
+                ResultSet([], VALUATION_COLUMNS),
+                ResultSet([], ADVISORY_COLUMNS),
+                ResultSet([], TRADE_PLAN_COLUMNS),
+                ResultSet([risk_regime_row()], RISK_COLUMNS),
+                ResultSet([], LLM_NOTE_COLUMNS),
+            ]
+        )
+
+        payload = AdvisoryWorkstationRepository(connection).get_ticker_workbench("nvda")
+
+        self.assertEqual("unrated", payload["theme_groups"][0]["advisory_stance"]["action"])
+        self.assertEqual("neutral", payload["theme_groups"][0]["advisory_stance"]["tone"])
+        self.assertIsNone(payload["theme_groups"][0]["advisory_stance"]["source_advisory_id"])
+
     def test_latest_portfolio_exposure_returns_deterministic_snapshot(self) -> None:
         from ai_infra_fund_api.repositories.advisory_workstation import (
             AdvisoryWorkstationRepository,
