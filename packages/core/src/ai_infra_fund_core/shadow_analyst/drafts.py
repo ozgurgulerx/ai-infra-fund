@@ -10,6 +10,7 @@ from ai_infra_fund_core.contracts.common import normalize_tuple, require_non_emp
 class DraftReviewStatus(str, Enum):
     REVIEW_REQUIRED = "review_required"
     REJECTED = "rejected"
+    ACCEPTED_FOR_PUBLICATION = "accepted_for_publication"
 
 
 FORBIDDEN_LLM_OWNED_PAYLOAD_KEYS = frozenset(

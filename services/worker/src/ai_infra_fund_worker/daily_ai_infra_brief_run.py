@@ -207,6 +207,7 @@ def _run_shadow_analyst(
         _shadow_context_rows(inputs),
         as_of=as_of,
     )
+    draft_scope = _shadow_draft_scope(bundle.scope.value)
     draft_repository = ShadowAnalystDraftRepository(connection)
     pipeline = GovernedShadowAnalystPipeline(
         router=ModelRouter(load_model_profiles(model_profiles_path)),
@@ -214,7 +215,7 @@ def _run_shadow_analyst(
         model_run_recorder=ShadowAnalystModelRunRecorder(connection),
         draft_recorder=BoundShadowAnalystDraftRecorder(
             draft_repository,
-            scope=bundle.scope.value,
+            scope=draft_scope,
             ticker=bundle.ticker,
             created_at=as_of,
         ),
@@ -240,7 +241,7 @@ def _run_shadow_analyst(
                 if status == "denied"
                 else "ShadowAnalystFallback"
             ),
-            scope=bundle.scope.value,
+            scope=draft_scope,
             ticker=bundle.ticker,
             model_run_id=model_run_id,
             status=status,
@@ -276,6 +277,12 @@ def _run_shadow_analyst(
         "validation_error_count": len(result.rejection_reasons),
         "raw_drafts_published": False,
     }
+
+
+def _shadow_draft_scope(bundle_scope: str) -> str:
+    if bundle_scope == "daily_brief":
+        return "daily"
+    return bundle_scope
 
 
 def _shadow_context_rows(

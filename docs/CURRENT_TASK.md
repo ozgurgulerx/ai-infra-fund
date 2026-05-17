@@ -68,23 +68,17 @@ Specs are canonical. If this task conflicts with a spec, the spec wins.
 ## Tests To Run
 
 ```bash
-./.venv/bin/python -m unittest tests.advisory.test_shadow_analyst_pipeline tests.worker.test_shadow_analyst_draft_repository tests.test_daily_ai_infra_brief_run tests.test_advisory_workstation_read_model_migration
-./.venv/bin/python -m unittest tests.test_architecture_policy
+./.venv/bin/python -m unittest tests.advisory.test_shadow_analyst_pipeline tests.worker.test_shadow_analyst_draft_repository tests.test_daily_ai_infra_brief_run tests.test_advisory_workstation_read_model_migration tests.test_migration_prefix_uniqueness
+./.venv/bin/python -m unittest discover -s tests
 python3 -m compileall packages services tests
 docker compose config
 scripts/run_daily_ai_infra_brief_once.sh
 git diff --check
 ```
 
-Final integration may additionally run:
-
-```bash
-./.venv/bin/python -m unittest discover -s tests
-```
-
 ## Definition Of Done
 
 - Targeted verification passes.
-- Full Python verification passes.
+- Full Python verification either passes or has unrelated pre-existing drift recorded in `docs/BUILD_LOG.md`.
 - `docs/BUILD_LOG.md` records LLM Intelligence v1 implementation and verification.
 - Changes are committed.

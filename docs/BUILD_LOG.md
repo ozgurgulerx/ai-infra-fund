@@ -19,7 +19,7 @@ Verification:
 - `./.venv/bin/python -m unittest discover -s tests` passed, 685 tests, 3 skipped.
 - `python3 -m compileall packages services tests` passed.
 - `docker compose config` passed.
-- `scripts/run_daily_ai_infra_brief_once.sh` passed; the local Compose database reported no pending migrations after the shadow-draft contract repair and produced `shadow_analyst_status=fallback`, `shadow_draft_count=1`, `shadow_model_run_count=1`, and `brief_id=brief-daily-ai-infra-20260517T050157Z-6f722d03`.
+- `scripts/run_daily_ai_infra_brief_once.sh` passed; the local Compose database reported no pending migrations after the shadow-draft contract repair and produced `shadow_analyst_status=fallback`, `shadow_draft_count=1`, `shadow_model_run_count=1`, and `brief_id=brief-daily-ai-infra-20260517T050515Z-6f722d03`.
 - `git diff --check` passed.
 
 ## 2026-05-16 Governed Shadow Analyst Pipeline

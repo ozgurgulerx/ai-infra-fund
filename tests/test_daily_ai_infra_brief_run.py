@@ -161,6 +161,11 @@ class DailyAiInfraBriefRunTests(unittest.TestCase):
         model_run_params = connection.cursor_instance.single_insert(
             "INSERT INTO audit.model_runs"
         )
+        model_run_statement = connection.cursor_instance.insert_statements(
+            "INSERT INTO audit.model_runs"
+        )[0]
+        self.assertIn("model_run_id", model_run_statement)
+        self.assertNotIn("source_model_run_id", model_run_statement)
         self.assertEqual("evidence_summary", model_run_params[1])
         self.assertTrue(model_run_params[12])
         self.assertEqual("success", model_run_params[15])
@@ -172,7 +177,7 @@ class DailyAiInfraBriefRunTests(unittest.TestCase):
         self.assertEqual(6, len(draft_rows))
         first_draft = draft_rows[0]
         self.assertEqual("SegmentImpactDraft", first_draft[1])
-        self.assertEqual("daily_brief", first_draft[2])
+        self.assertEqual("daily", first_draft[2])
         self.assertIsNone(first_draft[3])
         self.assertEqual(model_run_params[0], first_draft[4])
         self.assertEqual("review_required", first_draft[5])
@@ -471,6 +476,9 @@ class FakeCursor:
 
     def insert_params(self, marker: str) -> list[tuple[object, ...]]:
         return [params for statement, params in self.executions if marker in statement]
+
+    def insert_statements(self, marker: str) -> list[str]:
+        return [statement for statement, _params in self.executions if marker in statement]
 
     def has_insert(self, marker: str) -> bool:
         return any(marker in statement for statement, _params in self.executions)

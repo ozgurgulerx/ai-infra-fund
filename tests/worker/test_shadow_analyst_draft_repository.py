@@ -51,7 +51,7 @@ class ShadowAnalystDraftRepositoryTests(unittest.TestCase):
 
         saved = ShadowAnalystDraftRepository(connection).save_many(
             (draft,),
-            scope="daily_brief",
+            scope="daily",
             ticker=None,
             created_at=NOW,
         )
@@ -62,7 +62,7 @@ class ShadowAnalystDraftRepositoryTests(unittest.TestCase):
         self.assertIn("INSERT INTO analyst.shadow_analyst_drafts", statement)
         self.assertEqual("draft-segment-1", params[0])
         self.assertEqual("SegmentImpactDraft", params[1])
-        self.assertEqual("daily_brief", params[2])
+        self.assertEqual("daily", params[2])
         self.assertIsNone(params[3])
         self.assertEqual("model-run-1", params[4])
         self.assertEqual("review_required", params[5])
@@ -82,7 +82,7 @@ class ShadowAnalystDraftRepositoryTests(unittest.TestCase):
         ShadowAnalystDraftRepository(connection).save_status(
             draft_id="draft-fallback-1",
             draft_type="ShadowAnalystFallback",
-            scope="daily_brief",
+            scope="daily",
             ticker=None,
             model_run_id="model-run-fallback",
             status="fallback",
