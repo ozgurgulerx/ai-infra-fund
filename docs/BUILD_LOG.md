@@ -25,6 +25,17 @@ Verification:
 - `scripts/run_daily_ai_infra_brief_once.sh` passed with default fallback mode, producing `shadow_analyst_status=fallback`, `shadow_draft_count=1`, `shadow_model_run_count=1`, and `brief_id=brief-daily-ai-infra-20260517T053319Z-6f722d03`.
 - `git diff --check` passed.
 
+Cloud deployment validation:
+
+- Pushed `main` through commit `9d78b75`.
+- Built and pushed `aistartuptr.azurecr.io/ai-infra-fund-api:9d78b75-runtime` and `aistartuptr.azurecr.io/ai-infra-fund-worker:9d78b75` through ACR.
+- Rolled AKS deployments `ai-infra-fund-api` and `ai-infra-fund-worker` in namespace `ai-infra-fund`; both reported `1/1` ready.
+- Set `SHADOW_ANALYST_MODE=fallback` and `AI_INFRA_FUND_SHADOW_ANALYST_TASK_ROLE=analyst_brief_draft` explicitly on the cloud API/worker deployments.
+- Cloud daily brief preflight exposed an older shadow-draft table shape; applied existing migration `0015_shadow_analyst_drafts_contract_repair.sql`, then reran the daily brief successfully.
+- Cloud daily brief run produced `shadow_analyst_status=fallback`, `shadow_draft_count=1`, `shadow_model_run_count=1`, and `brief_id=brief-daily-ai-infra-20260517T053802Z-268cb5ec`.
+- Cloud frontend proxy `/api/backend/health` returned `status: ok`; `/api/backend/ready` returned `status: ready`, `database: ok`, `model_profiles: ok`, `production_internal_token: ok`, `advisory_boundary: ok`, and `source_policy: ok`.
+- Real mode remains deployment-ready but intentionally disabled in cloud until provider endpoint/key configuration is supplied.
+
 ## 2026-05-17 Shadow Draft Persistence And Daily Worker Integration
 
 Moved the governed shadow analyst foundation into the live daily advisory workflow.
