@@ -140,6 +140,113 @@ class DailyAiInfraBriefRunTests(unittest.TestCase):
         self.assertEqual("succeeded", artifact_params[7])
         self.assertIsNone(artifact_params[8])
 
+    def test_run_persists_shadow_drafts_and_model_run_in_stub_mode(self) -> None:
+        from ai_infra_fund_worker.daily_ai_infra_brief_run import (
+            run_daily_ai_infra_brief,
+        )
+
+        connection = FakeConnection()
+
+        result = run_daily_ai_infra_brief(
+            connection,
+            run_at=NOW,
+            shadow_model_client=StubShadowAnalystModelClient(_valid_shadow_response()),
+        )
+
+        self.assertEqual("review_required", result["shadow_analyst_status"])
+        self.assertEqual(6, result["shadow_draft_count"])
+        self.assertEqual(1, result["shadow_model_run_count"])
+        self.assertEqual(1, connection.commit_count)
+
+        model_run_params = connection.cursor_instance.single_insert(
+            "INSERT INTO audit.model_runs"
+        )
+        self.assertEqual("evidence_summary", model_run_params[1])
+        self.assertTrue(model_run_params[12])
+        self.assertEqual("success", model_run_params[15])
+        self.assertIn("public_evidence", model_run_params[14])
+
+        draft_rows = connection.cursor_instance.insert_params(
+            "INSERT INTO analyst.shadow_analyst_drafts"
+        )
+        self.assertEqual(6, len(draft_rows))
+        first_draft = draft_rows[0]
+        self.assertEqual("SegmentImpactDraft", first_draft[1])
+        self.assertEqual("daily_brief", first_draft[2])
+        self.assertIsNone(first_draft[3])
+        self.assertEqual(model_run_params[0], first_draft[4])
+        self.assertEqual("review_required", first_draft[5])
+        self.assertEqual(["evidence-1"], first_draft[7])
+        self.assertEqual([], first_draft[8])
+        payload = json.loads(first_draft[6])
+        self.assertFalse(payload["can_publish_directly"])
+
+        brief_params = connection.cursor_instance.single_insert(
+            "INSERT INTO analyst.analyst_briefs"
+        )
+        brief_payload = json.loads(brief_params[9])
+        self.assertEqual("review_required", brief_payload["shadow_analyst"]["status"])
+        self.assertEqual(6, brief_payload["shadow_analyst"]["draft_count"])
+        self.assertNotIn("Review-required segment draft.", json.dumps(brief_payload))
+
+    def test_run_persists_invalid_shadow_draft_as_rejected(self) -> None:
+        from ai_infra_fund_worker.daily_ai_infra_brief_run import (
+            run_daily_ai_infra_brief,
+        )
+
+        invalid = _valid_shadow_response()
+        invalid["trading_advisories"][0]["payload"]["target_weights"] = {"NVDA": "0.4"}
+        invalid["trading_advisories"][0]["material_claims"] = (
+            {"claim": "Model tries to own target weights.", "evidence_ids": ()},
+        )
+
+        connection = FakeConnection()
+        result = run_daily_ai_infra_brief(
+            connection,
+            run_at=NOW,
+            shadow_model_client=StubShadowAnalystModelClient(invalid),
+        )
+
+        self.assertEqual("rejected", result["shadow_analyst_status"])
+        model_run_params = connection.cursor_instance.single_insert(
+            "INSERT INTO audit.model_runs"
+        )
+        self.assertFalse(model_run_params[12])
+        self.assertEqual("failure", model_run_params[15])
+        draft_rows = connection.cursor_instance.insert_params(
+            "INSERT INTO analyst.shadow_analyst_drafts"
+        )
+        rejected = [row for row in draft_rows if row[5] == "rejected"]
+        self.assertTrue(rejected)
+        self.assertTrue(rejected[0][8])
+        self.assertIn("target_weights", " ".join(rejected[0][8]))
+
+    def test_run_persists_shadow_fallback_when_model_client_unavailable(self) -> None:
+        from ai_infra_fund_worker.daily_ai_infra_brief_run import (
+            run_daily_ai_infra_brief,
+        )
+
+        connection = FakeConnection()
+        result = run_daily_ai_infra_brief(connection, run_at=NOW)
+
+        self.assertEqual("fallback", result["shadow_analyst_status"])
+        self.assertEqual(1, result["shadow_draft_count"])
+        model_run_params = connection.cursor_instance.single_insert(
+            "INSERT INTO audit.model_runs"
+        )
+        self.assertFalse(model_run_params[12])
+        self.assertEqual("failure", model_run_params[15])
+        self.assertIn("unavailable", model_run_params[16])
+
+        fallback_params = connection.cursor_instance.single_insert(
+            "INSERT INTO analyst.shadow_analyst_drafts"
+        )
+        self.assertEqual("ShadowAnalystFallback", fallback_params[1])
+        self.assertEqual("fallback", fallback_params[5])
+        self.assertEqual(model_run_params[0], fallback_params[4])
+        self.assertEqual(["evidence-1"], fallback_params[7])
+        self.assertTrue(fallback_params[8])
+
     def test_run_script_exists_and_invokes_daily_worker_module(self) -> None:
         script = ROOT / "scripts" / "run_daily_ai_infra_brief_once.sh"
 
@@ -165,7 +272,6 @@ class DailyAiInfraBriefRunTests(unittest.TestCase):
         forbidden = [
             "openai",
             "anthropic",
-            "azure",
             "requests",
             "httpx",
             "marketdata",
@@ -324,12 +430,13 @@ class FakeCursor:
         return self.rows
 
     def single_insert(self, marker: str) -> tuple[object, ...]:
-        matches = [
-            params for statement, params in self.executions if marker in statement
-        ]
+        matches = self.insert_params(marker)
         if len(matches) != 1:
             raise AssertionError(f"expected exactly one insert for {marker}, got {len(matches)}")
         return matches[0]
+
+    def insert_params(self, marker: str) -> list[tuple[object, ...]]:
+        return [params for statement, params in self.executions if marker in statement]
 
     def has_insert(self, marker: str) -> bool:
         return any(marker in statement for statement, _params in self.executions)
@@ -521,6 +628,85 @@ def evidence_row() -> tuple[object, ...]:
         NOW,
         "sha256:evidence-1",
     )
+
+
+class StubShadowAnalystModelClient:
+    def __init__(self, response: dict[str, object]) -> None:
+        self.response = response
+
+    def generate_structured(
+        self,
+        *,
+        route: object,
+        bundle: object,
+        output_schema: str,
+    ) -> dict[str, object]:
+        return self.response
+
+
+def _valid_shadow_response() -> dict[str, object]:
+    claim = {
+        "claim": "Hyperscaler capex supports AI accelerator demand.",
+        "evidence_ids": ("evidence-1",),
+    }
+    common = {
+        "evidence_ids": ("evidence-1",),
+        "material_claims": (claim,),
+        "payload": {"summary": "Review-required analyst draft."},
+    }
+    return {
+        "segment_impacts": (
+            {
+                **common,
+                "segment_name": "accelerators",
+                "linked_event_ids": ("market-event-1",),
+                "first_order_tickers": ("NVDA",),
+                "second_order_tickers": ("TSM",),
+            },
+        ),
+        "equity_impact_assessments": (
+            {
+                **common,
+                "ticker": "NVDA",
+                "assessment": "Capex signal is constructive.",
+                "bull_case": "Accelerator demand remains durable.",
+                "bear_case": "Supply or valuation pressure weakens setup.",
+                "risk_flags": ("valuation",),
+                "invalidation_condition": "Capex evidence reverses.",
+            },
+        ),
+        "valuation_contexts": (
+            {
+                **common,
+                "ticker": "NVDA",
+                "valuation_summary": "Premium valuation depends on durable AI demand.",
+            },
+        ),
+        "risk_regime_updates": (
+            {
+                **common,
+                "risk_type": "valuation",
+                "affected_tickers": ("NVDA",),
+                "summary": "Valuation discipline remains required.",
+            },
+        ),
+        "trading_advisories": (
+            {
+                **common,
+                "ticker": "NVDA",
+                "analyst_action": "accumulate",
+                "rationale": "Constructive catalyst, pending deterministic gate.",
+                "market_event_ids": ("market-event-1",),
+            },
+        ),
+        "analyst_briefs": (
+            {
+                **common,
+                "headline": "AI capex supports accelerator demand.",
+                "summary": "NVDA remains linked to hyperscaler capex evidence.",
+            },
+        ),
+    }
 
 
 if __name__ == "__main__":

@@ -28,6 +28,7 @@ class AdvisoryWorkstationReadModelMigrationTests(unittest.TestCase):
             "CREATE TABLE IF NOT EXISTS analyst.trade_plans",
             "CREATE TABLE IF NOT EXISTS analyst.portfolio_exposure_snapshots",
             "CREATE TABLE IF NOT EXISTS analyst.llm_analyst_notes",
+            "CREATE TABLE IF NOT EXISTS analyst.shadow_analyst_drafts",
             "CREATE TABLE IF NOT EXISTS analyst.analyst_briefs",
             "evidence_ids TEXT[] NOT NULL",
             "model_run_ids TEXT[] NOT NULL DEFAULT '{}'",
@@ -36,6 +37,7 @@ class AdvisoryWorkstationReadModelMigrationTests(unittest.TestCase):
             "positions_json JSONB NOT NULL DEFAULT '[]'",
             "payload_json JSONB NOT NULL DEFAULT '{}'",
             "CHECK (advisory_label = 'advisory_only')",
+            "status TEXT NOT NULL CHECK (status IN ('review_required', 'rejected', 'fallback', 'denied'))",
         ]
         missing = [snippet for snippet in required_snippets if snippet not in sql]
 
