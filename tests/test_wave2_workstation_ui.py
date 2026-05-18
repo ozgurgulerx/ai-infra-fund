@@ -59,6 +59,55 @@ class Wave2WorkstationUiTests(unittest.TestCase):
         self.assertIn("/internal/source-signals/latest", page)
         self.assertNotIn("mockWorkstationData", page)
 
+    def test_premium_workstation_components_and_evidence_disclosure_exist(self) -> None:
+        components = read_web("components/workstation.tsx")
+        page = read_web("app/page.tsx")
+        ticker_page = read_web("app/ticker/[ticker]/page.tsx")
+        css = read_web("app/globals.css")
+
+        required_components = [
+            "PageHeader",
+            "MetricTile",
+            "StatusChip",
+            "AdvisoryTable",
+            "EvidenceDrawer",
+            "SectionCard",
+            "EmptyState",
+            "RiskBadge",
+            "LlmReviewBadge",
+        ]
+        self.assertEqual(
+            [],
+            [component for component in required_components if component not in components],
+        )
+        self.assertIn("EvidenceDrawer", page)
+        self.assertIn("EvidenceDrawer", ticker_page)
+        self.assertIn("evidence-drawer", components)
+        self.assertIn("evidence-drawer", css)
+        self.assertNotIn("No invalidation condition reported", page)
+        self.assertIn("Invalidation not yet defined", page)
+
+    def test_ticker_workbench_evidence_drawer_uses_all_theme_and_payload_evidence(self) -> None:
+        ticker_page = read_web("app/ticker/[ticker]/page.tsx")
+
+        required_sources = [
+            "theme_groups.flatMap((theme) => theme.evidence_ids)",
+            "payload.source_signals",
+            "payload.market_events",
+            "payload.equity_impact_assessments",
+            "payload.trading_advisories",
+        ]
+        self.assertEqual([], [source for source in required_sources if source not in ticker_page])
+        self.assertNotIn("primaryGroup?.evidence_ids ?? evidenceIds", ticker_page)
+
+    def test_daily_cockpit_keeps_low_confidence_events_out_of_top_events(self) -> None:
+        page = read_web("app/page.tsx")
+
+        self.assertIn("const lowConfidenceEvents = marketEvents.filter", page)
+        self.assertIn("const coreMarketEvents = marketEvents.filter", page)
+        self.assertIn("const topEvents = coreMarketEvents.slice(0, 4);", page)
+        self.assertNotIn("const topEvents = marketEvents.slice(0, 4);", page)
+
     def test_segment_map_ticker_workbench_trade_and_radar_screens_have_wave2_content(self) -> None:
         expectations = {
             "app/segments/page.tsx": [

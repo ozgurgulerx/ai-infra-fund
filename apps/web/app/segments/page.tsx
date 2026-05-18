@@ -1,9 +1,9 @@
 import { AppShell } from "../../components/app-shell";
 import {
   AdvisoryPill,
-  EvidencePills,
   RiskFlags,
 } from "../../components/daily-cockpit/evidence-pills";
+import { EvidenceDrawer, SectionCard, StatusChip } from "../../components/workstation";
 import { mockWorkstationData } from "../../lib/situational-awareness/mock-workstation-data";
 
 export default function SegmentsPage() {
@@ -14,14 +14,11 @@ export default function SegmentsPage() {
         title="AI Infrastructure Ecosystem Map"
         aside={<div className="advisory-badge">Advisory-only</div>}
       >
-        <section className="section-panel">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Stack propagation</p>
-              <h2>Bottlenecks, beneficiaries, and risk migration</h2>
-            </div>
-            <span className="readonly-label">mock data only</span>
-          </div>
+        <SectionCard
+          badge={<StatusChip label="mock data only" tone="neutral" />}
+          eyebrow="Stack propagation"
+          title="Bottlenecks, beneficiaries, and risk migration"
+        >
           <div className="wave2-segment-map">
             {mockWorkstationData.segmentImpacts.map((segment) => (
               <article className="wave2-segment-card" key={segment.segmentId}>
@@ -52,11 +49,15 @@ export default function SegmentsPage() {
                 </div>
 
                 <RiskFlags flags={segment.riskFlags} />
-                <EvidencePills ids={segment.evidenceIds} />
               </article>
             ))}
           </div>
-        </section>
+          <EvidenceDrawer
+            ids={mockWorkstationData.segmentImpacts.flatMap(
+              (segment) => segment.evidenceIds,
+            )}
+          />
+        </SectionCard>
       </AppShell>
     </div>
   );

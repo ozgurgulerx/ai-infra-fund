@@ -1,6 +1,12 @@
 import { AppShell } from "../../components/app-shell";
-import { EvidencePills } from "../../components/daily-cockpit/evidence-pills";
 import { TradeEntryForm } from "../../components/trade-entry-form";
+import {
+  AdvisoryTable,
+  EvidenceDrawer,
+  MetricTile,
+  SectionCard,
+  StatusChip,
+} from "../../components/workstation";
 import { mockWorkstationData } from "../../lib/situational-awareness/mock-workstation-data";
 
 export default function TradeJournalPage() {
@@ -11,77 +17,59 @@ export default function TradeJournalPage() {
         title="Trade Journal + PnL Review"
         aside={<div className="advisory-badge">Advisory-only</div>}
       >
-        <div className="wave2-grid wave2-grid-2">
-          <section className="section-panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Manual records</p>
-                <h2>Manual journal only</h2>
-              </div>
-              <span className="readonly-label">No broker connection</span>
-            </div>
+        <div className="workstation-grid workstation-grid-2">
+          <SectionCard
+            badge={<StatusChip label="No broker connection" tone="neutral" />}
+            eyebrow="Manual records"
+            title="Manual journal only"
+          >
             <TradeEntryForm />
-          </section>
+          </SectionCard>
 
-          <section className="section-panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Mock deterministic review</p>
-                <h2>realized/unrealized PnL</h2>
-              </div>
-              <span className="readonly-label">{mockWorkstationData.pnlSummary.label}</span>
-            </div>
-            <div className="wave2-metric-grid">
-              <div>
-                <span>Total</span>
-                <strong>{mockWorkstationData.pnlSummary.total}</strong>
-              </div>
+          <SectionCard
+            badge={<StatusChip label={mockWorkstationData.pnlSummary.label} tone="neutral" />}
+            eyebrow="Mock deterministic review"
+            title="realized/unrealized PnL"
+          >
+            <div className="summary-strip summary-strip-3">
+              <MetricTile label="Total" value={mockWorkstationData.pnlSummary.total} />
               {mockWorkstationData.pnlSummary.bySegment.map(([segment, value]) => (
-                <div key={segment}>
-                  <span>{segment}</span>
-                  <strong>{value}</strong>
-                </div>
+                <MetricTile key={segment} label={segment} value={value} />
               ))}
             </div>
             <p className="panel-note">
               PnL by segment uses static deterministic fixture values for review only.
             </p>
-            <EvidencePills ids={mockWorkstationData.pnlSummary.evidenceIds} />
-          </section>
+          </SectionCard>
         </div>
 
-        <section className="section-panel">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Outcome review</p>
-              <h2>Trade history, exit reason, and post-trade LLM review</h2>
-            </div>
-          </div>
-          <div className="wave2-card-grid">
-            {mockWorkstationData.journalReviews.map((entry) => (
-              <article className="wave2-card" key={entry.journalId}>
-                <div className="wave2-card-kicker">
-                  <span>{entry.status}</span>
-                  <strong>{entry.ticker}</strong>
-                </div>
-                <h3>{entry.entryExit}</h3>
-                <div className="wave2-case-grid">
-                  <span>realized/unrealized PnL</span>
-                  <p>{entry.realizedUnrealizedPnl}</p>
-                  <span>exit reason</span>
-                  <p>{entry.exitReason}</p>
-                  <span>mistake classification</span>
-                  <p>{entry.mistakeClassification}</p>
-                  <span>post-trade LLM review</span>
-                  <p>{entry.postTradeLlmReview}</p>
-                  <span>PnL by segment</span>
-                  <p>{entry.segment} · {entry.catalystType}</p>
-                </div>
-                <EvidencePills ids={entry.evidenceIds} />
-              </article>
-            ))}
-          </div>
-        </section>
+        <SectionCard
+          eyebrow="Outcome review"
+          title="Trade history, exit reason, and post-trade LLM review"
+        >
+          <AdvisoryTable
+            columns={["Ticker", "Status", "realized/unrealized PnL", "Exit reason", "post-trade LLM review"]}
+            rows={mockWorkstationData.journalReviews.map((entry) => ({
+              id: entry.journalId,
+              cells: [
+                <strong key="ticker">{entry.ticker}</strong>,
+                entry.status,
+                entry.realizedUnrealizedPnl,
+                entry.exitReason,
+                entry.postTradeLlmReview,
+              ],
+            }))}
+          />
+          <p className="panel-note">
+            PnL by segment remains deterministic and journal-backed.
+          </p>
+          <EvidenceDrawer
+            ids={[
+              ...mockWorkstationData.pnlSummary.evidenceIds,
+              ...mockWorkstationData.journalReviews.flatMap((entry) => entry.evidenceIds),
+            ]}
+          />
+        </SectionCard>
       </AppShell>
     </div>
   );

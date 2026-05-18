@@ -1,9 +1,13 @@
 import { AppShell } from "../../../components/app-shell";
+import { AdvisoryPill, RiskFlags } from "../../../components/daily-cockpit/evidence-pills";
 import {
-  AdvisoryPill,
-  EvidencePills,
-  RiskFlags,
-} from "../../../components/daily-cockpit/evidence-pills";
+  AdvisoryTable,
+  EmptyState,
+  EvidenceDrawer,
+  MetricTile,
+  SectionCard,
+  StatusChip,
+} from "../../../components/workstation";
 import {
   readTickerWorkbenchPayload,
   type RelatedTicker,
@@ -101,21 +105,15 @@ function relatedLabel(item: RelatedTicker): string {
 
 function displayThemeGroups(theme_groups: ThemeGroup[]) {
   if (theme_groups.length === 0) {
-    return (
-      <div className="wave2-empty-state">
-        No theme-grouped ticker intelligence has been published yet.
-      </div>
-    );
+    return <EmptyState title="No theme-grouped ticker intelligence has been published yet." />;
   }
   return theme_groups.map((theme) => (
-    <section className="section-panel" key={theme.theme_id}>
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Themes</p>
-          <h2>{theme.theme_label}</h2>
-        </div>
-        <AdvisoryPill label={theme.advisory_stance?.action ?? "unrated"} />
-      </div>
+    <SectionCard
+      badge={<AdvisoryPill label={theme.advisory_stance?.action ?? "unrated"} />}
+      eyebrow="Themes"
+      key={theme.theme_id}
+      title={theme.theme_label}
+    >
       <div className="wave2-metric-grid">
         <div>
           <span>Internal rating</span>
@@ -148,8 +146,7 @@ function displayThemeGroups(theme_groups: ThemeGroup[]) {
           </span>
         </div>
       </div>
-      <EvidencePills ids={theme.evidence_ids} />
-    </section>
+    </SectionCard>
   ));
 }
 
@@ -163,12 +160,17 @@ export default async function TickerPage({ params }: TickerPageProps) {
   const degradedTickerWorkbench = payload.status === "degraded";
   const valuation = payload.valuation_contexts?.[0];
   const plan = payload.trade_plans?.[0];
-  const allEvidenceIds = primaryGroup?.evidence_ids ?? evidenceIds([
-    ...(payload.source_signals ?? []),
-    ...(payload.market_events ?? []),
-    ...(payload.equity_impact_assessments ?? []),
-    ...(payload.trading_advisories ?? []),
-  ]);
+  const allEvidenceIds = Array.from(
+    new Set([
+      ...theme_groups.flatMap((theme) => theme.evidence_ids),
+      ...evidenceIds([
+        ...(payload.source_signals ?? []),
+        ...(payload.market_events ?? []),
+        ...(payload.equity_impact_assessments ?? []),
+        ...(payload.trading_advisories ?? []),
+      ]),
+    ]),
+  ).slice(0, 8);
   const hasValidatedEvidence =
     payload.status === "available" && theme_groups.length > 0 && allEvidenceIds.length > 0;
 
@@ -190,31 +192,28 @@ export default async function TickerPage({ params }: TickerPageProps) {
           ))}
         </nav>
         {!hasValidatedEvidence ? (
-          <section className="section-panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Degraded / empty state</p>
-                <h2>No validated evidence for {symbol}</h2>
-              </div>
-              <AdvisoryPill label="review" />
-            </div>
+          <SectionCard
+            badge={<AdvisoryPill label="review" />}
+            eyebrow="Degraded / empty state"
+            title={`No validated evidence for ${symbol}`}
+          >
             <p className="panel-note">
               {payload.detail ??
                 "The live read model has no validated evidence-linked ticker theme groups yet."}
             </p>
-          </section>
+          </SectionCard>
         ) : null}
-        <div className="wave2-grid wave2-grid-2">
-          <section className="section-panel" id="summary">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Summary</p>
-                <h2>{company}</h2>
-              </div>
+        <div className="workstation-grid workstation-grid-2">
+          <SectionCard
+            badge={
               <AdvisoryPill
                 label={primaryGroup?.advisory_stance?.action ?? "unrated"}
               />
-            </div>
+            }
+            eyebrow="Summary"
+            id="summary"
+            title={company}
+          >
             <p className="wave2-lede">{primaryThesis(payload, symbol)}</p>
             <div className="wave2-chip-row">
               {theme_groups.slice(0, 6).map((theme) => (
@@ -233,30 +232,27 @@ export default async function TickerPage({ params }: TickerPageProps) {
                 )}
               </span>
             </div>
-            <EvidencePills ids={allEvidenceIds} />
-          </section>
+          </SectionCard>
 
-          <section className="section-panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Internal rating</p>
-                <h2>Theme-aware advisory state</h2>
-              </div>
-              <span className="readonly-label">{payload.status ?? "unknown"}</span>
-            </div>
-            <div className="wave2-metric-grid">
-              <div>
-                <span>Action</span>
-                <strong>{primaryGroup?.advisory_stance?.action ?? "unrated"}</strong>
-              </div>
-              <div>
-                <span>Tone</span>
-                <strong>{primaryGroup?.advisory_stance?.tone ?? "neutral"}</strong>
-              </div>
-              <div>
-                <span>Updated</span>
-                <strong>{formatTimestamp(primaryGroup?.latest_available_at)}</strong>
-              </div>
+          <SectionCard
+            badge={<StatusChip label={payload.status ?? "unknown"} tone="neutral" />}
+            eyebrow="Internal rating"
+            title="Theme-aware advisory state"
+          >
+            <div className="summary-strip summary-strip-3">
+              <MetricTile
+                label="Action"
+                value={primaryGroup?.advisory_stance?.action ?? "unrated"}
+              />
+              <MetricTile
+                label="Tone"
+                value={primaryGroup?.advisory_stance?.tone ?? "neutral"}
+                tone="review"
+              />
+              <MetricTile
+                label="Updated"
+                value={formatTimestamp(primaryGroup?.latest_available_at)}
+              />
             </div>
             <p className="wave2-muted">
               Ratings are internal advisory labels derived from persisted
@@ -266,43 +262,31 @@ export default async function TickerPage({ params }: TickerPageProps) {
             {degradedTickerWorkbench ? (
               <p className="wave2-muted">Backend fallback is active.</p>
             ) : null}
-          </section>
+          </SectionCard>
         </div>
 
-        <div className="wave2-grid wave2-grid-2" id="themes">
+        <div className="workstation-grid workstation-grid-2" id="themes">
           {displayThemeGroups(theme_groups)}
         </div>
 
-        <div className="wave2-grid wave2-grid-3">
-          <section className="section-panel" id="news-events">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">News by theme</p>
-                <h2>News / Events</h2>
-              </div>
-            </div>
-            <div className="wave2-list">
-              {(primaryGroup?.market_events ?? payload.market_events ?? [])
+        <div className="workstation-grid workstation-grid-3">
+          <SectionCard eyebrow="News by theme" id="news-events" title="News / Events">
+            <AdvisoryTable
+              columns={["Event", "Relevance", "Freshness"]}
+              rows={(primaryGroup?.market_events ?? payload.market_events ?? [])
                 .slice(0, 5)
-                .map((event, index) => (
-                  <div key={String(event.event_id ?? index)}>
-                    <strong>{itemText(event, ["catalyst", "event_type"], "Market event")}</strong>
-                    <span>
-                      {itemText(event, ["ai_relevance"], "No relevance note")} ·{" "}
-                      {formatTimestamp(event.available_at)}
-                    </span>
-                  </div>
-                ))}
-            </div>
-          </section>
+                .map((event, index) => ({
+                  id: String(event.event_id ?? index),
+                  cells: [
+                    itemText(event, ["catalyst", "event_type"], "Market event"),
+                    itemText(event, ["ai_relevance"], "No relevance note"),
+                    formatTimestamp(event.available_at),
+                  ],
+                }))}
+            />
+          </SectionCard>
 
-          <section className="section-panel" id="notes">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Analyst notes</p>
-                <h2>Notes</h2>
-              </div>
-            </div>
+          <SectionCard eyebrow="Analyst notes" id="notes" title="Notes">
             <div className="wave2-list">
               {(primaryGroup?.llm_notes ?? payload.llm_analyst_notes ?? [])
                 .slice(0, 4)
@@ -319,15 +303,9 @@ export default async function TickerPage({ params }: TickerPageProps) {
                 </div>
               ))}
             </div>
-          </section>
+          </SectionCard>
 
-          <section className="section-panel" id="related-tickers">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Related tickers</p>
-                <h2>Related Tickers</h2>
-              </div>
-            </div>
+          <SectionCard eyebrow="Related tickers" id="related-tickers" title="Related Tickers">
             <div className="wave2-list">
               {(primaryGroup?.related_tickers ?? []).slice(0, 8).map((related) => (
                 <div key={`${related.ticker}-${related.relationship_type}`}>
@@ -336,17 +314,11 @@ export default async function TickerPage({ params }: TickerPageProps) {
                 </div>
               ))}
             </div>
-          </section>
+          </SectionCard>
         </div>
 
-        <div className="wave2-grid wave2-grid-3">
-          <section className="section-panel" id="risks">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Risks</p>
-                <h2>Risk watch</h2>
-              </div>
-            </div>
+        <div className="workstation-grid workstation-grid-3">
+          <SectionCard eyebrow="Risks" id="risks" title="Risk watch">
             <RiskFlags flags={primaryGroup?.risk_flags ?? []} />
             <div className="wave2-list">
               {(primaryGroup?.next_watch_items ?? []).slice(0, 5).map((item) => (
@@ -356,15 +328,9 @@ export default async function TickerPage({ params }: TickerPageProps) {
                 </div>
               ))}
             </div>
-          </section>
+          </SectionCard>
 
-          <section className="section-panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Valuation</p>
-                <h2>Price target scenarios</h2>
-              </div>
-            </div>
+          <SectionCard eyebrow="Valuation" title="Price target scenarios">
             <div className="wave2-metric-grid">
               <div>
                 <span>State</span>
@@ -382,15 +348,9 @@ export default async function TickerPage({ params }: TickerPageProps) {
             <p className="wave2-muted">
               Price targets are scenarios for manual planning and review.
             </p>
-          </section>
+          </SectionCard>
 
-          <section className="section-panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Planning</p>
-                <h2>Entry / add / invalidation levels</h2>
-              </div>
-            </div>
+          <SectionCard eyebrow="Planning" title="Entry / add / invalidation levels">
             <div className="wave2-list">
               <div>
                 <strong>readiness</strong>
@@ -408,24 +368,22 @@ export default async function TickerPage({ params }: TickerPageProps) {
                 </span>
               </div>
             </div>
-          </section>
+          </SectionCard>
         </div>
 
-        <section className="section-panel" id="evidence">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Evidence</p>
-              <h2>Evidence trail</h2>
-            </div>
-            <span className="readonly-label">Advisory-only</span>
-          </div>
-          <EvidencePills ids={allEvidenceIds} />
+        <SectionCard
+          badge={<StatusChip label="Advisory-only" tone="neutral" />}
+          eyebrow="Evidence"
+          id="evidence"
+          title="Evidence trail"
+        >
+          <EvidenceDrawer ids={allEvidenceIds} />
           <p className="wave2-muted">
             LLM analyst critique can explain and review cited evidence, but
             deterministic modules own scores, risk, constraints, and target
             weights.
           </p>
-        </section>
+        </SectionCard>
       </AppShell>
     </div>
   );

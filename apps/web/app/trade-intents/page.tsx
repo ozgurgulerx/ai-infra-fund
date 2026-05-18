@@ -1,9 +1,9 @@
 import { AppShell } from "../../components/app-shell";
 import {
   AdvisoryPill,
-  EvidencePills,
   RiskFlags,
 } from "../../components/daily-cockpit/evidence-pills";
+import { EvidenceDrawer, SectionCard, StatusChip } from "../../components/workstation";
 import { mockWorkstationData } from "../../lib/situational-awareness/mock-workstation-data";
 
 export default function TradeIntentsPage() {
@@ -14,15 +14,12 @@ export default function TradeIntentsPage() {
         title="Manual Trade Intents"
         aside={<div className="advisory-badge">Advisory-only</div>}
       >
-        <div className="wave2-grid wave2-grid-2">
-          <section className="section-panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Local journal only</p>
-                <h2>Planning queue from suggested actions</h2>
-              </div>
-              <span className="readonly-label">No broker connection</span>
-            </div>
+        <div className="workstation-grid workstation-grid-2">
+          <SectionCard
+            badge={<StatusChip label="No broker connection" tone="neutral" />}
+            eyebrow="Local journal only"
+            title="Planning queue from suggested actions"
+          >
             <p className="panel-note">
               Intent capture remains an advisory review surface. It does not write
               browser storage, call order APIs, or create market instructions.
@@ -40,19 +37,20 @@ export default function TradeIntentsPage() {
                     <strong>Invalidation</strong>
                     <span>{action.invalidationCondition}</span>
                   </div>
-                  <EvidencePills ids={action.evidenceIds} />
                 </article>
               ))}
             </div>
-          </section>
+            <EvidenceDrawer
+              ids={mockWorkstationData.suggestedActions.flatMap(
+                (action) => action.evidenceIds,
+              )}
+            />
+          </SectionCard>
 
-          <section className="section-panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Trade plan linkage</p>
-                <h2>Evidence before manual action</h2>
-              </div>
-            </div>
+          <SectionCard
+            eyebrow="Trade plan linkage"
+            title="Evidence before manual action"
+          >
             <div className="wave2-stack">
               {mockWorkstationData.openTradePlans.map((plan) => (
                 <article className="wave2-list-card" key={plan.tradePlanId}>
@@ -62,11 +60,10 @@ export default function TradeIntentsPage() {
                   </div>
                   <p>{plan.thesis}</p>
                   <span>{plan.positionSizingNote}</span>
-                  <EvidencePills ids={plan.evidenceIds} />
                 </article>
               ))}
             </div>
-          </section>
+          </SectionCard>
         </div>
       </AppShell>
     </div>

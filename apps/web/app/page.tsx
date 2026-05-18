@@ -1,9 +1,14 @@
 import { AppShell } from "../components/app-shell";
+import { AdvisoryPill, RiskFlags } from "../components/daily-cockpit/evidence-pills";
 import {
-  AdvisoryPill,
-  EvidencePills,
-  RiskFlags,
-} from "../components/daily-cockpit/evidence-pills";
+  AdvisoryTable,
+  EmptyState,
+  EvidenceDrawer,
+  LlmReviewBadge,
+  MetricTile,
+  SectionCard,
+  StatusChip,
+} from "../components/workstation";
 
 export const dynamic = "force-dynamic";
 
@@ -269,6 +274,44 @@ function checksCount(advisories: TradingAdvisory[]): number {
   }, 0);
 }
 
+function collectEvidenceIds(...groups: Array<Array<{ evidence_ids?: string[]; source_evidence_ids?: string[] }>>): string[] {
+  return Array.from(
+    new Set(
+      groups.flatMap((group) =>
+        group.flatMap((item) => [
+          ...list(item.evidence_ids),
+          ...list(item.source_evidence_ids),
+        ]),
+      ),
+    ),
+  );
+}
+
+function confidenceNumber(value: string | number | undefined): number | null {
+  if (typeof value === "number") {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function confidenceTone(value: string | number | undefined): "fresh" | "review" | "cautious" {
+  const score = confidenceNumber(value);
+  if (score === null) {
+    return "review";
+  }
+  if (score >= 0.75) {
+    return "fresh";
+  }
+  if (score >= 0.5) {
+    return "review";
+  }
+  return "cautious";
+}
+
 export default async function DailyTradingCockpitPage() {
   const data = await readCockpitPayload();
   const briefPayload = data.analystBrief;
@@ -284,9 +327,24 @@ export default async function DailyTradingCockpitPage() {
     briefPayload.trading_advisories?.length
       ? briefPayload.trading_advisories
       : data.latestTradingAdvisories.items ?? [];
-  const topEvents = marketEvents.slice(0, 4);
+  const lowConfidenceEvents = marketEvents.filter((event) => {
+    const score = confidenceNumber(event.confidence);
+    return score !== null && score < 0.5;
+  });
+  const coreMarketEvents = marketEvents.filter(
+    (event) => !lowConfidenceEvents.includes(event),
+  );
+  const topEvents = coreMarketEvents.slice(0, 4);
   const focusAssessments = equityAssessments.slice(0, 5);
   const sourceSignals = data.sourceSignals.items ?? [];
+  const allEvidenceIds = collectEvidenceIds(
+    sourceSignals,
+    marketEvents,
+    segmentImpacts,
+    equityAssessments,
+    riskRegimes,
+    tradingAdvisories,
+  );
 
   return (
     <div className="control-room-shell">
@@ -295,188 +353,172 @@ export default async function DailyTradingCockpitPage() {
         title="AI Infrastructure Trading Analyst Workstation"
         aside={<div className="advisory-badge">Advisory-only</div>}
       >
-        <section className="wave2-command-strip" aria-label="Daily cockpit status">
-          <div className="wave2-command-card wave2-command-card-wide">
-            <span>AI infrastructure regime</span>
-            <strong>API read model</strong>
-            <small>
-              {formatTimestamp(brief.as_of)} · {brief.brief_id ?? "no-brief"}
-            </small>
-          </div>
-          <div className="wave2-command-card">
-            <span>MarketEvents</span>
-            <strong>{marketEvents.length}</strong>
-            <small>evidence-linked</small>
-          </div>
-          <div className="wave2-command-card">
-            <span>Suggested actions</span>
-            <strong>{tradingAdvisories.length}</strong>
-            <small>watch / accumulate / hold / trim / avoid</small>
-          </div>
-          <div className="wave2-command-card">
-            <span>Readiness checks</span>
-            <strong>{checksCount(tradingAdvisories)}</strong>
-            <small className={freshnessClass(briefPayload)}>
-              {isStale(briefPayload) ? "stale-data" : "fresh-data"}
-            </small>
-          </div>
+        <section className="summary-strip" aria-label="Daily cockpit status">
+          <MetricTile
+            label="AI infrastructure regime"
+            value="API read model"
+            detail={`${formatTimestamp(brief.as_of)} · ${
+              isStale(briefPayload) ? "stale-data" : "fresh-data"
+            }`}
+            tone={isStale(briefPayload) ? "stale" : "fresh"}
+          />
+          <MetricTile
+            label="MarketEvents"
+            value={marketEvents.length}
+            detail="ranked, evidence-linked"
+          />
+          <MetricTile
+            label="Suggested actions"
+            value={tradingAdvisories.length}
+            detail="watch / accumulate / hold / trim / avoid"
+            tone="review"
+          />
+          <MetricTile
+            label="Readiness checks"
+            value={checksCount(tradingAdvisories)}
+            detail="deterministic gates"
+            tone="neutral"
+          />
         </section>
 
         {isStale(briefPayload) ? (
-          <section className="section-panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Backend state</p>
-                <h2>API-backed analyst brief unavailable</h2>
-              </div>
-              <span className="readonly-label">stale-data</span>
-            </div>
+          <SectionCard
+            eyebrow="Backend state"
+            title="API-backed analyst brief unavailable"
+            badge={<StatusChip label="stale-data" tone="stale" />}
+          >
             <p className="wave2-lede">
               {briefPayload.detail ??
                 "The read-only API did not return an available analyst brief."}
             </p>
-          </section>
+          </SectionCard>
         ) : null}
 
-        <div className="wave2-grid wave2-grid-2">
-          <section className="section-panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Executive summary</p>
-                <h2>Daily high-alpha brief with LLM analyst notes</h2>
-              </div>
-              <span className="readonly-label">API read model</span>
-            </div>
+        <div className="workstation-grid workstation-grid-2">
+          <SectionCard
+            eyebrow="Executive summary"
+            title="What changed today?"
+            subtitle="Daily high-alpha brief with LLM analyst notes"
+            badge={<LlmReviewBadge status={briefPayload.status ?? "fallback"} />}
+          >
             <p className="wave2-lede">
               {brief.executive_summary ??
                 "No executive summary has been produced yet."}
             </p>
-            <div className="wave2-note-stack">
+            <div className="compact-list">
               {sourceSignals.slice(0, 3).map((signal) => (
-                <article className="wave2-note" key={signal.signal_id}>
-                  <span>{signal.review_status ?? "review pending"}</span>
-                  <strong>{signal.title ?? signal.signal_id}</strong>
-                  <p>{list(signal.themes).join(", ") || "No themes reported."}</p>
-                  <small>
-                    confidence {signal.confidence ?? "not reported"} ·{" "}
-                    {list(signal.tickers).join(", ") || "watchlist"}
-                  </small>
-                  <EvidencePills ids={list(signal.evidence_ids)} />
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section className="section-panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Portfolio exposure snapshot</p>
-                <h2>Theme exposure under review</h2>
-              </div>
-              <span className="readonly-label">No transaction surface</span>
-            </div>
-            <div className="wave2-table wave2-table-4">
-              <span>Ticker</span>
-              <span>Advisory</span>
-              <span>Evidence</span>
-              <span>Action</span>
-              {tradingAdvisories.slice(0, 5).map((advisory) => (
-                <div className="wave2-table-row" key={advisory.advisory_id}>
-                  <strong>{advisory.ticker ?? "Portfolio"}</strong>
-                  <span>{advisory.advisory_label ?? "advisory_only"}</span>
-                  <span>{list(advisory.evidence_ids).length}</span>
-                  <AdvisoryPill label={advisory.analyst_action ?? "watch"} />
+                <div className="compact-row" key={signal.signal_id}>
+                  <strong>{signal.title ?? "Source signal under review"}</strong>
+                  <span>{list(signal.themes).join(", ") || "No themes reported."}</span>
+                  <StatusChip
+                    label={`confidence ${signal.confidence ?? "n/a"}`}
+                    tone={confidenceTone(signal.confidence)}
+                  />
                 </div>
               ))}
             </div>
-          </section>
+          </SectionCard>
+
+          <SectionCard
+            eyebrow="Portfolio exposure snapshot"
+            title="Top advisory stances table"
+            subtitle="Theme exposure under review"
+            badge={<StatusChip label="No transaction surface" tone="neutral" />}
+          >
+            <AdvisoryTable
+              columns={["Ticker", "Label", "Evidence", "Action"]}
+              rows={tradingAdvisories.slice(0, 5).map((advisory) => ({
+                id: advisory.advisory_id ?? advisory.ticker ?? "portfolio",
+                cells: [
+                  <strong key="ticker">{advisory.ticker ?? "Portfolio"}</strong>,
+                  advisory.advisory_label ?? "advisory_only",
+                  `${list(advisory.evidence_ids).length} refs`,
+                  <AdvisoryPill
+                    key="action"
+                    label={advisory.analyst_action ?? "watch"}
+                  />,
+                ],
+              }))}
+            />
+          </SectionCard>
         </div>
 
-        <section className="section-panel">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Top MarketEvents</p>
-              <h2>Catalyst tape with evidence references</h2>
-            </div>
-            <span className="readonly-label">classified intelligence</span>
-          </div>
-          <div className="wave2-card-grid">
-            {topEvents.map((event) => (
-              <article className="wave2-card" key={event.event_id}>
-                <div className="wave2-card-kicker">
-                  <span>{text(event.event_type, "market event").replaceAll("_", " ")}</span>
-                  <strong>{event.review_status ?? "reviewed"}</strong>
-                </div>
-                <h3>{event.catalyst ?? "No catalyst reported."}</h3>
-                <p>{event.ai_relevance ?? "No AI relevance summary reported."}</p>
-                <div className="wave2-meta">
-                  <span>Horizon</span>
-                  <strong>{event.time_horizon ?? "not reported"}</strong>
-                  <span>Direction</span>
-                  <strong>{event.direction ?? "not reported"}</strong>
-                  <span>Confidence</span>
-                  <strong>{event.confidence ?? "not reported"}</strong>
-                </div>
-                <div className="wave2-chip-row">
-                  {list(event.tickers).map((ticker) => (
-                    <span className="wave2-chip" key={`${event.event_id}-${ticker}`}>
-                      {ticker}
-                    </span>
-                  ))}
-                </div>
-                <EvidencePills ids={list(event.source_evidence_ids ?? event.evidence_ids)} />
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <div className="wave2-grid wave2-grid-2">
-          <section className="section-panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Segment impact snapshot</p>
-                <h2>Bottlenecks and beneficiaries</h2>
+        <SectionCard
+          eyebrow="Top MarketEvents"
+          title="Top ranked MarketEvents"
+          subtitle="Catalyst tape with relevance, confidence, ticker, segment, and freshness."
+          badge={<StatusChip label="classified intelligence" tone="review" />}
+        >
+          <AdvisoryTable
+            columns={["Event", "Tickers", "Direction", "Horizon", "Confidence"]}
+            rows={topEvents.map((event) => ({
+              id: event.event_id ?? event.catalyst ?? "market-event",
+              cells: [
+                <span className="table-main" key="event">
+                  <strong>{event.catalyst ?? "No catalyst reported."}</strong>
+                  <small>{event.ai_relevance ?? "No AI relevance summary reported."}</small>
+                </span>,
+                list(event.tickers).join(", ") || "watchlist",
+                event.direction ?? "not reported",
+                event.time_horizon ?? "not reported",
+                <StatusChip
+                  key="confidence"
+                  label={String(event.confidence ?? "n/a")}
+                  tone={confidenceTone(event.confidence)}
+                />,
+              ],
+            }))}
+          />
+          {lowConfidenceEvents.length > 0 ? (
+            <details className="compact-collapse">
+              <summary>Collapsed low-confidence monitor-only events</summary>
+              <div className="compact-list">
+                {lowConfidenceEvents.map((event) => (
+                  <div className="compact-row" key={event.event_id}>
+                    <strong>{event.catalyst ?? "Monitor-only event"}</strong>
+                    <span>{event.ai_relevance ?? "No relevance note."}</span>
+                  </div>
+                ))}
               </div>
-            </div>
-            <div className="wave2-stack">
+            </details>
+          ) : null}
+        </SectionCard>
+
+        <div className="workstation-grid workstation-grid-2">
+          <SectionCard
+            eyebrow="Segment impact snapshot"
+            title="Segment heatmap"
+            subtitle="Bottlenecks, beneficiaries, and latest change."
+          >
+            <div className="segment-heatmap">
               {segmentImpacts.slice(0, 5).map((segment) => (
-                <article className="wave2-list-card" key={segment.segment_id}>
-                  <div>
+                <article className="segment-heatmap-card" key={segment.segment_id}>
+                  <div className="compact-row-heading">
                     <strong>{segment.segment_name ?? segment.segment_id}</strong>
                     <AdvisoryPill label={segment.impact_direction ?? "watch"} />
                   </div>
                   <p>{segment.impact_summary ?? "No segment impact summary."}</p>
-                  <div className="wave2-mini-columns">
-                    <span>
-                      First-order: {list(segment.primary_tickers).join(", ") || "none"}
-                    </span>
-                    <span>
-                      Second-order:{" "}
-                      {list(segment.second_order_tickers).join(", ") || "none"}
-                    </span>
-                  </div>
+                  <span>Beneficiaries: {list(segment.primary_tickers).join(", ") || "none"}</span>
+                  <span>Evidence count: {list(segment.evidence_ids).length}</span>
                   <RiskFlags
                     flags={list(
                       segment.payload?.risk_flags as string[] | undefined,
                     )}
                   />
-                  <EvidencePills ids={list(segment.evidence_ids)} />
                 </article>
               ))}
             </div>
-          </section>
+          </SectionCard>
 
-          <section className="section-panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Risk regime updates</p>
-                <h2>Invalidation watchlist</h2>
-              </div>
-            </div>
-            <div className="wave2-stack">
+          <SectionCard
+            eyebrow="Risk regime updates"
+            title="Risk / invalidation watch"
+            subtitle="Invalidation watchlist"
+          >
+            <div className="compact-list">
               {riskRegimes.map((risk) => (
-                <article className="wave2-list-card" key={risk.regime_id}>
-                  <div>
+                <article className="compact-card" key={risk.regime_id}>
+                  <div className="compact-row-heading">
                     <strong>{risk.risk_type ?? "risk regime"}</strong>
                     <AdvisoryPill label={risk.status ?? "watch"} />
                   </div>
@@ -485,64 +527,50 @@ export default async function DailyTradingCockpitPage() {
                     <strong>Relief / invalidation condition</strong>
                     <span>
                       {risk.portfolio_monitoring_note ??
-                        payloadText(risk.payload, "relief_condition", "No relief condition reported.")}
+                        payloadText(risk.payload, "relief_condition", "Invalidation not yet defined")}
                     </span>
                   </div>
-                  <EvidencePills ids={list(risk.evidence_ids)} />
                 </article>
               ))}
             </div>
-          </section>
+          </SectionCard>
         </div>
 
-        <section className="section-panel">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Equity impact assessments</p>
-              <h2>Ticker thesis, risk, and invalidation</h2>
-            </div>
-            <span className="readonly-label">planning guidance only</span>
-          </div>
-          <div className="wave2-card-grid">
-            {focusAssessments.map((assessment) => (
-              <article className="wave2-card" key={assessment.assessment_id}>
-                <div className="wave2-equity-title">
-                  <div>
-                    <strong>{assessment.ticker ?? "Ticker"}</strong>
-                    <span>{assessment.company ?? "Company"}</span>
-                  </div>
-                  <AdvisoryPill label={assessment.advisory_implication ?? "watch"} />
-                </div>
-                <p>{assessment.assessment ?? "No current thesis assessment."}</p>
-                <div className="wave2-case-grid">
-                  <span>Bull case</span>
-                  <p>{payloadText(assessment.payload, "bull_case", "Not reported.")}</p>
-                  <span>Bear case</span>
-                  <p>{payloadText(assessment.payload, "bear_case", "Not reported.")}</p>
-                </div>
-                <RiskFlags flags={list(assessment.risk_flags)} />
-                <div className="wave2-invalidation">
-                  <strong>Invalidation</strong>
-                  <span>{assessment.invalidation ?? "No invalidation condition reported."}</span>
-                </div>
-                <EvidencePills ids={list(assessment.evidence_ids)} />
-              </article>
-            ))}
-          </div>
-        </section>
+        <SectionCard
+          eyebrow="Equity impact assessments"
+          title="Ticker thesis, risk, and invalidation"
+          badge={<StatusChip label="planning guidance only" tone="neutral" />}
+        >
+          <AdvisoryTable
+            columns={["Ticker", "Thesis", "Risk", "Invalidation", "Stance"]}
+            rows={focusAssessments.map((assessment) => ({
+              id: assessment.assessment_id ?? assessment.ticker ?? "assessment",
+              cells: [
+                <span className="table-main" key="ticker">
+                  <strong>{assessment.ticker ?? "Ticker"}</strong>
+                  <small>{assessment.company ?? "Company"}</small>
+                </span>,
+                assessment.assessment ?? "No current thesis assessment.",
+                list(assessment.risk_flags).join(", ") || "No risk flags",
+                assessment.invalidation ?? "Invalidation not yet defined",
+                <AdvisoryPill
+                  key="stance"
+                  label={assessment.advisory_implication ?? "watch"}
+                />,
+              ],
+            }))}
+          />
+        </SectionCard>
 
-        <div className="wave2-grid wave2-grid-2">
-          <section className="section-panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Suggested actions</p>
-                <h2>Advisory labels and review prompts</h2>
-              </div>
-            </div>
-            <div className="wave2-stack">
+        <div className="workstation-grid workstation-grid-2">
+          <SectionCard
+            eyebrow="Suggested actions"
+            title="Advisory labels and review prompts"
+          >
+            <div className="compact-list">
               {tradingAdvisories.map((advisory) => (
-                <article className="wave2-list-card" key={advisory.advisory_id}>
-                  <div>
+                <article className="compact-card" key={advisory.advisory_id}>
+                  <div className="compact-row-heading">
                     <strong>{advisory.ticker ?? "Portfolio"}</strong>
                     <AdvisoryPill label={advisory.analyst_action ?? "watch"} />
                   </div>
@@ -556,28 +584,24 @@ export default async function DailyTradingCockpitPage() {
                       {payloadText(
                         advisory.payload,
                         "invalidation_condition",
-                        "No invalidation condition reported.",
+                        "Invalidation not yet defined",
                       )}
                     </span>
                   </div>
-                  <EvidencePills ids={list(advisory.evidence_ids)} />
                 </article>
               ))}
             </div>
-          </section>
+          </SectionCard>
 
-          <section className="section-panel">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Open trade plans</p>
-                <h2>Manual planning queue</h2>
-              </div>
-              <span className="readonly-label">local journal only</span>
-            </div>
-            <div className="wave2-stack">
+          <SectionCard
+            eyebrow="Open trade plans"
+            title="Manual planning queue"
+            badge={<StatusChip label="local journal only" tone="review" />}
+          >
+            <div className="compact-list">
               {tradingAdvisories.map((advisory) => (
-                <article className="wave2-list-card" key={`${advisory.advisory_id}-plan`}>
-                  <div>
+                <article className="compact-card" key={`${advisory.advisory_id}-plan`}>
+                  <div className="compact-row-heading">
                     <strong>{advisory.linked_trade_plan_id ?? "plan pending"}</strong>
                     <AdvisoryPill label={advisory.analyst_action ?? "watch"} />
                   </div>
@@ -591,12 +615,23 @@ export default async function DailyTradingCockpitPage() {
                       {payloadText(advisory.payload, "invalidation_level", "review only")}
                     </span>
                   </div>
-                  <EvidencePills ids={list(advisory.evidence_ids)} />
                 </article>
               ))}
+              {tradingAdvisories.length === 0 ? (
+                <EmptyState title="No open trade plans from the read model." />
+              ) : null}
             </div>
-          </section>
+          </SectionCard>
         </div>
+
+        <SectionCard
+          eyebrow="Evidence And Audit Trace"
+          title="Evidence and audit access"
+          subtitle="Raw identifiers are intentionally behind progressive disclosure."
+          badge={<StatusChip label="Advisory-only" tone="neutral" />}
+        >
+          <EvidenceDrawer ids={allEvidenceIds} />
+        </SectionCard>
       </AppShell>
     </div>
   );

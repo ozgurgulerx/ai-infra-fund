@@ -1,4 +1,5 @@
 import { evidenceById } from "../../lib/situational-awareness/mock-workstation-data";
+import { RiskBadge, StatusChip } from "../workstation";
 
 export function EvidencePills({ ids }: { ids: string[] }) {
   return (
@@ -19,14 +20,12 @@ export function RiskFlags({ flags }: { flags: string[] }) {
   return (
     <div className="wave2-chip-row">
       {flags.map((flag) => (
-        <span className="wave2-risk-chip" key={flag}>
-          {flag.replaceAll("_", " ")}
-        </span>
+        <RiskBadge key={flag} label={flag} />
       ))}
     </div>
   );
 }
 
 export function AdvisoryPill({ label }: { label: string }) {
-  return <span className="wave2-advisory-pill">{label.replaceAll("_", " ")}</span>;
+  return <StatusChip label={label.replaceAll("_", " ")} tone="positive" />;
 }

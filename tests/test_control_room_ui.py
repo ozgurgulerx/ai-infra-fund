@@ -152,6 +152,11 @@ def web_source_files() -> list[Path]:
     ]
 
 
+def visible_web_source() -> str:
+    combined = "\n".join(path.read_text(encoding="utf-8") for path in web_source_files())
+    return re.sub(r"\{/\*[\s\S]*?\*/\}", "", combined)
+
+
 class ControlRoomUiTests(unittest.TestCase):
     def test_required_ui_files_exist(self) -> None:
         missing = [
@@ -523,9 +528,7 @@ class ControlRoomUiTests(unittest.TestCase):
         self.assertIn("setInterval(refreshOpsModules, 30000)", ops_page)
 
     def test_manual_trade_intent_workflow_is_local_and_advisory_only(self) -> None:
-        combined = "\n".join(
-            path.read_text(encoding="utf-8") for path in web_source_files()
-        )
+        combined = visible_web_source()
         required = [
             "Manual Trade Intents",
             "Planning queue from suggested actions",
@@ -536,6 +539,7 @@ class ControlRoomUiTests(unittest.TestCase):
             "Evidence before manual action",
             "Local journal only",
             "No broker connection",
+            "no order, broker, or execution control",
         ]
         missing = [text for text in required if text not in combined]
         self.assertEqual([], missing)

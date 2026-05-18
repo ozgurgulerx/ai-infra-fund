@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { PageHeader, StatusChip } from "./workstation";
 
 type AppShellProps = {
   eyebrow: string;
@@ -89,20 +90,20 @@ export function AppShell({ eyebrow, title, children, aside }: AppShellProps) {
       </aside>
 
       <div className="content-shell">
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">{eyebrow}</p>
-            <h1>{title}</h1>
-          </div>
-          <div className="topbar-rail">
-            <span className="topbar-chip">Read-only</span>
-            <span className="topbar-chip">Evidence traced</span>
-            <span className="topbar-chip">Local journal</span>
+        <PageHeader
+          eyebrow={eyebrow}
+          title={title}
+          subtitle="Evidence-backed advisory workstation. Backend read models stay authoritative."
+        >
+          <div className="topbar-rail topbar-chip-group">
+            <StatusChip label="Read-only" tone="neutral" />
+            <StatusChip label="Evidence traced" tone="fresh" />
+            <StatusChip label="Local journal" tone="review" />
             <div className="workspace-signal">
               {aside ?? <div className="advisory-badge">Advisory-only</div>}
             </div>
           </div>
-        </header>
+        </PageHeader>
         {children}
       </div>
     </main>

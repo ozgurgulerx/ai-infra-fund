@@ -1,5 +1,11 @@
 import { AppShell } from "../../components/app-shell";
-import { EvidencePills, RiskFlags } from "../../components/daily-cockpit/evidence-pills";
+import { RiskFlags } from "../../components/daily-cockpit/evidence-pills";
+import {
+  AdvisoryTable,
+  EvidenceDrawer,
+  SectionCard,
+  StatusChip,
+} from "../../components/workstation";
 import { mockWorkstationData } from "../../lib/situational-awareness/mock-workstation-data";
 
 export default function RadarPage() {
@@ -10,18 +16,15 @@ export default function RadarPage() {
         title="Live Market / Sentiment Radar"
         aside={<div className="advisory-badge">Advisory-only</div>}
       >
-        <section className="section-panel">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Classified intelligence</p>
-              <h2>Event feed, sentiment, urgency, and evidence</h2>
-            </div>
-            <span className="readonly-label">static mock feed</span>
-          </div>
-
-          <div className="wave2-radar-grid">
+        <SectionCard
+          badge={<StatusChip label="static mock feed" tone="neutral" />}
+          eyebrow="Classified intelligence"
+          title="Compact event feed"
+          subtitle="event feed, sentiment, urgency, relevance, and freshness"
+        >
+          <div className="compact-list">
             {mockWorkstationData.marketEvents.map((event) => (
-              <article className="wave2-radar-row" key={event.eventId}>
+              <article className="wave2-radar-row compact-card" key={event.eventId}>
                 <div className="wave2-radar-score">
                   <strong>{event.reviewPriority}</strong>
                   <span>review priority</span>
@@ -50,35 +53,37 @@ export default function RadarPage() {
                     ))}
                   </div>
                   <RiskFlags flags={event.riskFlags} />
-                  <EvidencePills ids={event.evidenceIds} />
                 </div>
               </article>
             ))}
           </div>
-        </section>
+          <details className="compact-collapse">
+            <summary>Collapsed noisy low-confidence items</summary>
+            <p className="wave2-muted">
+              Low-confidence monitor-only items remain available after review
+              priority and evidence checks.
+            </p>
+          </details>
+        </SectionCard>
 
-        <section className="section-panel">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">LLM scout notes</p>
-              <h2>Interpretation layer, not raw internet feed</h2>
-            </div>
-          </div>
-          <div className="wave2-card-grid">
-            {mockWorkstationData.llmAnalystNotes.map((note) => (
-              <article className="wave2-card" key={note.noteId}>
-                <div className="wave2-card-kicker">
-                  <span>{note.role}</span>
-                  <strong>{note.confidence}</strong>
-                </div>
-                <h3>{note.tickerOrSegment}</h3>
-                <p>{note.summary}</p>
-                <small>{note.modelRunId}</small>
-                <EvidencePills ids={note.evidenceIds} />
-              </article>
-            ))}
-          </div>
-        </section>
+        <SectionCard
+          eyebrow="LLM scout notes"
+          title="Interpretation layer, not raw internet feed"
+        >
+          <AdvisoryTable
+            columns={["Role", "Scope", "Confidence", "Note"]}
+            rows={mockWorkstationData.llmAnalystNotes.map((note) => ({
+              id: note.noteId,
+              cells: [note.role, note.tickerOrSegment, note.confidence, note.summary],
+            }))}
+          />
+          <EvidenceDrawer
+            ids={[
+              ...mockWorkstationData.marketEvents.flatMap((event) => event.evidenceIds),
+              ...mockWorkstationData.llmAnalystNotes.flatMap((note) => note.evidenceIds),
+            ]}
+          />
+        </SectionCard>
       </AppShell>
     </div>
   );

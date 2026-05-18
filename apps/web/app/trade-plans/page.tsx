@@ -1,9 +1,9 @@
 import { AppShell } from "../../components/app-shell";
 import {
   AdvisoryPill,
-  EvidencePills,
   RiskFlags,
 } from "../../components/daily-cockpit/evidence-pills";
+import { EvidenceDrawer, SectionCard, StatusChip } from "../../components/workstation";
 import { mockWorkstationData } from "../../lib/situational-awareness/mock-workstation-data";
 
 export default function TradePlansPage() {
@@ -14,14 +14,11 @@ export default function TradePlansPage() {
         title="Trade Plan Workbench"
         aside={<div className="advisory-badge">Advisory-only</div>}
       >
-        <section className="section-panel">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Planning guidance only</p>
-              <h2>Evidence-backed manual review queue</h2>
-            </div>
-            <span className="readonly-label">no broker connection</span>
-          </div>
+        <SectionCard
+          badge={<StatusChip label="no broker connection" tone="neutral" />}
+          eyebrow="Planning guidance only"
+          title="Evidence-backed manual review queue"
+        >
           <div className="wave2-card-grid">
             {mockWorkstationData.openTradePlans.map((plan) => (
               <article className="wave2-card" key={plan.tradePlanId}>
@@ -54,19 +51,18 @@ export default function TradePlansPage() {
                   <p>{plan.llmCritique}</p>
                 </div>
                 <RiskFlags flags={plan.riskFlags} />
-                <EvidencePills ids={plan.evidenceIds} />
               </article>
             ))}
           </div>
-        </section>
+          <EvidenceDrawer
+            ids={mockWorkstationData.openTradePlans.flatMap((plan) => plan.evidenceIds)}
+          />
+        </SectionCard>
 
-        <section className="section-panel">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Exposure context</p>
-              <h2>Correlation and concentration checks</h2>
-            </div>
-          </div>
+        <SectionCard
+          eyebrow="Exposure context"
+          title="Correlation and concentration checks"
+        >
           <div className="wave2-card-grid">
             {mockWorkstationData.correlationExposures.map((cluster) => (
               <article className="wave2-card" key={cluster.cluster}>
@@ -85,7 +81,7 @@ export default function TradePlansPage() {
               </article>
             ))}
           </div>
-        </section>
+        </SectionCard>
       </AppShell>
     </div>
   );
