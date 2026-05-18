@@ -1,5 +1,61 @@
 # Build Log
 
+## 2026-05-18 V1.0 Deployment Manifest Alignment
+
+Aligned checked-in deployment manifests with the observed v1.0 cloud runtime.
+
+- Updated `deploy/aks-ai-infra-fund.yaml` to reference:
+  - API image `aistartuptr.azurecr.io/ai-infra-fund-api:faa5b6d-runtime`,
+  - worker image `aistartuptr.azurecr.io/ai-infra-fund-worker:faa5b6d`,
+  - migration job image `aistartuptr.azurecr.io/ai-infra-fund-api:faa5b6d-runtime`.
+- Updated `deploy/fixture-advisory-job.yaml` to use worker image `aistartuptr.azurecr.io/ai-infra-fund-worker:faa5b6d`.
+- Documented in the AKS manifest comments that the v1.0 web image is managed by Azure App Service as `aistartuptr.azurecr.io/ai-infra-fund-web:7c21cf9`.
+- Documented shadow analyst mode/model-client handling in the manifest comments:
+  - mode can be supplied by deployment environment or secret overlays,
+  - the v1.0 runtime must remain fallback-safe,
+  - every real, fallback, denied, or failed model attempt must create a `ModelRun`,
+  - raw LLM drafts must not publish directly.
+- No secrets, app code, runtime features, broker integration, order placement, or execution behavior were added.
+
+Verification:
+
+- `kubectl apply --dry-run=client -f deploy/aks-ai-infra-fund.yaml`
+- `kubectl apply --dry-run=client -f deploy/fixture-advisory-job.yaml`
+- `docker compose config`
+- `git diff --check`
+
+## 2026-05-18 V1.0 Release Scope Freeze
+
+Froze the `v1.0` release scope as an advisory/reporting-only release so closeout can proceed without expanding the product surface.
+
+- Clarified that `v1.0` includes source-registry driven public-source monitoring, crawler materialization into `EvidenceItem`, `SourceSignal`, and `MarketEvent`, DB-backed `AnalystBrief` and `TradingAdvisory` generation, API-backed cockpit/ticker/segment/portfolio/outcome surfaces, governed shadow analyst audit, real model-call path through `config/model_profiles.yaml`, fallback-safe behavior, deterministic quality gates, and the manual review foundation.
+- Clarified that `v1.0` does not require every real model call to succeed. It requires success, failure, timeout, denial, and fallback paths to create auditable `ModelRun` records and remain fallback-safe.
+- Deferred automatic draft promotion, LLM review-status UI if not already deployed, scheduled production automation, external valuation-data integrations, full portfolio analytics, external analyst consensus, broader source-provider hardening, and always-successful latest real LLM calls to `v1.1`.
+- Preserved hard boundaries: advisory/reporting only, no broker integration, no order placement, no execution endpoints, no execution UI, no raw LLM draft publication, no private-research cloud routing by default, and no LLM ownership of PnL/accounting/target weights/readiness gates.
+
+Verification:
+
+- `git diff --check` passed for the docs-only scope-freeze changes.
+
+## 2026-05-18 Final V1.0 Release Documentation
+
+Created the final `v1.0` release documentation package without changing runtime code.
+
+- Expanded `docs/RELEASE_NOTES_V1.md` with product scope, advisory-only guardrails, live data pipeline status, LLM shadow analyst status, quality gate/manual review status, UI/API surfaces, cloud deployment state, validation commands/results, and known `v1.1` gaps.
+- Extended `docs/V1_RELEASE_CHECKLIST.md` with a readiness statement and the latest audited validation snapshot.
+- Added `CHANGELOG.md` with the `v1.0` release-candidate summary, guardrails, validation snapshot, and known follow-ups.
+- Linked the release notes, release checklist, and changelog from `README.md`.
+- Explicitly preserved: no broker integration, no live order placement, no execution endpoint, no execution UI, no automatic LLM promotion, no raw LLM draft publication, and fallback-safe audited LLM failures.
+
+Readiness statement:
+
+- `v1.0` scope is documented and functionally bounded.
+- Final tagging still requires a clean worktree, committed release docs, aligned or documented deployment manifests, and final local/cloud validation from the exact release commit.
+
+Verification:
+
+- `git diff --check` passed for the release-documentation changes.
+
 ## 2026-05-17 Shadow Analyst Ticker Specificity Gate
 
 Tightened the governed shadow analyst draft contract so `analyst_brief_draft` outputs must be ticker-specific, evidence-linked, explicitly advisory-only, and falsifiable before they can become eligible for human review.
@@ -1190,4 +1246,67 @@ Verification:
 - `python3 -m compileall packages services tests` passed.
 - `npm run build --prefix apps/web` passed.
 - `npm audit --omit=dev --prefix apps/web` passed with 0 vulnerabilities.
+- `git diff --check` passed.
+
+## 2026-05-18 Shadow Analyst Context ID Semantics
+
+Fixed the shadow analyst quality gate so provenance/context IDs are not treated as material evidence IDs.
+
+- Added typed `AnalystContextBundle` ID buckets for:
+  - `evidence_ids`,
+  - `source_signal_ids`,
+  - `market_event_ids`,
+  - `capture_ids`,
+  - `context_object_ids`.
+- Preserved the hard boundary that material claims and ticker implications may cite only canonical `evidence_ids`.
+- Allowed `context_used` to cite known evidence, source-signal, market-event, capture, or context-object IDs supplied in the context bundle.
+- Updated the manual review repository to resolve known capture IDs from `evidence.source_raw_captures` and `evidence.crawl_logs`.
+- Updated LLM prompt/docs so capture IDs are provenance-only and cannot substitute for evidence IDs.
+- Added regression tests for:
+  - missing top-level evidence IDs,
+  - invented material evidence IDs,
+  - known capture IDs in `context_used`,
+  - unknown context IDs,
+  - material claims without evidence IDs.
+
+Verification:
+
+- `./.venv/bin/python -m unittest tests.advisory.test_shadow_analyst_quality tests.advisory.test_shadow_analyst_pipeline tests.model_routing.test_configured_model_client tests.llm_analysis.test_brief_prompt_contract tests.test_shadow_analyst_review_repository` passed, 43 tests.
+
+## 2026-05-18 Ranked MarketEvent Analyst Context
+
+Added deterministic MarketEvent ranking for governed shadow analyst context so broad or noisy events do not dominate `analyst_brief_draft` prompts.
+
+- Added `ranked_market_events` to `AnalystContextBundle` while preserving full raw `rows["market_events"]` lineage.
+- Ranked MarketEvents by direct ticker mention, segment relevance, source quality tier, freshness, evidence linkage, and advisory/readiness linkage.
+- Excluded provider-error pages, stale events, and low-confidence unknown-direction events from the core LLM context without deleting provenance.
+- Passed only top ranked MarketEvents to `analyst_brief_draft`; other shadow analyst routes keep the raw context rows.
+- Added focused tests for ticker-specific event ranking, noisy-event exclusion, specialist/evidence-linked source ranking, and prompt payload filtering.
+
+Verification:
+
+- RED checkpoint: focused tests failed on missing `ranked_market_events` and raw noisy MarketEvents being passed to `analyst_brief_draft`.
+- `./.venv/bin/python -m unittest tests.advisory.test_shadow_analyst_pipeline tests.model_routing.test_configured_model_client tests.advisory.test_analyst_context_bundle_candidates tests.advisory.test_shadow_analyst_quality tests.llm_analysis.test_brief_prompt_contract` passed, 40 tests.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 744 tests, 3 skipped.
+- `python3 -m compileall packages services tests` passed.
+- `git diff --check` passed.
+
+## 2026-05-18 Shadow Analyst Review State UI
+
+Exposed governed shadow analyst quality and review state in the read-only workstation UI without rendering raw draft text.
+
+- Added the shared `ShadowAnalystReviewPanel` to Daily Trading Cockpit, Ticker Workbench, and Ops/Freshness Dashboard.
+- Displayed shadow analyst status, review state, model/deployment, ModelRun ID, draft ID, quality score, evidence coverage score, ticker specificity score, decision usefulness score, blocking finding count, warning count, status recommendation, and `raw_drafts_published=false`.
+- Added read-only dashboard API/client plumbing for `/internal/dashboard/shadow-analyst-review-state`.
+- Preserved the advisory-only boundary: no raw LLM draft text, no automatic promotion, no broker integration, no order controls, and no execution UI.
+
+Verification:
+
+- RED checkpoint: `./.venv/bin/python -m unittest tests.test_wave2_workstation_ui.Wave2WorkstationUiTests.test_shadow_analyst_review_state_is_visible_without_raw_draft_text` failed on missing `shadow analyst status` and `No raw LLM draft text`.
+- `./.venv/bin/python -m unittest tests.test_wave2_workstation_ui.Wave2WorkstationUiTests.test_shadow_analyst_review_state_is_visible_without_raw_draft_text` passed.
+- `./.venv/bin/python -m unittest tests.test_wave2_workstation_ui tests.test_control_room_ui tests.test_dashboard_api tests.test_dashboard_repository` passed, 68 tests.
+- `npm run build --prefix apps/web` passed.
+- `npm audit --omit=dev --prefix apps/web` passed with 0 vulnerabilities.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 744 tests, 3 skipped.
+- `python3 -m compileall packages services tests` passed.
 - `git diff --check` passed.

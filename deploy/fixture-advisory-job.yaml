@@ -14,7 +14,8 @@ spec:
       restartPolicy: Never
       containers:
         - name: fixture-advisory
-          image: aistartuptr.azurecr.io/ai-infra-fund-worker:7765fa5
+          # Optional manual fixture job aligned with the v1.0 worker image.
+          image: aistartuptr.azurecr.io/ai-infra-fund-worker:faa5b6d
           imagePullPolicy: Always
           command:
             - python

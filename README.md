@@ -6,6 +6,14 @@ The system is designed to ingest evidence, classify and summarize it with govern
 
 It is not a trading bot. It does not place live orders, connect to broker accounts, route orders, or expose any UI that implies execution. All recommendations are advisory artifacts that a human can review and act on manually outside the system.
 
+## v1.0 Status
+
+`v1.0` is scoped as the first advisory/reporting release. It includes public-source monitoring, crawler materialization into evidence/source-signal/MarketEvent records, DB-backed analyst briefs and trading advisories, API-backed cockpit and ticker workbench surfaces, governed shadow analyst audit, deterministic quality gates, and fallback-safe model-call behavior.
+
+`v1.0` does not require every real model call to succeed. It requires model success, failure, timeout, denial, and fallback paths to be auditable through `ModelRun` records and safe under the advisory-only boundary. Automatic draft promotion, always-successful real model calls, scheduled production automation, full valuation integrations, full portfolio analytics, and broader source-provider hardening are deferred to `v1.1`.
+
+See [`docs/RELEASE_NOTES_V1.md`](docs/RELEASE_NOTES_V1.md), [`docs/V1_RELEASE_CHECKLIST.md`](docs/V1_RELEASE_CHECKLIST.md), and [`CHANGELOG.md`](CHANGELOG.md) for the release scope, validation snapshot, guardrails, and known follow-ups.
+
 ## Core Capabilities
 
 - Portfolio and universe tracking for AI infrastructure equities.

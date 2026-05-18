@@ -8,6 +8,14 @@ The current implementation pass moves the workstation beyond fixture-only daily 
 
 Specs remain canonical. This plan is temporary coordination state. If this plan conflicts with a spec, the spec wins.
 
+## V1.0 Release Scope Freeze
+
+`v1.0` is frozen as an advisory/reporting-only release. It includes configured public-source monitoring, crawler materialization into `EvidenceItem`, `SourceSignal`, and `MarketEvent`, DB-backed `AnalystBrief` and `TradingAdvisory` generation, API-backed cockpit/ticker/segment/portfolio/outcome endpoints, governed shadow analyst audit, real model-call path through `config/model_profiles.yaml`, fallback-safe behavior, deterministic quality gates, and the manual review foundation.
+
+`v1.0` does not require every real model call to succeed. It requires every success, failure, timeout, denial, and fallback to be audited through `ModelRun` records and to remain safe: no raw draft publication, no private-research cloud route by default, no broker/order/execution behavior, and no LLM ownership of PnL, accounting, target weights, deterministic checks, or publication gates.
+
+Deferred to `v1.1`: automatic draft promotion, LLM review-status UI if not already deployed, scheduled production automation, external valuation-data integrations, full portfolio analytics, external analyst consensus, broader source-provider hardening, and making the latest real LLM call always succeed.
+
 ## Phase Sequence
 
 | Phase | Name | Status | Outcome |
@@ -18,7 +26,7 @@ Specs remain canonical. This plan is temporary coordination state. If this plan 
 | Phase 3 | API-backed cockpit UI | Complete | Daily Trading Cockpit renders API-backed readiness checks with advisory labels, evidence, model-run refs, and deterministic status. |
 | Phase 4 | Real public source crawler | Partial | Deterministic configured-public-source crawler runtime exists; source registry seeding now covers primary, specialist, market-data, news/API, and public social-attention lanes. |
 | Phase 5 | Daily brief/read-model enrichment | Partial | The daily brief worker now reads DB-backed analyst objects and persists readiness-gated `TradingAdvisory`, `AnalystBrief`, and run-artifact records. |
-| Phase 6 | LLM analyst extraction/review | Partial | Protocol, payload guards, data-class policy, and stubs exist; real model-routed extraction/review remains a future bounded task. |
+| Phase 6 | LLM analyst extraction/review | Partial | Governed shadow analyst pipeline, model-routed real-call path, `ModelRun` audit, fallback-safe behavior, quality evaluator, and manual review foundation exist. Automatic promotion and always-successful provider calls are deferred to v1.1. |
 | Phase 7 | Outcome journal/evaluation | Partial | Outcome journal foundation exists; richer analyst-quality evaluation can expand later. |
 | Phase 8 | Cloud runtime hardening | Complete | Runtime configuration, secrets, deployment checks, and cloud readiness validation are hardened. |
 
@@ -81,7 +89,7 @@ Specs remain canonical. This plan is temporary coordination state. If this plan 
 | Phase 2 | Read-only APIs expose cockpit-ready advisory read models and architecture policy tests prevent broker/order/execution drift. |
 | Phase 3 | Daily Trading Cockpit consumes API data, shows advisory labels/evidence/readiness status, and contains no execution-like controls. |
 | Phase 4 | Public crawler uses allowed public sources only, stores provenance, respects source policy, and excludes private docs and paid reports. |
-| Phase 5 | LLM analyst flow uses model profiles, records `ModelRun`, handles data-class policy, and cannot own deterministic math or publication gates. |
+| Phase 5 | LLM analyst flow uses model profiles, records `ModelRun` for success/failure/denial/fallback, handles data-class policy, remains fallback-safe, and cannot own deterministic math or publication gates. |
 | Phase 6 | Outcome journal/evaluation records reviewable outcomes and deterministic evaluations without creating autonomous trading behavior. |
 | Phase 7 | Cloud runtime validation covers secrets/config, observability, deployment checks, and private-research policy. |
 
@@ -109,3 +117,16 @@ Frontend checks are required when frontend files change. Cloud deployment valida
 - Targeted verification for the current task passes.
 - `docs/BUILD_LOG.md` is updated during final integration.
 - Changes are committed and pushed by the final integration owner when implementation changes are made.
+
+## V1.0 Closeout Checklist
+
+Before tagging `v1.0`, perform only release-closeout work unless a blocker is found:
+
+1. Resolve or deliberately defer all dirty worktree changes.
+2. Inspect existing stashes for release-critical work.
+3. Commit this scope freeze, release notes, and checklist.
+4. Align deploy manifests or record the exact imperative rollout/image tags used for the release.
+5. Run local verification.
+6. Deploy the exact release commit to cloud.
+7. Validate cloud health, readiness, latest brief, latest advisories, ticker workbench, segment map, portfolio exposure, source/crawl counts, and shadow analyst audit rows.
+8. Record final release evidence in `docs/BUILD_LOG.md`.
