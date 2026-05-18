@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { AdvisoryStamp } from "./transparency";
 import { PageHeader, StatusChip } from "./workstation";
+
+const SESSION_DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+});
 
 type AppShellProps = {
   eyebrow: string;
@@ -48,6 +55,7 @@ const navigationSections = [
 
 export function AppShell({ eyebrow, title, children, aside }: AppShellProps) {
   const pathname = usePathname();
+  const sessionDate = SESSION_DATE_FORMATTER.format(new Date()).toUpperCase();
 
   return (
     <main className="app-frame">
@@ -85,7 +93,9 @@ export function AppShell({ eyebrow, title, children, aside }: AppShellProps) {
         </nav>
         <div className="nav-disclaimer">
           <strong>Local journal only</strong>
-          <span>External account connections disabled. Manual journal only.</span>
+          <span>
+            External account connections disabled. Manual journal only.
+          </span>
         </div>
       </aside>
 
@@ -96,12 +106,11 @@ export function AppShell({ eyebrow, title, children, aside }: AppShellProps) {
           subtitle="Evidence-backed advisory workstation. Backend read models stay authoritative."
         >
           <div className="topbar-rail topbar-chip-group">
+            <span className="readonly-label">{sessionDate} · LOCAL</span>
             <StatusChip label="Read-only" tone="neutral" />
             <StatusChip label="Evidence traced" tone="fresh" />
-            <StatusChip label="Local journal" tone="review" />
-            <div className="workspace-signal">
-              {aside ?? <div className="advisory-badge">Advisory-only</div>}
-            </div>
+            <StatusChip label="Journal local" tone="review" />
+            <div className="workspace-signal">{aside ?? <AdvisoryStamp />}</div>
           </div>
         </PageHeader>
         {children}
