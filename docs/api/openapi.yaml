@@ -116,6 +116,16 @@ paths:
               schema: {}
           description: Successful Response
       summary: Latest Advisory Chain
+  /internal/advisory-updates/latest:
+    get:
+      operationId: latest_advisory_updates_internal_advisory_updates_latest_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Latest Advisory Updates
   /internal/agent/openapi.json:
     get:
       operationId: agent_openapi_json_internal_agent_openapi_json_get
@@ -898,6 +908,16 @@ paths:
               schema: {}
           description: Successful Response
       summary: Latest Trading Advisory
+  /internal/watchlist/ratings/latest:
+    get:
+      operationId: latest_watchlist_ratings_internal_watchlist_ratings_latest_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+      summary: Latest Watchlist Ratings
   /ready:
     get:
       operationId: ready_ready_get

@@ -286,7 +286,7 @@ class EquityIntelligenceRepositoryTests(unittest.TestCase):
         self.assertEqual((BACKOFF, NOW, "frontier-1"), queue_params)
         self.assertEqual(1, connection.commit_count)
 
-    def test_frontier_upsert_reactivates_captured_rows_but_keeps_skipped_terminal(
+    def test_frontier_upsert_reactivates_registry_sync_skips_but_keeps_terminal_skips(
         self,
     ) -> None:
         connection = FakeConnection()
@@ -296,13 +296,15 @@ class EquityIntelligenceRepositoryTests(unittest.TestCase):
         )
 
         statement, _params = connection.cursor_instance.executions[0]
-        self.assertIn(
-            "WHEN evidence.source_frontier_urls.status IN ('failed', 'skipped')",
-            statement,
-        )
+        self.assertIn("evidence.source_frontier_urls.status = 'failed'", statement)
+        self.assertIn("source_registry_inactive", statement)
+        self.assertIn("source_registry_removed", statement)
+        self.assertIn("source_registry_url_removed", statement)
+        self.assertIn("NOT IN", statement)
         self.assertNotIn("'captured', 'failed', 'skipped'", statement)
         self.assertIn("attempt_count = CASE", statement)
         self.assertIn("ELSE 0", statement)
+        self.assertIn("ELSE NULL", statement)
 
     def test_sync_source_registry_scope_deactivates_and_skips_stale_registry_rows(
         self,

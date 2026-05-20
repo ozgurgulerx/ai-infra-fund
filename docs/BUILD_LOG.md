@@ -1,5 +1,43 @@
 # Build Log
 
+## 2026-05-20 Crawl Source Registry Sync Repair
+
+Aligned crawl seeding with the current public-source registry so stale source
+frontier rows stop leasing after a source is disabled, removed, missing an
+optional secret, or retargeted to a different URL.
+
+- Added seed-plan metadata for current source IDs, active source IDs, and active
+  frontier `(source_id, url_hash)` keys.
+- Changed optional-secret and disabled source records to seed as inactive until
+  their policy/secret gate is satisfied.
+- Added repository sync that deactivates stale source-registry rows and parks
+  stale source-registry-origin frontier/queue rows as `skipped` while preserving
+  historical captures and logs.
+- Added validated easy-picking public sources: The Next Platform RSS,
+  ServeTheHome RSS, Chips and Cheese RSS, Blocks and Files RSS, NVIDIA
+  Developer Blog, AMD press releases, Arista news, Marvell press releases,
+  Broadcom product releases, and Supermicro newsroom.
+- Recorded failed/deferred easy-picking candidates in source-access decisions
+  instead of activating them: Intel AI Newsroom, EE Times AI Accelerator, Eaton
+  news, Vertiv news, SEMI press, and The Register AI/ML list page.
+- Preserved the HTTP-only crawler boundary; no browser/proxy bypass, paid
+  source, broker, order, execution, or automated-trading surface was added.
+
+Verification:
+
+- RED checkpoint: `./.venv/bin/python -m unittest tests.equity_intelligence.test_source_registry tests.worker.test_source_registry_seed tests.test_equity_intelligence_repository tests.equity_intelligence.test_source_access_decisions` failed on the new inactive-skip, registry-sync, easy-pick-source, and deferred-source assertions.
+- `./.venv/bin/python -m unittest tests.equity_intelligence.test_source_registry tests.worker.test_source_registry_seed tests.test_equity_intelligence_repository tests.equity_intelligence.test_source_access_decisions` passed, 40 tests.
+- `./.venv/bin/python -m unittest tests.test_crawl_worker_loop tests.worker.test_crawl_runtime_operations tests.test_crawl_fetcher tests.test_crawl_advisory_materialization tests.worker.test_crawl_materialization_loop tests.test_crawl_scheduler_config tests.test_crawl_api_dashboard` passed, 31 tests, 2 skipped.
+- `./.venv/bin/python -m unittest tests.test_architecture_policy tests.equity_intelligence.test_restricted_inference_sources tests.equity_intelligence.test_source_access_decisions` passed, 52 tests.
+- `az acr build --registry aistartuptr --image ai-infra-fund-worker:d6fe8b3-crawl-sync --build-arg BASE_IMAGE=mcr.microsoft.com/devcontainers/python:1-3.12-bookworm -f services/worker/Dockerfile .` passed; Docker Hub base pull was rate-limited, so the worker Dockerfile now supports a build-time `BASE_IMAGE`.
+- `kubectl apply --dry-run=client -f deploy/aks-ai-infra-fund.yaml` passed.
+- `kubectl apply -f deploy/aks-ai-infra-fund.yaml` applied the worker and crawl CronJob image `aistartuptr.azurecr.io/ai-infra-fund-worker:d6fe8b3-crawl-sync`.
+- Cloud seed from the deployed worker passed: 34 equities, 44 sources, 204 frontier URLs, 204 queue items; expected skipped sources were EIA, FRED, Finnhub, SemiAnalysis, and GDELT.
+- Manual cloud crawl job from the CronJob passed: `leased=20 succeeded=20 not_modified=0 failed=0`.
+- Cloud source state checks passed: 44 source-registry rows, 39 active sources, zero disabled-source rows in queued/retry/leased states, zero active sources without current non-skipped frontier rows, and all 10 new easy-pick sources had successful 2xx crawl logs.
+- Frontend-proxied cloud checks passed: `/api/backend/internal/dashboard/crawl-activity` reported 614 attempts / 609 successes in 24h, `/api/backend/internal/dashboard/evidence-summary` reported 849 evidence items with latest ingest at `2026-05-20T14:39:05Z`, and `/api/backend/ready` reported advisory/source-policy checks OK.
+- `git diff --check` passed.
+
 ## 2026-05-20 Value-Chain Candidate Matrix
 
 Redesigned `/themes` from a static value-chain atlas into a read-only
@@ -1332,5 +1370,226 @@ Verification:
 - `npm run build --prefix apps/web` passed.
 - `npm audit --omit=dev --prefix apps/web` passed with 0 vulnerabilities.
 - `./.venv/bin/python -m unittest discover -s tests` passed, 744 tests, 3 skipped.
+- `python3 -m compileall packages services tests` passed.
+- `git diff --check` passed.
+
+## 2026-05-18 Recurring Crawl Runtime
+
+Replicated the startup-analysis recurring crawl runtime pattern into ai-infra-fund while preserving the configured-public-source and advisory-only boundaries.
+
+- Kept `evidence.source_frontier_urls` as the authoritative v1 queue and synchronized `evidence.crawl_frontier_queue` as an operational mirror.
+- Changed successful and `304 not modified` crawls to schedule future recrawls instead of becoming terminal `captured` rows.
+- Added source policy metadata updates for success, rate-limit, forbidden, robots-disallowed, and generic failure outcomes.
+- Added long `429`/`403` backoff behavior so failed sources do not spin hot.
+- Excluded blocked/robots-disallowed rows from leasing until operator/source-policy state changes clear the block.
+- Added fail-fast crawl schema verification before one-shot or long-running crawl execution.
+- Added local/cloud one-shot crawl scripts and a recurring-lifecycle smoke script:
+  - `scripts/run_crawl_frontier_once.sh`
+  - `scripts/cloud_crawl_frontier_once.sh`
+  - `scripts/crawl_runtime_smoke.sh`
+- Added AKS `CronJob` `ai-infra-fund-crawl-frontier` scheduled every 30 minutes.
+- Documented the delta from startup-analysis in `docs/Crawl_Runtime_Delta.md`.
+
+Targeted verification:
+
+- RED checkpoint: crawler/repository tests failed on missing `schedule_frontier_recrawl`, terminal `captured` behavior, missing scripts, missing CronJob, and 403 using short generic backoff.
+- `./.venv/bin/python -m unittest tests.test_equity_intelligence_repository tests.test_crawl_worker_loop tests.test_crawl_advisory_materialization tests.worker.test_crawl_materialization_loop tests.worker.test_crawl_runtime_operations` passed, 31 tests, 2 skipped.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 733 tests, 3 skipped.
+- `python3 -m compileall packages services tests` passed.
+- `docker compose config` passed.
+- `scripts/seed_public_sources.sh` passed: 34 equities, 18 sources, 246 frontier URLs, 246 queue items, optional EIA/FRED/Finnhub secrets skipped.
+- `scripts/run_crawl_frontier_once.sh` passed: final batch leased 20, succeeded 9, failed 11.
+- `scripts/crawl_materialization_smoke.sh` passed: 667 frontier URLs, 667 queue items, 136 crawl logs, 82 raw captures, 57 EvidenceItems, 20 SourceSignals, 20 MarketEvents.
+- `scripts/crawl_runtime_smoke.sh` passed: 377 due leasable rows, 25 future-recrawl rows, and no blocked-source hot loop.
+
+Cloud validation:
+
+- Built and pushed worker image `aistartuptr.azurecr.io/ai-infra-fund-worker:7a8db33-crawl-runtime` with digest `sha256:293151c26a006b68be77bef8541a1d05baeb47d9fb8352398f82ff3597f3c995`.
+- Applied `deploy/aks-ai-infra-fund.yaml`; worker deployment rolled out and AKS `CronJob` `ai-infra-fund-crawl-frontier` was created on a 30-minute schedule.
+- First manual cloud crawl confirmed the previous idle failure mode: `leased=0` because the cloud DB still contained only terminal `captured`/`failed` frontier rows from the old lifecycle.
+- Ran the source-registry seed inside the deployed worker to repair existing terminal `captured` rows into the recurring queue: 34 equities, 18 sources, 246 frontier URLs, 246 queue items; optional EIA/FRED/Finnhub secrets skipped.
+- Second manual cloud crawl succeeded: `leased=20`, `succeeded=20`, `not_modified=0`, `failed=0`.
+- Cloud DB after validation: 417 frontier URLs, 417 queue items, 894 crawl logs, 243 raw captures, 131 EvidenceItems, 262 SourceSignals, 243 MarketEvents.
+- Cloud queue health after validation: 127 due leasable rows, 78 future-recrawl rows, and 0 blocked-source hot-loop rows.
+- Cloud `/health` returned `ok`; cloud `/ready` returned `ready` with advisory-boundary and source-policy checks `ok`.
+
+## 2026-05-18 Restricted Inference Sources
+
+Saved account/key-gated, paid, licensed, login-gated, and terms-review sources
+from the AI Industrial Mobilisation information-source map without adding them
+to the crawler.
+
+- Added `config/restricted_inference_sources.yaml` as the machine-readable
+  register for restricted source candidates.
+- Added deterministic validation in
+  `ai_infra_fund_core.equity_intelligence.restricted_sources`.
+- Enforced `crawl_enabled=false` and `default_action=do_not_crawl`.
+- Rejected secret-bearing fields while allowing non-secret environment variable
+  names such as `FRED_API_KEY` for future approved integrations.
+- Added tests proving restricted URLs do not appear in the active
+  `source_registry.yaml` and do not seed frontier URLs.
+- Updated `docs/SOURCE_QUALITY_POLICY.md` so future source imports preserve this
+  split between crawlable public sources and restricted inference sources.
+
+Verification:
+
+- RED checkpoint: restricted-source tests failed because the loader/config did
+  not exist.
+- `./.venv/bin/python -m unittest tests.equity_intelligence.test_restricted_inference_sources` passed, 4 tests.
+- `./.venv/bin/python -m unittest tests.equity_intelligence.test_restricted_inference_sources tests.equity_intelligence.test_source_registry` passed, 15 tests.
+- `./.venv/bin/python -m unittest tests.test_architecture_policy` passed, 42 tests.
+- `python3 -m compileall packages services tests` passed.
+- `git diff --check` passed.
+- Full `./.venv/bin/python -m unittest discover -s tests` was attempted and
+  failed on pre-existing unrelated dirty UI/OpenAPI/ticker-workbench failures,
+  not on restricted-source tests.
+
+## 2026-05-18 Analyst Workstation UI + Advisory Delta Pass
+
+Implemented the premium analyst workstation redesign and additive read-only
+advisory delta surface.
+
+- Added `analyst.advisory_updates` migration and fixture persistence for
+  `advisory_updates` from the situational-awareness mock data.
+- Added read-only API routes:
+  - `/internal/advisory-updates/latest`
+  - `/internal/watchlist/ratings/latest`
+- Added display-safe `evidence_refs` and `source_links` fields to advisory
+  workstation read-model payloads where source URLs are available in payloads.
+- Redesigned Daily Trading Cockpit around advisory deltas, interpreted
+  MarketEvents, segment proof points, risk/invalidation watch, portfolio
+  exposure summary, and progressive evidence disclosure.
+- Redesigned `/watchlist` as the all-monitored-assets ratings/outlook table.
+- Moved Radar and Segment Map from static mock default toward live read-model
+  feeds with source review links.
+- Redesigned Portfolio Workbench around live portfolio exposure snapshots with a
+  compact position table and clearer target-weight unavailable state.
+- Renamed Manual Trade Intents UI to Manual Plan Review Queue and clarified its
+  local/manual advisory review purpose.
+- Enriched Trade Journal + PnL Review with detailed portfolio context while
+  preserving deterministic PnL/accounting ownership.
+- Switched the frontend visual baseline to dark sidebar plus light institutional
+  workstation content surfaces.
+
+Verification:
+
+- `npm run build --prefix apps/web` passed.
+- `npm audit --omit=dev --prefix apps/web` passed with 0 vulnerabilities.
+- `./.venv/bin/python -m unittest tests.test_advisory_workstation_read_model_repository tests.test_advisory_workstation_read_model_api tests.test_advisory_workstation_read_model_migration` passed, 15 tests.
+- `./.venv/bin/python -m unittest tests.test_control_room_ui tests.test_wave2_workstation_ui tests.test_trade_journal_ui` passed, 37 tests.
+- `./.venv/bin/python -m unittest tests.test_architecture_policy` passed, 42 tests.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 734 tests, 3 skipped.
+- `python3 -m compileall packages services tests` passed.
+- `git diff --check` passed.
+
+## 2026-05-18 Deferred Source Remediation Pass
+
+Promoted the small subset of deferred sources that had a clean official public
+fix and remained compatible with the current ticker-bound source-registry
+schema.
+
+- Added `source_micron_quarterly_results` for MU using Micron's official
+  quarterly results page.
+- Added `source_bis_news_updates` for export-control monitoring using BIS's
+  official News & Updates page.
+- Removed the now-resolved `access_micron_quarterly_results` and
+  `access_bis_press_releases` entries from `config/source_access_decisions.yaml`.
+- Tightened source-access tests so broad source domains can be reused safely
+  while deferred URLs are still blocked from becoming active crawl templates.
+- Left provider-design, account-required, terms-review, and global-fanout
+  candidates deferred because they require typed connectors, cloud secrets,
+  licensing review, or a future thematic-frontier schema instead of static URL
+  activation.
+
+Validation:
+
+- RED checkpoint: `./.venv/bin/python -m unittest tests.equity_intelligence.test_source_registry tests.equity_intelligence.test_source_access_decisions` failed on missing active BIS/Micron sources and unresolved access-decision rows.
+- `./.venv/bin/python -m unittest tests.equity_intelligence.test_source_registry tests.equity_intelligence.test_source_access_decisions` passed, 20 tests.
+- `./.venv/bin/python -m unittest tests.equity_intelligence.test_source_access_decisions tests.equity_intelligence.test_source_registry tests.equity_intelligence.test_restricted_inference_sources tests.worker.test_source_registry_seed` passed, 26 tests.
+- `./.venv/bin/python -m unittest tests.test_architecture_policy` passed, 42 tests.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 734 tests, 3 skipped.
+- `python3 -m compileall packages services tests` passed.
+- `git diff --check` passed.
+
+## 2026-05-18 Public Source Health Repair
+
+Hardened the active public-source registry so non-key sources are either
+healthy under the approved HTTP-only crawler or explicitly deferred.
+
+- Replaced the Cloudflare-blocked TSMC investor URL with the robots-allowed
+  Taiwan MOPS landing endpoint.
+- Replaced the rate-sensitive SemiAnalysis ticker search with the public RSS
+  feed while preserving metadata-only handling.
+- Replaced the robots-disallowed Data Center Knowledge search URL with its
+  allowed sitemap endpoint.
+- Added `crawl_enabled` / `disabled_reason` support to source-registry
+  contracts so unstable public endpoints can remain documented without seeding
+  or leasing frontier rows.
+- Marked GDELT DOC 2.0 `crawl_enabled: false` with
+  `rate_limited_deferred` after repeated timeout/rate-limit validation.
+- Updated frontier leasing to join `evidence.source_registry` and skip sources
+  whose source record is inactive.
+- Updated the source quality policy and validation report to distinguish
+  healthy active public sources, key-required skips, and deferred public APIs.
+
+Validation:
+
+- RED checkpoint: `./.venv/bin/python -m unittest tests.equity_intelligence.test_source_registry` failed before code/config changes on missing `crawl_enabled` support and old unhealthy URLs.
+- `./.venv/bin/python -m unittest tests.equity_intelligence.test_source_registry tests.equity_intelligence.test_restricted_inference_sources tests.worker.test_source_registry_seed` passed, 19 tests.
+- `./.venv/bin/python -m unittest tests.test_equity_intelligence_repository tests.test_crawl_worker_loop.CrawlProcessOneUnitTests tests.worker.test_source_registry_seed` passed, 20 tests.
+- `/tmp/validate_ai_infra_sources.py` live probe passed for 14 active non-key public sources; skipped 3 missing-secret providers and deferred 1 unstable no-key provider (`source_gdelt_doc`).
+- `scripts/seed_public_sources.sh` passed: 34 equities, 18 sources, 179 frontier URLs, 179 queue items; skipped EIA/FRED/Finnhub missing secrets and deferred GDELT.
+
+## 2026-05-18 Source-Map Onboarding and Access Decisions
+
+Onboarded the next safe public-source batch from the AI industrial
+mobilisation source map and made all unresolved candidates explicit.
+
+- Added active, HTTP-validated public sources for ASML IR, Situational
+  Awareness, arXiv AI recent papers, WIPO AI technology trends, Papers with
+  Code, Federal Register BIS API, CHIPS for America, U.S. Treasury rates, IEA
+  data/statistics, DARPA programs, Defense Innovation Unit, USPTO Open Data,
+  G42, and Khazna Data Centers.
+- Disabled `source_semianalysis_public` with
+  `disabled_reason: rate_limited_deferred` after the approved HTTP-only probe
+  returned HTTP 429. It remains metadata-only source metadata but no longer
+  seeds frontier rows until a source-specific repair task.
+- Added `config/source_access_decisions.yaml` to hold public-but-not-ready
+  sources, including optional API-key approvals, 403/timeout/unstable endpoints,
+  provider-design candidates, broad low-value homepages, global/thematic sources
+  needing explicit mapping, and account/terms-review items.
+- Added a validated loader for source access decisions and tests proving
+  deferred decisions are not active crawl targets.
+- Updated `docs/SOURCE_QUALITY_POLICY.md` and
+  `docs/crawl_source_validation_2026-05-18.md` with the access-decision
+  workflow and expanded validation status.
+
+Validation:
+
+- `./.venv/bin/python -m unittest tests.equity_intelligence.test_source_registry tests.equity_intelligence.test_source_access_decisions tests.equity_intelligence.test_restricted_inference_sources tests.worker.test_source_registry_seed` passed, 23 tests.
+- `/tmp/validate_ai_infra_sources.py` live probe passed for 27 active no-key
+  public sources; skipped 3 optional-key providers and deferred 2 rate-limited
+  public sources (`source_semianalysis_public`, `source_gdelt_doc`).
+
+## 2026-05-18 Frozen Source-Onboarding Recovery Guardrail
+
+Recovered the source-map onboarding session by tightening the access-decision
+registry rather than broadening production crawling.
+
+- Retargeted `docs/CURRENT_TASK.md` to the source-onboarding recovery scope.
+- Added a regression check that optional public API decisions must map to
+  active source-registry rows that are explicitly secret-gated.
+- Tightened `needs_optional_api_key` validation so every key-gated access
+  decision must name a `secret_env_var`.
+- Preserved the split between active crawlable public sources and
+  `crawl_enabled: false` public-but-not-ready source decisions.
+
+Validation:
+
+- RED checkpoint: `./.venv/bin/python -m unittest tests.equity_intelligence.test_source_access_decisions` failed because `needs_optional_api_key` accepted a missing `secret_env_var`.
+- `./.venv/bin/python -m unittest tests.equity_intelligence.test_source_access_decisions tests.equity_intelligence.test_source_registry` passed, 18 tests.
+- `./.venv/bin/python -m unittest tests.equity_intelligence.test_source_access_decisions tests.equity_intelligence.test_source_registry tests.equity_intelligence.test_restricted_inference_sources tests.worker.test_source_registry_seed` passed, 24 tests.
+- `./.venv/bin/python -m unittest tests.test_architecture_policy` passed, 42 tests.
+- `./.venv/bin/python -m unittest discover -s tests` passed, 734 tests, 3 skipped.
 - `python3 -m compileall packages services tests` passed.
 - `git diff --check` passed.

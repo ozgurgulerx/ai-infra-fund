@@ -4,9 +4,9 @@ metadata:
   name: ai-infra-fund
 ---
 # v1.0 release deployment images:
-# - API: aistartuptr.azurecr.io/ai-infra-fund-api:20260520-1742-ai-sentiment
-# - Worker: aistartuptr.azurecr.io/ai-infra-fund-worker:20260520-1742-ai-sentiment
-# - Web App Service: aistartuptr.azurecr.io/ai-infra-fund-web:20260520-1742-ai-sentiment
+# - API: aistartuptr.azurecr.io/ai-infra-fund-api:20260520-1814-docs-runtime
+# - Worker: aistartuptr.azurecr.io/ai-infra-fund-worker:20260520-1814-docs-runtime
+# - Web App Service: aistartuptr.azurecr.io/ai-infra-fund-web:20260520-1814-docs-runtime
 #
 # Shadow analyst mode/model-client settings are configured through deployment
 # environment or secret overlays when enabled. The v1.0 runtime remains
@@ -109,7 +109,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   # Keep this release-scoped with the migration image tag; Job pod templates are immutable.
-  name: ai-infra-fund-migrate-20260520-1742-ai-sentiment
+  name: ai-infra-fund-migrate-20260520-1814-docs-runtime
   namespace: ai-infra-fund
 spec:
   backoffLimit: 3
@@ -121,7 +121,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: migrate
-          image: aistartuptr.azurecr.io/ai-infra-fund-api:20260520-1742-ai-sentiment
+          image: aistartuptr.azurecr.io/ai-infra-fund-api:20260520-1814-docs-runtime
           imagePullPolicy: Always
           command:
             - python
@@ -152,7 +152,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: aistartuptr.azurecr.io/ai-infra-fund-api:20260520-1742-ai-sentiment
+          image: aistartuptr.azurecr.io/ai-infra-fund-api:20260520-1814-docs-runtime
           imagePullPolicy: Always
           ports:
             - name: http
@@ -223,7 +223,7 @@ spec:
     spec:
       containers:
         - name: worker
-          image: aistartuptr.azurecr.io/ai-infra-fund-worker:20260520-1742-ai-sentiment
+          image: aistartuptr.azurecr.io/ai-infra-fund-worker:20260520-1814-docs-runtime
           imagePullPolicy: Always
           envFrom:
             - configMapRef:
@@ -285,7 +285,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: crawl-frontier
-              image: aistartuptr.azurecr.io/ai-infra-fund-worker:20260520-1742-ai-sentiment
+              image: aistartuptr.azurecr.io/ai-infra-fund-worker:20260520-1814-docs-runtime
               imagePullPolicy: Always
               command:
                 - python

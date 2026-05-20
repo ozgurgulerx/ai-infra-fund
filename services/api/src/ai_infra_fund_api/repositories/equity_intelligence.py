@@ -176,24 +176,60 @@ INSERT INTO evidence.source_frontier_urls (
     ticker = EXCLUDED.ticker,
     priority = GREATEST(evidence.source_frontier_urls.priority, EXCLUDED.priority),
     next_attempt_at = CASE
-        WHEN evidence.source_frontier_urls.status IN ('failed', 'skipped')
+        WHEN evidence.source_frontier_urls.status = 'failed'
+            OR (
+                evidence.source_frontier_urls.status = 'skipped'
+                AND COALESCE(evidence.source_frontier_urls.last_error_summary, '')
+                    NOT IN (
+                        'source_registry_inactive',
+                        'source_registry_removed',
+                        'source_registry_url_removed'
+                    )
+            )
             THEN evidence.source_frontier_urls.next_attempt_at
         ELSE LEAST(evidence.source_frontier_urls.next_attempt_at, EXCLUDED.next_attempt_at)
     END,
     status = CASE
-        WHEN evidence.source_frontier_urls.status IN ('failed', 'skipped')
+        WHEN evidence.source_frontier_urls.status = 'failed'
+            OR (
+                evidence.source_frontier_urls.status = 'skipped'
+                AND COALESCE(evidence.source_frontier_urls.last_error_summary, '')
+                    NOT IN (
+                        'source_registry_inactive',
+                        'source_registry_removed',
+                        'source_registry_url_removed'
+                    )
+            )
             THEN evidence.source_frontier_urls.status
         ELSE EXCLUDED.status
     END,
     attempt_count = CASE
-        WHEN evidence.source_frontier_urls.status IN ('failed', 'skipped')
+        WHEN evidence.source_frontier_urls.status = 'failed'
+            OR (
+                evidence.source_frontier_urls.status = 'skipped'
+                AND COALESCE(evidence.source_frontier_urls.last_error_summary, '')
+                    NOT IN (
+                        'source_registry_inactive',
+                        'source_registry_removed',
+                        'source_registry_url_removed'
+                    )
+            )
             THEN evidence.source_frontier_urls.attempt_count
         ELSE 0
     END,
     leased_by = NULL,
     lease_expires_at = NULL,
     last_error_summary = CASE
-        WHEN evidence.source_frontier_urls.status IN ('failed', 'skipped')
+        WHEN evidence.source_frontier_urls.status = 'failed'
+            OR (
+                evidence.source_frontier_urls.status = 'skipped'
+                AND COALESCE(evidence.source_frontier_urls.last_error_summary, '')
+                    NOT IN (
+                        'source_registry_inactive',
+                        'source_registry_removed',
+                        'source_registry_url_removed'
+                    )
+            )
             THEN evidence.source_frontier_urls.last_error_summary
         ELSE NULL
     END,

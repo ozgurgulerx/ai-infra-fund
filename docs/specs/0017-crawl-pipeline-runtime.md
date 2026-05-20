@@ -88,17 +88,46 @@ Failure path computes the next attempt time inline using the existing `FrontierP
 
 ```
 next_attempt_count = current + 1
+if http_status == 403:
+    next_attempt_at = now + 24 hours
 if next_attempt_count >= max_attempts:
     next_attempt_at = now + 10 years   # effectively blocked
+elif http_status == 429:
+    next_attempt_at = now + 1 hour * exponential_backoff
 else:
     next_attempt_at = now + backoff_base * (2 ** (next_attempt_count - 1))
 ```
 
 `record_frontier_failure` in `EquityIntelligenceRepository` transitions the row to `status='retry'` until `attempt_count >= max_attempts`, then `'failed'`.
 
+Failure metadata is stored on the frontier row:
+
+- `consecutive_failures`
+- `last_http_status`
+- `last_error_summary`
+- `backoff_until`
+- `blocked_until` for `429`, `403`, and robots-disallowed outcomes
+- `robots_disallow`
+- `crawl_allowed`
+- `render_strategy`
+
+`403` and robots-disallowed rows must not spin hot. They must be backed off or blocked until reviewed or until their next configured retry window.
+
+The lease query excludes rows whose runtime state is blocked (`last_error_summary IN ('http_403', 'robots_disallowed')`, `render_strategy='blocked'`, or `crawl_allowed=false`). Operators can re-enable a source by clearing the block through a future source-policy workflow; v1 does not auto-escalate to browser/proxy fetches.
+
 ## Lease semantics
 
+`evidence.source_frontier_urls` is the authoritative v1 crawl queue. `evidence.crawl_frontier_queue` is a synchronized operational mirror used by dashboards and smoke checks. Future work may migrate leasing to the mirror, but v1 avoids split-brain by updating both tables through repository methods.
+
 `evidence.source_frontier_urls.LEASE_DUE_FRONTIER_URLS_SQL` uses `FOR UPDATE SKIP LOCKED`, so multiple workers can run in parallel without stepping on each other. Stale leases (`lease_expires_at < now()`) are reclaimed by `EquityIntelligenceRepository.reclaim_stale_leases(now=...)`, called every N loops by the scheduler.
+
+Successful and not-modified crawls are recurring, not terminal:
+
+- success sets `status='queued'`, resets `attempt_count`, clears `last_error_summary`, and schedules a future `next_attempt_at`.
+- `304 not modified` does the same without creating a new capture.
+- `next_attempt_at` uses `refresh_interval_minutes` from `config/source_registry.yaml`.
+- deterministic fallback intervals apply only if a source lacks registry cadence.
+- `crawl_frontier_queue` receives the same `status` and `next_attempt_at`.
 
 ## Per-attempt audit
 
@@ -153,12 +182,44 @@ A real extractor MUST:
 
 `python -m ai_infra_fund_worker.crawl <subcommand>`:
 
-- `seed` — load `config/ai_equity_watchlist.yaml` into the four crawl tables (idempotent).
+- `seed` — load `config/ai_equity_watchlist.yaml` and
+  `config/source_registry.yaml` into crawl tables (idempotent), then sync the
+  source-registry scope so disabled, removed, missing-secret, or removed-URL
+  frontier rows become `skipped`.
 - `run --once` — single batch.
 - `run --forever` — daemon, with periodic stale-lease reclamation.
 - `reclaim-stale` — manual stale-lease reclamation.
 
 The main worker container respects `AI_INFRA_FUND_WORKER_MODE=crawl` to enter the scheduler at process startup.
+
+Before `run`, the CLI verifies required crawl runtime tables exist and fails fast with a missing-relation list if migrations were not applied.
+
+Source-registry seed sync preserves historical captures and crawl logs. It does
+not delete source, frontier, queue, or capture records. Instead it marks
+source-registry-origin sources inactive when they are removed from the current
+registry or skipped by policy, and parks stale source-registry-origin frontier
+rows as `status='skipped'` with a non-due future `next_attempt_at`.
+
+## Scheduled runtime
+
+The cloud runtime has an AKS `CronJob` named `ai-infra-fund-crawl-frontier`:
+
+- schedule: every 30 minutes
+- command: `python -m ai_infra_fund_worker.crawl run --once`
+- `concurrencyPolicy: Forbid`
+- same config/secret surface as the worker deployment
+
+The long-running worker may still run in crawl mode, but the CronJob guarantees periodic progress and prevents the crawler from staying permanently idle after all initial URLs are captured.
+
+Manual operations:
+
+- `scripts/run_crawl_frontier_once.sh` — local one-shot crawl batch through Compose.
+- `scripts/cloud_crawl_frontier_once.sh` — create a one-shot Kubernetes Job from the CronJob template.
+- `scripts/crawl_runtime_smoke.sh` — verify frontier, queue, crawl logs, materialized rows, future recrawl scheduling, and blocked-source no-hot-loop behavior.
+
+## Render fallback
+
+V1 supports only HTTP fetching. Source policy metadata may carry `render_strategy = http_only | playwright_required | blocked`, but Playwright/browser rendering is disabled by default. Browserless, stealth, proxy escalation, and same-site expansion are not enabled and require an explicit future task plus source-registry approval.
 
 ## Deferred (Phase 10b / later)
 
@@ -167,7 +228,7 @@ The main worker container respects `AI_INFRA_FUND_WORKER_MODE=crawl` to enter th
 - Real LLM claim extractor (Azure OpenAI Responses API, governed by model router)
 - Embedding model wiring for `evidence.evidence_chunks.embedding`
 - Provider-specific connectors (`news_rss_public_web`, `market_price_snapshot`)
-- YAML `--prune` flag on `seed` to deactivate removed tickers
+- Watchlist ticker pruning beyond source-registry-origin rows
 - SourceSignal-specific persistence if separated from existing event tables
 - Public-source category-specific extractors for capex commentary, HBM/memory, CoWoS/advanced packaging, datacenter power contracts, utilities, export controls, macro liquidity, and public sentiment
 
@@ -179,4 +240,8 @@ The main worker container respects `AI_INFRA_FUND_WORKER_MODE=crawl` to enter th
 - Runtime does not crawl private documents, local file trees, email inboxes, cloud drives, data rooms, or account portals.
 - Runtime output flow aligns to `SourceFrontier -> SourceSignal -> EvidenceItem -> MarketEvent -> SegmentImpact -> TradingAdvisory candidate update`.
 - Runtime does not emit broker, order, route, fill, execution, automated-trading, or live-market-action outputs.
+- Successful and unchanged crawls schedule future recrawl windows rather than becoming terminal.
+- Blocked, forbidden, robots-disallowed, or rate-limited sources do not hot-loop.
+- `source_registry.yaml` remains the source authority; the runtime must not enqueue unsupported discovered links.
+- Source-registry seed sync marks disabled, removed, missing-secret, or removed-URL frontier rows as `skipped` rather than leasing stale rows.
 - `git diff --check` passes after spec changes.

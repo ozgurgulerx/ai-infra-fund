@@ -4,7 +4,7 @@
 
 The latest visible shared-thread plan has been reconciled against the repository. The codebase already contains the first product spine the plan requested: contracts, fixture-backed PostgreSQL read models, read-only APIs, API-backed cockpit UI, deterministic configured crawler runtime, LLM extraction/review stubs, outcome-journal foundations, and cloud runtime hardening.
 
-The current implementation pass moves the workstation beyond fixture-only daily briefs. It adds a deterministic daily brief worker that publishes readiness-gated advisory read models from PostgreSQL and expands configured public-source coverage through a source registry used by crawler seeding.
+The current implementation pass moves the workstation beyond fixture-only daily briefs. It adds a deterministic daily brief worker that publishes readiness-gated advisory read models from PostgreSQL and expands configured public-source coverage through a source registry used by crawler seeding. The crawler runtime now follows the startup-analysis recurring frontier pattern: successful and unchanged URLs schedule future recrawls, failure paths back off, and an AKS CronJob guarantees scheduled crawl batches.
 
 Specs remain canonical. This plan is temporary coordination state. If this plan conflicts with a spec, the spec wins.
 
@@ -24,7 +24,7 @@ Deferred to `v1.1`: automatic draft promotion, LLM review-status UI if not alrea
 | Phase 1 | Fixture-backed DB analyst loop | Complete | PostgreSQL/pgvector-backed fixtures exercise advisory objects, evidence, model runs, run artifacts, and deterministic readiness references. |
 | Phase 2 | Read-only APIs | Complete | Advisory read models are exposed through read-only API surfaces with no broker/order/execution capabilities. |
 | Phase 3 | API-backed cockpit UI | Complete | Daily Trading Cockpit renders API-backed readiness checks with advisory labels, evidence, model-run refs, and deterministic status. |
-| Phase 4 | Real public source crawler | Partial | Deterministic configured-public-source crawler runtime exists; source registry seeding now covers primary, specialist, market-data, news/API, and public social-attention lanes. |
+| Phase 4 | Real public source crawler | Partial | Deterministic configured-public-source crawler runtime exists; source registry seeding now covers primary, specialist, market-data, news/API, and public social-attention lanes. The recurring frontier lifecycle and scheduled crawl job are implemented; richer source-specific extractors remain future work. |
 | Phase 5 | Daily brief/read-model enrichment | Partial | The daily brief worker now reads DB-backed analyst objects and persists readiness-gated `TradingAdvisory`, `AnalystBrief`, and run-artifact records. |
 | Phase 6 | LLM analyst extraction/review | Partial | Governed shadow analyst pipeline, model-routed real-call path, `ModelRun` audit, fallback-safe behavior, quality evaluator, and manual review foundation exist. Automatic promotion and always-successful provider calls are deferred to v1.1. |
 | Phase 7 | Outcome journal/evaluation | Partial | Outcome journal foundation exists; richer analyst-quality evaluation can expand later. |
