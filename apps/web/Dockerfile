@@ -1,4 +1,6 @@
-FROM node:22-alpine AS deps
+ARG BASE_IMAGE=node:22-alpine
+
+FROM ${BASE_IMAGE} AS deps
 
 WORKDIR /app
 
@@ -6,7 +8,7 @@ COPY apps/web/package.json /app/package.json
 COPY apps/web/package-lock.json /app/package-lock.json
 RUN npm ci
 
-FROM node:22-alpine AS build
+FROM ${BASE_IMAGE} AS build
 
 WORKDIR /app
 ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
@@ -17,7 +19,7 @@ COPY apps/web /app
 COPY docs/mock_data /app/docs/mock_data
 RUN npm run build
 
-FROM node:22-alpine AS runtime
+FROM ${BASE_IMAGE} AS runtime
 
 WORKDIR /app
 

@@ -530,6 +530,10 @@ class ArchitecturePolicyTests(unittest.TestCase):
 
     def test_frontend_uses_lockfile_and_reproducible_install(self) -> None:
         dockerfile = read_text("apps/web/Dockerfile")
+        self.assertIn("ARG BASE_IMAGE=node:22-alpine", dockerfile)
+        self.assertIn("FROM ${BASE_IMAGE} AS deps", dockerfile)
+        self.assertIn("FROM ${BASE_IMAGE} AS build", dockerfile)
+        self.assertIn("FROM ${BASE_IMAGE} AS runtime", dockerfile)
         self.assertIn("package-lock.json", dockerfile)
         self.assertIn("npm ci", dockerfile)
         self.assertNotIn("npm install", dockerfile)
