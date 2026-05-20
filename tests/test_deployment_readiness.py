@@ -432,12 +432,18 @@ class ComposeSmokeScriptTests(unittest.TestCase):
             "FROM runtime AS test",
             'RUN pip install --no-cache-dir -e ".[dev]"',
             'CMD ["python", "-m", "pytest", "tests/test_deployment_readiness.py"]',
+            "FROM runtime AS production",
+            'CMD ["python", "-m", "ai_infra_fund_api.main"]',
         ]
 
         missing = [
             snippet for snippet in required_snippets if snippet not in dockerfile
         ]
         self.assertEqual([], missing)
+        self.assertTrue(
+            dockerfile.rstrip().endswith('CMD ["python", "-m", "ai_infra_fund_api.main"]'),
+            "production must remain the default final API image stage",
+        )
 
     def test_worker_dockerfile_uses_editable_project_install(self) -> None:
         dockerfile = (ROOT / "services" / "worker" / "Dockerfile").read_text(

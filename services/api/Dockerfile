@@ -30,3 +30,7 @@ COPY tests /app/tests
 RUN pip install --no-cache-dir -e ".[dev]"
 
 CMD ["python", "-m", "pytest", "tests/test_deployment_readiness.py"]
+
+FROM runtime AS production
+
+CMD ["python", "-m", "ai_infra_fund_api.main"]
