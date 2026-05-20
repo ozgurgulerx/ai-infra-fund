@@ -87,6 +87,16 @@ REFRESH_JOB_STATUSES = frozenset(
 )
 RUN_STATUSES = frozenset({"pending", "running", "succeeded", "failed", "cancelled"})
 SEVERITIES = frozenset({"low", "medium", "high", "critical"})
+CRAWL_RUNTIME_REQUIRED_TABLES = (
+    "evidence.source_registry",
+    "evidence.source_frontier_urls",
+    "evidence.crawl_frontier_queue",
+    "evidence.crawl_logs",
+    "evidence.source_raw_captures",
+    "evidence.evidence_items",
+    "analyst.source_signals",
+    "analyst.market_events",
+)
 
 
 UPSERT_WATCHED_EQUITY_SQL = """
@@ -165,10 +175,27 @@ INSERT INTO evidence.source_frontier_urls (
     url = EXCLUDED.url,
     ticker = EXCLUDED.ticker,
     priority = GREATEST(evidence.source_frontier_urls.priority, EXCLUDED.priority),
-    next_attempt_at = LEAST(evidence.source_frontier_urls.next_attempt_at, EXCLUDED.next_attempt_at),
+    next_attempt_at = CASE
+        WHEN evidence.source_frontier_urls.status IN ('failed', 'skipped')
+            THEN evidence.source_frontier_urls.next_attempt_at
+        ELSE LEAST(evidence.source_frontier_urls.next_attempt_at, EXCLUDED.next_attempt_at)
+    END,
     status = CASE
-        WHEN evidence.source_frontier_urls.status IN ('captured', 'failed', 'skipped') THEN evidence.source_frontier_urls.status
+        WHEN evidence.source_frontier_urls.status IN ('failed', 'skipped')
+            THEN evidence.source_frontier_urls.status
         ELSE EXCLUDED.status
+    END,
+    attempt_count = CASE
+        WHEN evidence.source_frontier_urls.status IN ('failed', 'skipped')
+            THEN evidence.source_frontier_urls.attempt_count
+        ELSE 0
+    END,
+    leased_by = NULL,
+    lease_expires_at = NULL,
+    last_error_summary = CASE
+        WHEN evidence.source_frontier_urls.status IN ('failed', 'skipped')
+            THEN evidence.source_frontier_urls.last_error_summary
+        ELSE NULL
     END,
     max_attempts = EXCLUDED.max_attempts,
     metadata_json = EXCLUDED.metadata_json,
@@ -184,11 +211,19 @@ WITH lease_input AS (
         %s::timestamptz AS now_at
 ),
 due_urls AS (
-    SELECT frontier_url_id
-    FROM evidence.source_frontier_urls
-    WHERE status IN ('queued', 'retry')
-        AND next_attempt_at <= (SELECT now_at FROM lease_input)
-    ORDER BY priority DESC, next_attempt_at ASC, frontier_url_id ASC
+    SELECT frontier.frontier_url_id
+    FROM evidence.source_frontier_urls AS frontier
+    JOIN evidence.source_registry AS source
+        ON source.source_id = frontier.source_id
+    WHERE frontier.status IN ('queued', 'retry')
+        AND source.active IS TRUE
+        AND frontier.next_attempt_at <= (SELECT now_at FROM lease_input)
+        AND NOT (
+            COALESCE(frontier.last_error_summary, '') IN ('http_403', 'robots_disallowed')
+            OR COALESCE(frontier.metadata_json->>'render_strategy', '') = 'blocked'
+            OR COALESCE(frontier.metadata_json->>'crawl_allowed', 'true') = 'false'
+        )
+    ORDER BY frontier.priority DESC, frontier.next_attempt_at ASC, frontier.frontier_url_id ASC
     LIMIT %s
     FOR UPDATE SKIP LOCKED
 )
@@ -232,14 +267,205 @@ WHERE frontier_url_id = %s;
 """
 
 
-COMPLETE_FRONTIER_URL_SQL = """
+SYNC_CRAWL_QUEUE_FROM_FRONTIER_SQL = """
+INSERT INTO evidence.crawl_frontier_queue (
+    queue_id,
+    frontier_url_id,
+    ticker,
+    priority,
+    status,
+    next_attempt_at,
+    created_at,
+    updated_at
+)
+SELECT
+    'queue-' || regexp_replace(frontier_url_id, '^frontier-', ''),
+    frontier_url_id,
+    ticker,
+    priority,
+    status,
+    next_attempt_at,
+    created_at,
+    updated_at
+FROM evidence.source_frontier_urls
+WHERE frontier_url_id = %s
+ON CONFLICT (frontier_url_id) DO UPDATE SET
+    ticker = EXCLUDED.ticker,
+    priority = EXCLUDED.priority,
+    status = EXCLUDED.status,
+    next_attempt_at = EXCLUDED.next_attempt_at,
+    leased_by = NULL,
+    lease_expires_at = NULL,
+    updated_at = EXCLUDED.updated_at;
+"""
+
+
+SCHEDULE_FRONTIER_RECRAWL_SQL = """
 UPDATE evidence.source_frontier_urls
 SET
-    status = 'captured',
+    status = 'queued',
+    attempt_count = 0,
+    last_error_summary = NULL,
+    next_attempt_at = %s,
     lease_expires_at = NULL,
     leased_by = NULL,
     updated_at = %s
 WHERE frontier_url_id = %s;
+"""
+
+
+SYNC_CRAWL_QUEUE_RECRAWL_SQL = """
+INSERT INTO evidence.crawl_frontier_queue (
+    queue_id,
+    frontier_url_id,
+    ticker,
+    priority,
+    status,
+    next_attempt_at,
+    created_at,
+    updated_at
+)
+SELECT
+    'queue-' || regexp_replace(frontier_url_id, '^frontier-', ''),
+    frontier_url_id,
+    ticker,
+    priority,
+    'queued',
+    %s,
+    created_at,
+    %s
+FROM evidence.source_frontier_urls
+WHERE frontier_url_id = %s
+ON CONFLICT (frontier_url_id) DO UPDATE SET
+    ticker = EXCLUDED.ticker,
+    priority = EXCLUDED.priority,
+    status = 'queued',
+    next_attempt_at = EXCLUDED.next_attempt_at,
+    leased_by = NULL,
+    lease_expires_at = NULL,
+    updated_at = EXCLUDED.updated_at;
+"""
+
+
+DEACTIVATE_STALE_SOURCE_REGISTRY_SQL = """
+WITH inputs AS (
+    SELECT
+        %s::text[] AS current_source_ids,
+        %s::text[] AS active_source_ids,
+        %s::timestamptz AS now_at
+)
+UPDATE evidence.source_registry AS source
+SET
+    active = false,
+    metadata_json = source.metadata_json || jsonb_build_object(
+        'seed_status',
+        'deactivated_by_registry_sync',
+        'sync_reason',
+        CASE
+            WHEN NOT source.source_id = ANY(inputs.current_source_ids)
+                THEN 'source_registry_removed'
+            ELSE 'source_registry_inactive'
+        END
+    ),
+    updated_at = inputs.now_at
+FROM inputs
+WHERE source.metadata_json->>'origin' = 'source_registry'
+    AND NOT source.source_id = ANY(inputs.active_source_ids);
+"""
+
+
+SKIP_STALE_SOURCE_FRONTIER_SQL = """
+WITH inputs AS (
+    SELECT
+        %s::text[] AS current_source_ids,
+        %s::text[] AS active_source_ids,
+        %s::jsonb AS current_frontier_keys,
+        %s::timestamptz AS now_at,
+        %s::timestamptz AS parked_until
+),
+current_frontier AS (
+    SELECT key.source_id, key.url_hash
+    FROM inputs
+    CROSS JOIN LATERAL jsonb_to_recordset(inputs.current_frontier_keys) AS key(
+        source_id text,
+        url_hash text
+    )
+),
+skipped_frontier AS (
+    UPDATE evidence.source_frontier_urls AS frontier
+    SET
+        status = 'skipped',
+        next_attempt_at = inputs.parked_until,
+        lease_expires_at = NULL,
+        leased_by = NULL,
+        last_error_summary = CASE
+            WHEN NOT frontier.source_id = ANY(inputs.current_source_ids)
+                THEN 'source_registry_removed'
+            WHEN NOT frontier.source_id = ANY(inputs.active_source_ids)
+                THEN 'source_registry_inactive'
+            ELSE 'source_registry_url_removed'
+        END,
+        metadata_json = frontier.metadata_json || jsonb_build_object(
+            'seed_status',
+            'skipped_frontier',
+            'skip_reason',
+            CASE
+                WHEN NOT frontier.source_id = ANY(inputs.current_source_ids)
+                    THEN 'source_registry_removed'
+                WHEN NOT frontier.source_id = ANY(inputs.active_source_ids)
+                    THEN 'source_registry_inactive'
+                ELSE 'source_registry_url_removed'
+            END
+        ),
+        updated_at = inputs.now_at
+    FROM inputs
+    WHERE frontier.metadata_json->>'origin' = 'source_registry'
+        AND frontier.status <> 'skipped'
+        AND (
+            NOT frontier.source_id = ANY(inputs.active_source_ids)
+            OR NOT EXISTS (
+                SELECT 1
+                FROM current_frontier AS current
+                WHERE current.source_id = frontier.source_id
+                    AND current.url_hash = frontier.url_hash
+            )
+        )
+    RETURNING
+        frontier.frontier_url_id,
+        frontier.ticker,
+        frontier.priority,
+        frontier.next_attempt_at,
+        frontier.created_at,
+        frontier.updated_at
+)
+INSERT INTO evidence.crawl_frontier_queue (
+    queue_id,
+    frontier_url_id,
+    ticker,
+    priority,
+    status,
+    next_attempt_at,
+    created_at,
+    updated_at
+)
+SELECT
+    'queue-' || regexp_replace(frontier_url_id, '^frontier-', ''),
+    frontier_url_id,
+    ticker,
+    priority,
+    'skipped',
+    next_attempt_at,
+    created_at,
+    updated_at
+FROM skipped_frontier
+ON CONFLICT (frontier_url_id) DO UPDATE SET
+    ticker = EXCLUDED.ticker,
+    priority = EXCLUDED.priority,
+    status = 'skipped',
+    next_attempt_at = EXCLUDED.next_attempt_at,
+    leased_by = NULL,
+    lease_expires_at = NULL,
+    updated_at = EXCLUDED.updated_at;
 """
 
 
@@ -258,10 +484,17 @@ INSERT INTO evidence.crawl_frontier_queue (
 ) ON CONFLICT (frontier_url_id) DO UPDATE SET
     priority = GREATEST(evidence.crawl_frontier_queue.priority, EXCLUDED.priority),
     status = CASE
-        WHEN evidence.crawl_frontier_queue.status IN ('captured', 'failed', 'skipped') THEN evidence.crawl_frontier_queue.status
+        WHEN evidence.crawl_frontier_queue.status IN ('failed', 'skipped')
+            THEN evidence.crawl_frontier_queue.status
         ELSE EXCLUDED.status
     END,
-    next_attempt_at = LEAST(evidence.crawl_frontier_queue.next_attempt_at, EXCLUDED.next_attempt_at),
+    next_attempt_at = CASE
+        WHEN evidence.crawl_frontier_queue.status IN ('failed', 'skipped')
+            THEN evidence.crawl_frontier_queue.next_attempt_at
+        ELSE LEAST(evidence.crawl_frontier_queue.next_attempt_at, EXCLUDED.next_attempt_at)
+    END,
+    leased_by = NULL,
+    lease_expires_at = NULL,
     updated_at = EXCLUDED.updated_at;
 """
 
@@ -658,6 +891,9 @@ LIMIT 1;
 """
 
 
+CHECK_RELATION_EXISTS_SQL = "SELECT to_regclass(%s);"
+
+
 class EquityIntelligenceRepository:
     def __init__(self, connection: Connection) -> None:
         self._connection = connection
@@ -725,14 +961,38 @@ class EquityIntelligenceRepository:
                     require_text(frontier_url_id, "frontier_url_id"),
                 ),
             )
+            cursor.execute(
+                SYNC_CRAWL_QUEUE_FROM_FRONTIER_SQL,
+                (require_text(frontier_url_id, "frontier_url_id"),),
+            )
         self._connection.commit()
 
     def complete_frontier_url(self, *, frontier_url_id: str, now: datetime) -> None:
         require_aware_datetime(now, "now")
+        self.schedule_frontier_recrawl(
+            frontier_url_id=frontier_url_id,
+            next_attempt_at=now,
+            now=now,
+        )
+
+    def schedule_frontier_recrawl(
+        self,
+        *,
+        frontier_url_id: str,
+        next_attempt_at: datetime,
+        now: datetime,
+    ) -> None:
+        require_aware_datetime(next_attempt_at, "next_attempt_at")
+        require_aware_datetime(now, "now")
+        normalized_frontier_url_id = require_text(frontier_url_id, "frontier_url_id")
         with self._connection.cursor() as cursor:
             cursor.execute(
-                COMPLETE_FRONTIER_URL_SQL,
-                (now, require_text(frontier_url_id, "frontier_url_id")),
+                SCHEDULE_FRONTIER_RECRAWL_SQL,
+                (next_attempt_at, now, normalized_frontier_url_id),
+            )
+            cursor.execute(
+                SYNC_CRAWL_QUEUE_RECRAWL_SQL,
+                (next_attempt_at, now, normalized_frontier_url_id),
             )
         self._connection.commit()
 
@@ -743,6 +1003,43 @@ class EquityIntelligenceRepository:
             )
         self._connection.commit()
         return queue_item
+
+    def sync_source_registry_scope(
+        self,
+        *,
+        current_source_ids: tuple[str, ...],
+        active_source_ids: tuple[str, ...],
+        current_frontier_keys: tuple[tuple[str, str], ...],
+        now: datetime,
+        parked_until: datetime,
+    ) -> None:
+        require_aware_datetime(now, "now")
+        require_aware_datetime(parked_until, "parked_until")
+        current_ids = [require_text(source_id, "current_source_id") for source_id in current_source_ids]
+        active_ids = [require_text(source_id, "active_source_id") for source_id in active_source_ids]
+        frontier_keys = [
+            {
+                "source_id": require_text(source_id, "frontier_key_source_id"),
+                "url_hash": require_text(url_hash, "frontier_key_url_hash"),
+            }
+            for source_id, url_hash in current_frontier_keys
+        ]
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                DEACTIVATE_STALE_SOURCE_REGISTRY_SQL,
+                (current_ids, active_ids, now),
+            )
+            cursor.execute(
+                SKIP_STALE_SOURCE_FRONTIER_SQL,
+                (
+                    current_ids,
+                    active_ids,
+                    json.dumps(frontier_keys),
+                    now,
+                    parked_until,
+                ),
+            )
+        self._connection.commit()
 
     def lease_due_crawl_queue_items(
         self,
@@ -918,6 +1215,17 @@ class EquityIntelligenceRepository:
                 return None
             column_names = _column_names(cursor.description) or LATEST_SUMMARY_COLUMNS
         return _json_safe_mapping(_row_to_dict(row, column_names))
+
+    def verify_crawl_runtime_schema(self) -> tuple[str, ...]:
+        missing: list[str] = []
+        with self._connection.cursor() as cursor:
+            for table_name in CRAWL_RUNTIME_REQUIRED_TABLES:
+                cursor.execute(CHECK_RELATION_EXISTS_SQL, (table_name,))
+                row = cursor.fetchone()
+                value = row[0] if row is not None and not isinstance(row, Mapping) else None
+                if value is None:
+                    missing.append(table_name)
+        return tuple(missing)
 
 
 def _watched_equity_params(equity: object) -> tuple[object, ...]:

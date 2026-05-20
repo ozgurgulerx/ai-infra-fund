@@ -366,6 +366,53 @@ INSERT INTO analyst.trading_advisories (
 """
 
 
+UPSERT_ADVISORY_UPDATE_SQL = """
+INSERT INTO analyst.advisory_updates (
+    update_id,
+    ticker,
+    company,
+    previous_advisory_id,
+    new_advisory_id,
+    previous_label,
+    current_label,
+    what_changed,
+    update_type,
+    thesis_change_direction,
+    risk_change_direction,
+    valuation_change_direction,
+    confidence_change,
+    time_horizon,
+    evidence_ids,
+    model_run_ids,
+    deterministic_check_ids,
+    advisory_label,
+    payload_json,
+    created_at
+) VALUES (
+    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s
+) ON CONFLICT (update_id) DO UPDATE SET
+    ticker = EXCLUDED.ticker,
+    company = EXCLUDED.company,
+    previous_advisory_id = EXCLUDED.previous_advisory_id,
+    new_advisory_id = EXCLUDED.new_advisory_id,
+    previous_label = EXCLUDED.previous_label,
+    current_label = EXCLUDED.current_label,
+    what_changed = EXCLUDED.what_changed,
+    update_type = EXCLUDED.update_type,
+    thesis_change_direction = EXCLUDED.thesis_change_direction,
+    risk_change_direction = EXCLUDED.risk_change_direction,
+    valuation_change_direction = EXCLUDED.valuation_change_direction,
+    confidence_change = EXCLUDED.confidence_change,
+    time_horizon = EXCLUDED.time_horizon,
+    evidence_ids = EXCLUDED.evidence_ids,
+    model_run_ids = EXCLUDED.model_run_ids,
+    deterministic_check_ids = EXCLUDED.deterministic_check_ids,
+    advisory_label = EXCLUDED.advisory_label,
+    payload_json = EXCLUDED.payload_json,
+    created_at = EXCLUDED.created_at;
+"""
+
+
 UPSERT_TRADE_PLAN_SQL = """
 INSERT INTO analyst.trade_plans (
     trade_plan_id,
@@ -558,6 +605,7 @@ def seed_fixture_advisory_run(
         _persist_macro_regime(cursor, fixture, as_of)
         _persist_risk_regime_updates(cursor, fixture, as_of)
         _persist_trading_advisories(cursor, fixture, as_of)
+        _persist_advisory_updates(cursor, fixture, as_of)
         _persist_trade_plans(cursor, fixture, as_of)
         _persist_portfolio_exposure(cursor, fixture, as_of)
         _persist_llm_analyst_notes(cursor, fixture, as_of)
@@ -586,6 +634,7 @@ def seed_fixture_advisory_run(
         "source_signal_count": len(fixture.get("source_signals", ())),
         "market_event_count": len(fixture.get("market_events", ())),
         "trading_advisory_count": len(fixture.get("trading_advisories", ())),
+        "advisory_update_count": len(fixture.get("advisory_updates", ())),
         "trade_plan_count": len(fixture.get("open_trade_plans", ())),
     }
 
@@ -830,6 +879,36 @@ def _persist_trading_advisories(cursor: Cursor, fixture: dict[str, object], as_o
         )
 
 
+def _persist_advisory_updates(cursor: Cursor, fixture: dict[str, object], as_of: datetime) -> None:
+    for update in _list(fixture.get("advisory_updates")):
+        ticker = str(update.get("ticker") or "").upper()
+        cursor.execute(
+            UPSERT_ADVISORY_UPDATE_SQL,
+            (
+                str(update["update_id"]),
+                ticker,
+                _optional_text(update.get("company")),
+                _optional_text(update.get("previous_advisory_id")),
+                _optional_text(update.get("new_advisory_id")),
+                _optional_text(update.get("previous_label")),
+                str(update.get("current_label") or update.get("advisory_label") or "review"),
+                str(update.get("what_changed") or update.get("reason") or ""),
+                str(update.get("update_type") or "advisory_delta"),
+                str(update.get("thesis_change_direction") or _label_delta(update)),
+                str(update.get("risk_change_direction") or "review_needed"),
+                str(update.get("valuation_change_direction") or "review_needed"),
+                str(update.get("confidence_change") or "review_needed"),
+                _optional_text(update.get("time_horizon")),
+                _required_text_list(update.get("evidence_ids"), "advisory update evidence_ids"),
+                _text_list(update.get("model_run_ids")),
+                _text_list(update.get("deterministic_check_ids")),
+                ADVISORY_LABEL,
+                _json(update),
+                _parse_datetime(str(update.get("created_at") or update.get("updated_at") or as_of.isoformat())),
+            ),
+        )
+
+
 def _persist_trade_plans(cursor: Cursor, fixture: dict[str, object], as_of: datetime) -> None:
     for plan in _list(fixture.get("open_trade_plans")):
         advisory_id = _optional_text(plan.get("linked_advisory_id"))
@@ -959,6 +1038,19 @@ def main() -> None:
 def _normalize_action(value: str) -> str:
     normalized = value.strip().lower().replace("_", "-")
     return normalized if normalized in {"watch", "accumulate", "hold", "trim", "avoid", "review", "exit-candidate"} else "review"
+
+
+def _label_delta(update: dict[str, object]) -> str:
+    previous = _normalize_action(str(update.get("previous_label") or "review"))
+    current = _normalize_action(str(update.get("current_label") or "review"))
+    positive = {"accumulate": 4, "hold": 3, "watch": 2, "review": 2, "trim": 1, "exit-candidate": 1, "avoid": 0}
+    previous_rank = positive.get(previous, 2)
+    current_rank = positive.get(current, 2)
+    if current_rank > previous_rank:
+        return "improved"
+    if current_rank < previous_rank:
+        return "deteriorated"
+    return "unchanged"
 
 
 def _parse_datetime(value: str) -> datetime:

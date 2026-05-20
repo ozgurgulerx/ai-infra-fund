@@ -28,6 +28,7 @@ class AdvisoryWorkstationReadModelRepositoryTests(unittest.TestCase):
                 ResultSet([equity_assessment_row()], ASSESSMENT_COLUMNS),
                 ResultSet([risk_regime_row()], RISK_COLUMNS),
                 ResultSet([trading_advisory_row()], ADVISORY_COLUMNS),
+                ResultSet([advisory_update_row()], ADVISORY_UPDATE_COLUMNS),
             ]
         )
 
@@ -41,7 +42,7 @@ class AdvisoryWorkstationReadModelRepositoryTests(unittest.TestCase):
         self.assertEqual("assessment-1", payload["equity_impact_assessments"][0]["assessment_id"])
         self.assertEqual("risk-1", payload["risk_regime_updates"][0]["regime_id"])
         self.assertEqual("advisory-1", payload["trading_advisories"][0]["advisory_id"])
-        self.assertEqual(6, len(connection.cursor_instance.executions))
+        self.assertEqual(7, len(connection.cursor_instance.executions))
 
     def test_latest_analyst_brief_fetches_only_brief_linked_objects(self) -> None:
         from ai_infra_fund_api.repositories.advisory_workstation import (
@@ -56,6 +57,7 @@ class AdvisoryWorkstationReadModelRepositoryTests(unittest.TestCase):
                 ResultSet([equity_assessment_row()], ASSESSMENT_COLUMNS),
                 ResultSet([risk_regime_row()], RISK_COLUMNS),
                 ResultSet([trading_advisory_row()], ADVISORY_COLUMNS),
+                ResultSet([advisory_update_row()], ADVISORY_UPDATE_COLUMNS),
             ]
         )
 
@@ -85,6 +87,7 @@ class AdvisoryWorkstationReadModelRepositoryTests(unittest.TestCase):
                 ResultSet([equity_assessment_row()], ASSESSMENT_COLUMNS),
                 ResultSet([valuation_row()], VALUATION_COLUMNS),
                 ResultSet([trading_advisory_row()], ADVISORY_COLUMNS),
+                ResultSet([advisory_update_row()], ADVISORY_UPDATE_COLUMNS),
             ]
         )
 
@@ -139,6 +142,7 @@ class AdvisoryWorkstationReadModelRepositoryTests(unittest.TestCase):
                 ResultSet([equity_assessment_row()], ASSESSMENT_COLUMNS),
                 ResultSet([valuation_row()], VALUATION_COLUMNS),
                 ResultSet([trading_advisory_row()], ADVISORY_COLUMNS),
+                ResultSet([advisory_update_row()], ADVISORY_UPDATE_COLUMNS),
                 ResultSet([trade_plan_row()], TRADE_PLAN_COLUMNS),
                 ResultSet([risk_regime_row()], RISK_COLUMNS),
                 ResultSet([llm_note_row()], LLM_NOTE_COLUMNS),
@@ -154,7 +158,7 @@ class AdvisoryWorkstationReadModelRepositoryTests(unittest.TestCase):
         self.assertTrue(payload["trade_plans"][0]["manual_journal_only"])
         self.assertEqual("risk-1", payload["risk_regime_updates"][0]["regime_id"])
         self.assertEqual("llm-note-1", payload["llm_analyst_notes"][0]["note_id"])
-        self.assertEqual(9, len(connection.cursor_instance.executions))
+        self.assertEqual(10, len(connection.cursor_instance.executions))
 
     def test_ticker_workbench_returns_theme_grouped_rating_news_notes_and_related_tickers(self) -> None:
         from ai_infra_fund_api.repositories.advisory_workstation import (
@@ -169,6 +173,7 @@ class AdvisoryWorkstationReadModelRepositoryTests(unittest.TestCase):
                 ResultSet([equity_assessment_row()], ASSESSMENT_COLUMNS),
                 ResultSet([valuation_row()], VALUATION_COLUMNS),
                 ResultSet([trading_advisory_row()], ADVISORY_COLUMNS),
+                ResultSet([advisory_update_row()], ADVISORY_UPDATE_COLUMNS),
                 ResultSet([trade_plan_row()], TRADE_PLAN_COLUMNS),
                 ResultSet([risk_regime_row()], RISK_COLUMNS),
                 ResultSet([llm_note_row()], LLM_NOTE_COLUMNS),
@@ -215,6 +220,7 @@ class AdvisoryWorkstationReadModelRepositoryTests(unittest.TestCase):
                 ResultSet([], ASSESSMENT_COLUMNS),
                 ResultSet([], VALUATION_COLUMNS),
                 ResultSet([], ADVISORY_COLUMNS),
+                ResultSet([], ADVISORY_UPDATE_COLUMNS),
                 ResultSet([], TRADE_PLAN_COLUMNS),
                 ResultSet([risk_regime_row()], RISK_COLUMNS),
                 ResultSet([], LLM_NOTE_COLUMNS),
@@ -226,6 +232,30 @@ class AdvisoryWorkstationReadModelRepositoryTests(unittest.TestCase):
         self.assertEqual("unrated", payload["theme_groups"][0]["advisory_stance"]["action"])
         self.assertEqual("neutral", payload["theme_groups"][0]["advisory_stance"]["tone"])
         self.assertIsNone(payload["theme_groups"][0]["advisory_stance"]["source_advisory_id"])
+
+    def test_latest_advisory_updates_and_watchlist_ratings_return_delta_rows(self) -> None:
+        from ai_infra_fund_api.repositories.advisory_workstation import (
+            AdvisoryWorkstationRepository,
+        )
+
+        connection = FakeConnection(
+            [
+                ResultSet([advisory_update_row()], ADVISORY_UPDATE_COLUMNS),
+                ResultSet([trading_advisory_row()], ADVISORY_COLUMNS),
+                ResultSet([advisory_update_row()], ADVISORY_UPDATE_COLUMNS),
+                ResultSet([equity_assessment_row()], ASSESSMENT_COLUMNS),
+            ]
+        )
+        repository = AdvisoryWorkstationRepository(connection)
+
+        updates = repository.get_latest_advisory_updates()
+        ratings = repository.get_latest_watchlist_ratings()
+
+        self.assertEqual("available", updates["status"])
+        self.assertEqual("advisory-update-1", updates["items"][0]["update_id"])
+        self.assertEqual("NVDA", ratings["items"][0]["ticker"])
+        self.assertEqual("accumulate", ratings["items"][0]["current_label"])
+        self.assertEqual("improved", ratings["items"][0]["outlook_delta"])
 
     def test_latest_portfolio_exposure_returns_deterministic_snapshot(self) -> None:
         from ai_infra_fund_api.repositories.advisory_workstation import (
@@ -395,6 +425,29 @@ ADVISORY_COLUMNS = (
     "deterministic_checks",
     "linked_trade_plan_id",
     "payload_json",
+)
+
+ADVISORY_UPDATE_COLUMNS = (
+    "update_id",
+    "ticker",
+    "company",
+    "previous_advisory_id",
+    "new_advisory_id",
+    "previous_label",
+    "current_label",
+    "what_changed",
+    "update_type",
+    "thesis_change_direction",
+    "risk_change_direction",
+    "valuation_change_direction",
+    "confidence_change",
+    "time_horizon",
+    "evidence_ids",
+    "model_run_ids",
+    "deterministic_check_ids",
+    "advisory_label",
+    "payload_json",
+    "created_at",
 )
 
 BRIEF_COLUMNS = (
@@ -625,6 +678,31 @@ def trading_advisory_row() -> tuple[object, ...]:
         ["source_signal_bundle_linked"],
         "trade-plan-1",
         {"source": "fixture"},
+    )
+
+
+def advisory_update_row() -> tuple[object, ...]:
+    return (
+        "advisory-update-1",
+        "NVDA",
+        "NVIDIA",
+        "advisory-0",
+        "advisory-1",
+        "watch",
+        "accumulate",
+        "Outlook improved after capex evidence.",
+        "advisory_delta",
+        "improved",
+        "unchanged",
+        "unchanged",
+        "increased",
+        "6_to_18_months",
+        ["evidence-1"],
+        ["model-run-1"],
+        ["readiness-check-1"],
+        "advisory_only",
+        {"source_url": "https://example.com/source", "title": "Capex source"},
+        NOW,
     )
 
 

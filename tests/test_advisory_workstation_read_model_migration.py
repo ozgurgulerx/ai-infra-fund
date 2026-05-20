@@ -25,6 +25,7 @@ class AdvisoryWorkstationReadModelMigrationTests(unittest.TestCase):
             "CREATE TABLE IF NOT EXISTS analyst.macro_regime_snapshots",
             "CREATE TABLE IF NOT EXISTS analyst.risk_regime_updates",
             "CREATE TABLE IF NOT EXISTS analyst.trading_advisories",
+            "CREATE TABLE IF NOT EXISTS analyst.advisory_updates",
             "CREATE TABLE IF NOT EXISTS analyst.trade_plans",
             "CREATE TABLE IF NOT EXISTS analyst.portfolio_exposure_snapshots",
             "CREATE TABLE IF NOT EXISTS analyst.llm_analyst_notes",

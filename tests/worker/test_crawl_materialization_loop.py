@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
-from types import SimpleNamespace
 import os
 import stat
 import sys
@@ -95,7 +94,7 @@ class CrawlMaterializationLoopTests(unittest.TestCase):
         self.assertEqual((evidence_item.evidence_id,), market_event.evidence_ids)
         self.assertEqual((signal.signal_id,), market_event.source_signal_ids)
         self.assertEqual(1, len(crawl_log_repo.records))
-        self.assertEqual("frontier-nvda-live", repo.completed_frontiers[0])
+        self.assertEqual("frontier-nvda-live", repo.recrawls[0]["frontier_url_id"])
 
     def test_duplicate_capture_content_uses_stable_evidence_id(self) -> None:
         first = _run_success("frontier-nvda-a", "https://nvidia.example/a")
@@ -146,9 +145,13 @@ class CrawlMaterializationLoopTests(unittest.TestCase):
 class CrawlMaterializationSmokeScriptTests(unittest.TestCase):
     def test_smoke_script_has_specific_materialization_failure_messages(self) -> None:
         script = ROOT / "scripts" / "crawl_materialization_smoke.sh"
-        self.assertTrue(script.exists(), "scripts/crawl_materialization_smoke.sh missing")
+        self.assertTrue(
+            script.exists(), "scripts/crawl_materialization_smoke.sh missing"
+        )
         mode = os.stat(script).st_mode
-        self.assertTrue(mode & stat.S_IXUSR, "crawl materialization smoke script is not executable")
+        self.assertTrue(
+            mode & stat.S_IXUSR, "crawl materialization smoke script is not executable"
+        )
         text = script.read_text(encoding="utf-8")
         for expected in (
             "frontier seeded but not leased",
@@ -243,7 +246,7 @@ class FakeWorkerRepository:
     def __init__(self, metadata: dict[str, object] | None = None) -> None:
         self._metadata = dict(metadata or {"source_kind": "company_investor_relations"})
         self.saved: list[dict[str, object]] = []
-        self.completed_frontiers: list[str] = []
+        self.recrawls: list[dict[str, object]] = []
         self.updated_metadata: list[dict[str, object]] = []
         self.failures: list[dict[str, object]] = []
 
@@ -266,8 +269,20 @@ class FakeWorkerRepository:
     ) -> None:
         self.updated_metadata.append(metadata)
 
-    def complete_frontier_url(self, *, frontier_url_id: str, now: datetime) -> None:
-        self.completed_frontiers.append(frontier_url_id)
+    def schedule_frontier_recrawl(
+        self,
+        *,
+        frontier_url_id: str,
+        next_attempt_at: datetime,
+        now: datetime,
+    ) -> None:
+        self.recrawls.append(
+            {
+                "frontier_url_id": frontier_url_id,
+                "next_attempt_at": next_attempt_at,
+                "now": now,
+            }
+        )
 
     def record_frontier_failure(
         self,

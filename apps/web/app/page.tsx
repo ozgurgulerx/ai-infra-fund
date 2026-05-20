@@ -1,4 +1,7 @@
+import Link from "next/link";
+
 import { AppShell } from "../components/app-shell";
+import { DailyAiInfraSentimentCard } from "../components/daily-cockpit/daily-ai-infra-sentiment-card";
 import { AdvisoryPill, RiskFlags } from "../components/daily-cockpit/evidence-pills";
 import {
   AdvisoryTable,
@@ -9,313 +12,144 @@ import {
   SectionCard,
   StatusChip,
 } from "../components/workstation";
+import {
+  checksCount,
+  collectEvidenceIds,
+  collectSourceLinks,
+  confidenceNumber,
+  confidenceTone,
+  formatTimestamp,
+  list,
+  payloadText,
+  readAnalystBriefPayload,
+  readLatestAdvisoryUpdates,
+  readLatestMarketEvents,
+  readLatestPortfolioExposure,
+  readLatestSourceSignals,
+  readLatestTradingAdvisory,
+  text,
+  type AdvisoryUpdate,
+  type MarketEvent,
+  type SourceLinkRef,
+} from "../lib/advisory/workstation-data";
 
 export const dynamic = "force-dynamic";
 
-type ApiEnvelope<TData> = {
-  data?: TData;
-  error?: { code?: string; message?: string };
-};
-
-type SourceSignal = {
-  signal_id?: string;
-  title?: string;
-  tickers?: string[];
-  themes?: string[];
-  evidence_ids?: string[];
-  confidence?: string | number;
-  review_status?: string;
-};
-
-type MarketEvent = {
-  event_id?: string;
-  event_type?: string;
-  tickers?: string[];
-  catalyst?: string;
-  ai_relevance?: string;
-  direction?: string;
-  time_horizon?: string;
-  confidence?: string | number;
-  available_at?: string | null;
-  source_evidence_ids?: string[];
-  evidence_ids?: string[];
-  review_status?: string;
-};
-
-type SegmentImpact = {
-  segment_id?: string;
-  segment_name?: string;
-  primary_tickers?: string[];
-  second_order_tickers?: string[];
-  impact_direction?: string;
-  impact_summary?: string;
-  evidence_ids?: string[];
-  payload?: Record<string, unknown> | null;
-};
-
-type EquityImpactAssessment = {
-  assessment_id?: string;
-  ticker?: string;
-  company?: string;
-  assessment?: string;
-  advisory_implication?: string;
-  risk_flags?: string[];
-  invalidation?: string;
-  evidence_ids?: string[];
-  payload?: Record<string, unknown> | null;
-};
-
-type RiskRegimeUpdate = {
-  regime_id?: string;
-  risk_type?: string;
-  status?: string;
-  summary?: string;
-  portfolio_monitoring_note?: string;
-  evidence_ids?: string[];
-  payload?: Record<string, unknown> | null;
-};
-
-type TradingAdvisory = {
-  advisory_id?: string;
-  ticker?: string;
-  advisory_label?: string;
-  analyst_action?: string;
-  advisory_summary?: string;
-  evidence_ids?: string[];
-  model_run_ids?: string[];
-  deterministic_checks?: string[] | Record<string, unknown>;
-  linked_trade_plan_id?: string | null;
-  payload?: Record<string, unknown> | null;
-};
-
-type AnalystBrief = {
-  brief_id?: string;
-  as_of?: string | null;
-  title?: string;
-  advisory_label?: string;
-  executive_summary?: string;
-  model_run_ids?: string[];
-  payload?: Record<string, unknown> | null;
-};
-
-type AnalystBriefPayload = {
-  status?: string;
-  advisory_label?: string;
-  detail?: string;
-  brief?: AnalystBrief;
-  market_events?: MarketEvent[];
-  segment_impacts?: SegmentImpact[];
-  equity_impact_assessments?: EquityImpactAssessment[];
-  risk_regime_updates?: RiskRegimeUpdate[];
-  trading_advisories?: TradingAdvisory[];
-};
-
-type FeedPayload<TItem> = {
-  status?: string;
-  advisory_label?: string;
-  ticker?: string;
-  freshness?: { latest_available_at?: string | null; item_count?: number };
-  items?: TItem[];
-};
-
-type CockpitPayload = {
-  analystBrief: AnalystBriefPayload;
-  sourceSignals: FeedPayload<SourceSignal>;
-  latestMarketEvents: FeedPayload<MarketEvent>;
-  nvdaMarketEvents: FeedPayload<MarketEvent>;
-  latestTradingAdvisories: FeedPayload<TradingAdvisory>;
-  checkedAt: string;
-};
-
-const INTERNAL_TOKEN_HEADER = "X-Internal-Token";
-
-function internalApiBaseUrl(): string {
-  return (
-    process.env.AI_INFRA_FUND_INTERNAL_API_BASE_URL ??
-    process.env.NEXT_PUBLIC_API_BASE_URL ??
-    "http://localhost:8000"
-  ).replace(/\/$/, "");
-}
-
-function internalHeaders(): HeadersInit | undefined {
-  const token = process.env.AI_INFRA_FUND_INTERNAL_TOKEN?.trim();
-  return token ? { [INTERNAL_TOKEN_HEADER]: token } : undefined;
-}
-
-async function readCockpitPayload(): Promise<CockpitPayload> {
+async function readCockpitPayload() {
   const [
     analystBrief,
     sourceSignals,
     latestMarketEvents,
-    nvdaMarketEvents,
     latestTradingAdvisories,
+    latestAdvisoryUpdates,
+    portfolioExposure,
   ] = await Promise.all([
     readAnalystBriefPayload(),
-    readFeedPayload<SourceSignal>("/internal/source-signals/latest"),
-    readFeedPayload<MarketEvent>("/internal/market-events/latest"),
-    readFeedPayload<MarketEvent>("/internal/market-events/NVDA"),
-    readFeedPayload<TradingAdvisory>("/internal/trading-advisory/latest"),
+    readLatestSourceSignals(),
+    readLatestMarketEvents(),
+    readLatestTradingAdvisory(),
+    readLatestAdvisoryUpdates(),
+    readLatestPortfolioExposure(),
   ]);
 
   return {
     analystBrief,
     sourceSignals,
     latestMarketEvents,
-    nvdaMarketEvents,
     latestTradingAdvisories,
-    checkedAt: new Date().toISOString(),
+    latestAdvisoryUpdates,
+    portfolioExposure,
   };
 }
 
-async function readAnalystBriefPayload(): Promise<AnalystBriefPayload> {
-  return readApiData<AnalystBriefPayload>(
-    "/internal/analyst-brief/latest",
-    degradedAnalystBrief("API-backed analyst brief unavailable"),
+function isStale(status: string | undefined): boolean {
+  return status !== "available";
+}
+
+function updateDeltaTone(value: string | undefined) {
+  const normalized = String(value ?? "").toLowerCase();
+  if (["improved", "positive", "increased"].includes(normalized)) {
+    return "fresh" as const;
+  }
+  if (["deteriorated", "negative", "decreased"].includes(normalized)) {
+    return "negative" as const;
+  }
+  if (normalized.includes("review")) {
+    return "review" as const;
+  }
+  return "neutral" as const;
+}
+
+function eventInterpretation(event: MarketEvent): string {
+  return (
+    event.ai_relevance ||
+    event.display_text ||
+    "Analyst interpretation pending; review linked evidence before changing exposure."
   );
 }
 
-async function readFeedPayload<TItem>(
-  endpoint: string,
-): Promise<FeedPayload<TItem>> {
-  return readApiData<FeedPayload<TItem>>(endpoint, {
-    status: "degraded",
-    advisory_label: "advisory_only",
-    items: [],
-  });
-}
-
-async function readApiData<TData>(
-  endpoint: string,
-  fallback: TData,
-): Promise<TData> {
-  try {
-    const response = await fetch(`${internalApiBaseUrl()}${endpoint}`, {
-      cache: "no-store",
-      headers: internalHeaders(),
-      method: "GET",
-    });
-    const payload = (await response.json()) as ApiEnvelope<TData>;
-    if (!response.ok || !payload.data) {
-      return fallback;
-    }
-    return payload.data;
-  } catch {
-    return fallback;
+function eventReviewPrompt(event: MarketEvent): string {
+  const direction = String(event.direction ?? "mixed").toLowerCase();
+  if (direction.includes("positive")) {
+    return "Review for exposure increase only if evidence freshness and invalidation checks remain clean.";
   }
-}
-
-function degradedAnalystBrief(detail: string): AnalystBriefPayload {
-  return {
-    status: "degraded",
-    advisory_label: "advisory_only",
-    detail,
-    brief: {
-      brief_id: "api-backed-brief-unavailable",
-      as_of: null,
-      title: "API-backed analyst brief unavailable",
-      advisory_label: "advisory_only",
-      executive_summary:
-        "API-backed analyst brief unavailable. The cockpit is waiting for the read-only analyst brief feed.",
-      model_run_ids: [],
-    },
-    market_events: [],
-    segment_impacts: [],
-    equity_impact_assessments: [],
-    risk_regime_updates: [],
-    trading_advisories: [],
-  };
-}
-
-function formatTimestamp(value: string | null | undefined): string {
-  if (!value) {
-    return "No timestamp";
+  if (direction.includes("negative")) {
+    return "Review for exposure reduction or thesis downgrade if linked risks persist.";
   }
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "UTC",
-  }).format(new Date(value));
+  return "Keep on watchlist until the catalyst resolves into ticker-level evidence.";
 }
 
-function freshnessClass(payload: AnalystBriefPayload): string {
-  return payload.status === "available" ? "fresh-data" : "stale-data";
-}
-
-function isStale(payload: AnalystBriefPayload): boolean {
-  return payload.status !== "available";
-}
-
-function text(value: unknown, fallback: string): string {
-  return typeof value === "string" && value.trim() ? value : fallback;
-}
-
-function list(values: string[] | undefined): string[] {
-  return Array.isArray(values) ? values.filter(Boolean) : [];
-}
-
-function payloadText(
-  payload: Record<string, unknown> | null | undefined,
-  key: string,
-  fallback: string,
-): string {
-  return text(payload?.[key], fallback);
-}
-
-function checksCount(advisories: TradingAdvisory[]): number {
-  return advisories.reduce((count, advisory) => {
-    const checks = advisory.deterministic_checks;
-    if (Array.isArray(checks)) {
-      return count + checks.length;
-    }
-    if (checks && typeof checks === "object") {
-      return count + Object.keys(checks).length;
-    }
-    return count;
-  }, 0);
-}
-
-function collectEvidenceIds(...groups: Array<Array<{ evidence_ids?: string[]; source_evidence_ids?: string[] }>>): string[] {
-  return Array.from(
-    new Set(
-      groups.flatMap((group) =>
-        group.flatMap((item) => [
-          ...list(item.evidence_ids),
-          ...list(item.source_evidence_ids),
-        ]),
-      ),
-    ),
+function SourceLinks({ links }: { links: SourceLinkRef[] }) {
+  if (links.length === 0) {
+    return <span className="muted-meta">source link unavailable</span>;
+  }
+  return (
+    <div className="source-link-row">
+      {links.slice(0, 2).map((link) => (
+        <a
+          className="source-inline-link"
+          href={link.url}
+          key={link.url}
+          rel="noreferrer"
+          target="_blank"
+        >
+          {link.label || "review source"}
+        </a>
+      ))}
+    </div>
   );
 }
 
-function confidenceNumber(value: string | number | undefined): number | null {
-  if (typeof value === "number") {
-    return value;
-  }
-  if (typeof value === "string") {
-    const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
-
-function confidenceTone(value: string | number | undefined): "fresh" | "review" | "cautious" {
-  const score = confidenceNumber(value);
-  if (score === null) {
-    return "review";
-  }
-  if (score >= 0.75) {
-    return "fresh";
-  }
-  if (score >= 0.5) {
-    return "review";
-  }
-  return "cautious";
+function updateRows(updates: AdvisoryUpdate[]) {
+  return updates.slice(0, 8).map((update) => ({
+    id: update.update_id ?? update.ticker ?? "advisory-update",
+    cells: [
+      <span className="table-main" key="ticker">
+        <Link className="ticker-link" href={`/ticker/${update.ticker ?? "NVDA"}`}>
+          {update.ticker ?? "Ticker"}
+        </Link>
+        <small>{update.previous_label ?? "prior"} {"->"} {update.current_label ?? "review"}</small>
+      </span>,
+      <strong key="change">{update.what_changed ?? "No change explanation published."}</strong>,
+      <StatusChip
+        key="outlook"
+        label={update.thesis_change_direction ?? "review_needed"}
+        tone={updateDeltaTone(update.thesis_change_direction)}
+      />,
+      <StatusChip
+        key="risk"
+        label={update.risk_change_direction ?? "review_needed"}
+        tone={updateDeltaTone(update.risk_change_direction)}
+      />,
+      <SourceLinks key="links" links={update.source_links ?? []} />,
+    ],
+  }));
 }
 
 export default async function DailyTradingCockpitPage() {
   const data = await readCockpitPayload();
   const briefPayload = data.analystBrief;
-  const brief = briefPayload.brief ?? degradedAnalystBrief("empty").brief!;
+  const brief = briefPayload.brief;
   const marketEvents =
     briefPayload.market_events?.length
       ? briefPayload.market_events
@@ -327,6 +161,12 @@ export default async function DailyTradingCockpitPage() {
     briefPayload.trading_advisories?.length
       ? briefPayload.trading_advisories
       : data.latestTradingAdvisories.items ?? [];
+  const advisoryUpdates =
+    briefPayload.advisory_updates?.length
+      ? briefPayload.advisory_updates
+      : data.latestAdvisoryUpdates.items ?? [];
+  const sourceSignals = data.sourceSignals.items ?? [];
+  const portfolio = data.portfolioExposure.snapshot;
   const lowConfidenceEvents = marketEvents.filter((event) => {
     const score = confidenceNumber(event.confidence);
     return score !== null && score < 0.5;
@@ -335,8 +175,8 @@ export default async function DailyTradingCockpitPage() {
     (event) => !lowConfidenceEvents.includes(event),
   );
   const topEvents = coreMarketEvents.slice(0, 4);
-  const focusAssessments = equityAssessments.slice(0, 5);
-  const sourceSignals = data.sourceSignals.items ?? [];
+  const sentimentAsOf =
+    brief?.as_of ?? data.latestMarketEvents.freshness?.latest_available_at ?? null;
   const allEvidenceIds = collectEvidenceIds(
     sourceSignals,
     marketEvents,
@@ -344,6 +184,16 @@ export default async function DailyTradingCockpitPage() {
     equityAssessments,
     riskRegimes,
     tradingAdvisories,
+    advisoryUpdates,
+  );
+  const allSourceLinks = collectSourceLinks(
+    sourceSignals,
+    marketEvents,
+    segmentImpacts,
+    equityAssessments,
+    riskRegimes,
+    tradingAdvisories,
+    advisoryUpdates,
   );
 
   return (
@@ -356,11 +206,15 @@ export default async function DailyTradingCockpitPage() {
         <section className="summary-strip" aria-label="Daily cockpit status">
           <MetricTile
             label="AI infrastructure regime"
-            value="API read model"
-            detail={`${formatTimestamp(brief.as_of)} · ${
-              isStale(briefPayload) ? "stale-data" : "fresh-data"
-            }`}
-            tone={isStale(briefPayload) ? "stale" : "fresh"}
+            value={isStale(briefPayload.status) ? "degraded" : "fresh"}
+            detail={`${formatTimestamp(brief?.as_of)} · API read model`}
+            tone={isStale(briefPayload.status) ? "stale" : "fresh"}
+          />
+          <MetricTile
+            label="Rating / outlook changes"
+            value={advisoryUpdates.length}
+            detail="AdvisoryUpdate records"
+            tone="review"
           />
           <MetricTile
             label="MarketEvents"
@@ -368,20 +222,13 @@ export default async function DailyTradingCockpitPage() {
             detail="ranked, evidence-linked"
           />
           <MetricTile
-            label="Suggested actions"
-            value={tradingAdvisories.length}
-            detail="watch / accumulate / hold / trim / avoid"
-            tone="review"
-          />
-          <MetricTile
-            label="Readiness checks"
-            value={checksCount(tradingAdvisories)}
-            detail="deterministic gates"
-            tone="neutral"
+            label="Portfolio exposure"
+            value={portfolio?.position_count ?? 0}
+            detail={portfolio?.snapshot_id ?? "snapshot pending"}
           />
         </section>
 
-        {isStale(briefPayload) ? (
+        {isStale(briefPayload.status) ? (
           <SectionCard
             eyebrow="Backend state"
             title="API-backed analyst brief unavailable"
@@ -394,81 +241,72 @@ export default async function DailyTradingCockpitPage() {
           </SectionCard>
         ) : null}
 
-        <div className="workstation-grid workstation-grid-2">
-          <SectionCard
-            eyebrow="Executive summary"
-            title="What changed today?"
-            subtitle="Daily high-alpha brief with LLM analyst notes"
-            badge={<LlmReviewBadge status={briefPayload.status ?? "fallback"} />}
-          >
-            <p className="wave2-lede">
-              {brief.executive_summary ??
-                "No executive summary has been produced yet."}
-            </p>
-            <div className="compact-list">
-              {sourceSignals.slice(0, 3).map((signal) => (
-                <div className="compact-row" key={signal.signal_id}>
-                  <strong>{signal.title ?? "Source signal under review"}</strong>
-                  <span>{list(signal.themes).join(", ") || "No themes reported."}</span>
-                  <StatusChip
-                    label={`confidence ${signal.confidence ?? "n/a"}`}
-                    tone={confidenceTone(signal.confidence)}
-                  />
-                </div>
-              ))}
-            </div>
-          </SectionCard>
+        <DailyAiInfraSentimentCard
+          marketEvents={coreMarketEvents}
+          sourceSignals={sourceSignals}
+          advisoryUpdates={advisoryUpdates}
+          asOf={sentimentAsOf}
+        />
 
-          <SectionCard
-            eyebrow="Portfolio exposure snapshot"
-            title="Top advisory stances table"
-            subtitle="Theme exposure under review"
-            badge={<StatusChip label="No transaction surface" tone="neutral" />}
-          >
-            <AdvisoryTable
-              columns={["Ticker", "Label", "Evidence", "Action"]}
-              rows={tradingAdvisories.slice(0, 5).map((advisory) => ({
-                id: advisory.advisory_id ?? advisory.ticker ?? "portfolio",
-                cells: [
-                  <strong key="ticker">{advisory.ticker ?? "Portfolio"}</strong>,
-                  advisory.advisory_label ?? "advisory_only",
-                  `${list(advisory.evidence_ids).length} refs`,
-                  <AdvisoryPill
-                    key="action"
-                    label={advisory.analyst_action ?? "watch"}
-                  />,
-                ],
-              }))}
-            />
-          </SectionCard>
-        </div>
+        <SectionCard
+          eyebrow="Executive summary"
+          title="What changed today?"
+          subtitle="Rating, outlook, thesis, risk, and valuation deltas that need analyst review."
+          badge={<LlmReviewBadge status={briefPayload.status ?? "fallback"} />}
+        >
+          <p className="wave2-lede">
+            {brief?.executive_summary ??
+              "No executive summary has been produced yet."}
+          </p>
+          <AdvisoryTable
+            columns={["Asset", "Change", "Outlook", "Risk", "Sources"]}
+            density="compact"
+            emptyLabel="No AdvisoryUpdate records are available yet."
+            rows={updateRows(advisoryUpdates)}
+          />
+          <div className="section-actions">
+            <Link className="secondary-action" href="/watchlist">
+              View all monitored asset ratings
+            </Link>
+          </div>
+        </SectionCard>
 
         <SectionCard
           eyebrow="Top MarketEvents"
           title="Top ranked MarketEvents"
-          subtitle="Catalyst tape with relevance, confidence, ticker, segment, and freshness."
+          subtitle="Interpretation layer for catalyst impact, affected tickers, and exposure-review prompts."
           badge={<StatusChip label="classified intelligence" tone="review" />}
         >
-          <AdvisoryTable
-            columns={["Event", "Tickers", "Direction", "Horizon", "Confidence"]}
-            rows={topEvents.map((event) => ({
-              id: event.event_id ?? event.catalyst ?? "market-event",
-              cells: [
-                <span className="table-main" key="event">
-                  <strong>{event.catalyst ?? "No catalyst reported."}</strong>
-                  <small>{event.ai_relevance ?? "No AI relevance summary reported."}</small>
-                </span>,
-                list(event.tickers).join(", ") || "watchlist",
-                event.direction ?? "not reported",
-                event.time_horizon ?? "not reported",
-                <StatusChip
-                  key="confidence"
-                  label={String(event.confidence ?? "n/a")}
-                  tone={confidenceTone(event.confidence)}
-                />,
-              ],
-            }))}
-          />
+          <div className="event-interpretation-list">
+            {topEvents.map((event) => (
+              <article className="event-interpretation-row" key={event.event_id}>
+                <div className="event-rank">
+                  <strong>{event.confidence ?? "n/a"}</strong>
+                  <span>confidence</span>
+                </div>
+                <div className="event-body">
+                  <div className="compact-row-heading">
+                    <strong>{event.catalyst ?? "MarketEvent under review"}</strong>
+                    <StatusChip
+                      label={event.direction ?? "mixed"}
+                      tone={confidenceTone(event.confidence)}
+                    />
+                  </div>
+                  <p>{eventInterpretation(event)}</p>
+                  <div className="proof-grid">
+                    <span>Potential impact: {eventReviewPrompt(event)}</span>
+                    <span>Tickers: {list(event.tickers).join(", ") || "watchlist"}</span>
+                    <span>Horizon: {event.time_horizon ?? "not reported"}</span>
+                    <span>Freshness: {formatTimestamp(event.available_at)}</span>
+                  </div>
+                  <SourceLinks links={event.source_links ?? []} />
+                </div>
+              </article>
+            ))}
+            {topEvents.length === 0 ? (
+              <EmptyState title="No validated MarketEvents available." />
+            ) : null}
+          </div>
           {lowConfidenceEvents.length > 0 ? (
             <details className="compact-collapse">
               <summary>Collapsed low-confidence monitor-only events</summary>
@@ -477,6 +315,7 @@ export default async function DailyTradingCockpitPage() {
                   <div className="compact-row" key={event.event_id}>
                     <strong>{event.catalyst ?? "Monitor-only event"}</strong>
                     <span>{event.ai_relevance ?? "No relevance note."}</span>
+                    <SourceLinks links={event.source_links ?? []} />
                   </div>
                 ))}
               </div>
@@ -488,10 +327,10 @@ export default async function DailyTradingCockpitPage() {
           <SectionCard
             eyebrow="Segment impact snapshot"
             title="Segment heatmap"
-            subtitle="Bottlenecks, beneficiaries, and latest change."
+            subtitle="Tone, beneficiaries, proof points, and latest changes."
           >
             <div className="segment-heatmap">
-              {segmentImpacts.slice(0, 5).map((segment) => (
+              {segmentImpacts.slice(0, 6).map((segment) => (
                 <article className="segment-heatmap-card" key={segment.segment_id}>
                   <div className="compact-row-heading">
                     <strong>{segment.segment_name ?? segment.segment_id}</strong>
@@ -499,12 +338,16 @@ export default async function DailyTradingCockpitPage() {
                   </div>
                   <p>{segment.impact_summary ?? "No segment impact summary."}</p>
                   <span>Beneficiaries: {list(segment.primary_tickers).join(", ") || "none"}</span>
-                  <span>Evidence count: {list(segment.evidence_ids).length}</span>
-                  <RiskFlags
-                    flags={list(
-                      segment.payload?.risk_flags as string[] | undefined,
-                    )}
-                  />
+                  <span>Second order: {list(segment.second_order_tickers).join(", ") || "none"}</span>
+                  <div className="proof-point-list">
+                    {(segment.proof_points ?? []).slice(0, 2).map((proof) => (
+                      <small key={proof.proof_point_id}>{proof.summary}</small>
+                    ))}
+                    {(segment.proof_points ?? []).length === 0 ? (
+                      <small>{list(segment.evidence_ids).length} evidence refs available</small>
+                    ) : null}
+                  </div>
+                  <RiskFlags flags={list(segment.payload?.risk_flags as string[] | undefined)} />
                 </article>
               ))}
             </div>
@@ -513,7 +356,7 @@ export default async function DailyTradingCockpitPage() {
           <SectionCard
             eyebrow="Risk regime updates"
             title="Risk / invalidation watch"
-            subtitle="Invalidation watchlist"
+            subtitle="Conditions that can invalidate current advisory stances."
           >
             <div className="compact-list">
               {riskRegimes.map((risk) => (
@@ -524,113 +367,115 @@ export default async function DailyTradingCockpitPage() {
                   </div>
                   <p>{risk.summary ?? "No risk summary."}</p>
                   <div className="wave2-invalidation">
-                    <strong>Relief / invalidation condition</strong>
+                    <strong>Invalidation</strong>
                     <span>
-                      {risk.portfolio_monitoring_note ??
+                      {risk.invalidation_condition ||
                         payloadText(risk.payload, "relief_condition", "Invalidation not yet defined")}
                     </span>
                   </div>
                 </article>
               ))}
-            </div>
-          </SectionCard>
-        </div>
-
-        <SectionCard
-          eyebrow="Equity impact assessments"
-          title="Ticker thesis, risk, and invalidation"
-          badge={<StatusChip label="planning guidance only" tone="neutral" />}
-        >
-          <AdvisoryTable
-            columns={["Ticker", "Thesis", "Risk", "Invalidation", "Stance"]}
-            rows={focusAssessments.map((assessment) => ({
-              id: assessment.assessment_id ?? assessment.ticker ?? "assessment",
-              cells: [
-                <span className="table-main" key="ticker">
-                  <strong>{assessment.ticker ?? "Ticker"}</strong>
-                  <small>{assessment.company ?? "Company"}</small>
-                </span>,
-                assessment.assessment ?? "No current thesis assessment.",
-                list(assessment.risk_flags).join(", ") || "No risk flags",
-                assessment.invalidation ?? "Invalidation not yet defined",
-                <AdvisoryPill
-                  key="stance"
-                  label={assessment.advisory_implication ?? "watch"}
-                />,
-              ],
-            }))}
-          />
-        </SectionCard>
-
-        <div className="workstation-grid workstation-grid-2">
-          <SectionCard
-            eyebrow="Suggested actions"
-            title="Advisory labels and review prompts"
-          >
-            <div className="compact-list">
-              {tradingAdvisories.map((advisory) => (
-                <article className="compact-card" key={advisory.advisory_id}>
-                  <div className="compact-row-heading">
-                    <strong>{advisory.ticker ?? "Portfolio"}</strong>
-                    <AdvisoryPill label={advisory.analyst_action ?? "watch"} />
-                  </div>
-                  <p>{advisory.advisory_summary ?? "No advisory summary."}</p>
-                  <RiskFlags
-                    flags={list(advisory.payload?.risk_flags as string[] | undefined)}
-                  />
-                  <div className="wave2-invalidation">
-                    <strong>Invalidation</strong>
-                    <span>
-                      {payloadText(
-                        advisory.payload,
-                        "invalidation_condition",
-                        "Invalidation not yet defined",
-                      )}
-                    </span>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </SectionCard>
-
-          <SectionCard
-            eyebrow="Open trade plans"
-            title="Manual planning queue"
-            badge={<StatusChip label="local journal only" tone="review" />}
-          >
-            <div className="compact-list">
-              {tradingAdvisories.map((advisory) => (
-                <article className="compact-card" key={`${advisory.advisory_id}-plan`}>
-                  <div className="compact-row-heading">
-                    <strong>{advisory.linked_trade_plan_id ?? "plan pending"}</strong>
-                    <AdvisoryPill label={advisory.analyst_action ?? "watch"} />
-                  </div>
-                  <p>{advisory.advisory_summary ?? "No planning note."}</p>
-                  <div className="wave2-mini-columns">
-                    <span>
-                      Entry: {payloadText(advisory.payload, "entry_zone", "review only")}
-                    </span>
-                    <span>
-                      Invalidation:{" "}
-                      {payloadText(advisory.payload, "invalidation_level", "review only")}
-                    </span>
-                  </div>
-                </article>
-              ))}
-              {tradingAdvisories.length === 0 ? (
-                <EmptyState title="No open trade plans from the read model." />
+              {riskRegimes.length === 0 ? (
+                <EmptyState title="No risk regime update published." />
               ) : null}
             </div>
           </SectionCard>
         </div>
 
+        <div className="workstation-grid workstation-grid-2">
+          <SectionCard
+            eyebrow="Top advisory stances table"
+            title="Ticker thesis, risk, and invalidation"
+            badge={<StatusChip label="planning guidance only" tone="neutral" />}
+          >
+            <AdvisoryTable
+              columns={["Ticker", "Stance", "Thesis", "Invalidation"]}
+              density="compact"
+              rows={equityAssessments.slice(0, 8).map((assessment) => ({
+                id: assessment.assessment_id ?? assessment.ticker ?? "assessment",
+                cells: [
+                  <span className="table-main" key="ticker">
+                    <Link className="ticker-link" href={`/ticker/${assessment.ticker ?? "NVDA"}`}>
+                      {assessment.ticker ?? "Ticker"}
+                    </Link>
+                    <small>{assessment.company ?? "Company"}</small>
+                  </span>,
+                  <AdvisoryPill
+                    key="stance"
+                    label={assessment.advisory_implication ?? "watch"}
+                  />,
+                  assessment.assessment ?? "No current thesis assessment.",
+                  assessment.invalidation ?? "Invalidation not yet defined",
+                ],
+              }))}
+            />
+          </SectionCard>
+
+          <SectionCard
+            eyebrow="Portfolio exposure summary"
+            title="Current exposure context"
+            badge={<StatusChip label="manual journal only" tone="review" />}
+          >
+            <div className="summary-strip summary-strip-3">
+              <MetricTile label="Value" value={portfolio?.total_market_value ?? "n/a"} />
+              <MetricTile label="Gross equity" value={portfolio?.gross_equity_exposure ?? "n/a"} />
+              <MetricTile label="Cash" value={portfolio?.cash_placeholder ?? "n/a"} />
+            </div>
+            <RiskFlags
+              flags={[
+                ...list(portfolio?.concentration_flags),
+                ...list(portfolio?.stale_price_flags),
+              ]}
+            />
+            <Link className="secondary-action" href="/portfolio">
+              Review detailed portfolio exposure
+            </Link>
+          </SectionCard>
+        </div>
+
+        <SectionCard
+          eyebrow="LLM analyst notes"
+          title="Advisory labels and review prompts"
+          subtitle="LLMs classify, summarize, review, and explain. Deterministic code owns scores, checks, and accounting."
+        >
+          <div className="compact-list">
+            {tradingAdvisories.slice(0, 6).map((advisory) => (
+              <article className="compact-card" key={advisory.advisory_id}>
+                <div className="compact-row-heading">
+                  <strong>{advisory.ticker ?? "Portfolio"}</strong>
+                  <AdvisoryPill label={advisory.analyst_action ?? "watch"} />
+                </div>
+                <p>{advisory.advisory_summary ?? "No advisory summary."}</p>
+                <div className="wave2-invalidation">
+                  <strong>Invalidation</strong>
+                  <span>
+                    {payloadText(
+                      advisory.payload,
+                      "invalidation_condition",
+                      "Invalidation not yet defined",
+                    )}
+                  </span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </SectionCard>
+
         <SectionCard
           eyebrow="Evidence And Audit Trace"
           title="Evidence and audit access"
-          subtitle="Raw identifiers are intentionally behind progressive disclosure."
+          subtitle="Raw IDs and source details are behind progressive disclosure."
           badge={<StatusChip label="Advisory-only" tone="neutral" />}
         >
-          <EvidenceDrawer ids={allEvidenceIds} />
+          <EvidenceDrawer
+            ids={allEvidenceIds}
+            links={allSourceLinks}
+            refs={[
+              ...sourceSignals.flatMap((item) => item.evidence_refs ?? []),
+              ...marketEvents.flatMap((item) => item.evidence_refs ?? []),
+              ...advisoryUpdates.flatMap((item) => item.evidence_refs ?? []),
+            ]}
+          />
         </SectionCard>
       </AppShell>
     </div>

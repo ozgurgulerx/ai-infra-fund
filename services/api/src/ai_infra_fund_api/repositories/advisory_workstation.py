@@ -57,6 +57,22 @@ DISPLAY_COLLECTION_KEYS = (
     "documents",
     "records",
 )
+SOURCE_LINK_URL_KEYS = (
+    "source_url",
+    "source_uri",
+    "url",
+    "link",
+    "article_url",
+    "canonical_url",
+)
+SOURCE_LINK_TITLE_KEYS = (
+    "source_title",
+    "title",
+    "headline",
+    "article_title",
+    "publisher",
+    "source",
+)
 RAW_PROVIDER_MARKERS = (
     '"articles"',
     '\\"articles\\"',
@@ -200,6 +216,34 @@ LIMIT %s;
 """
 
 
+LATEST_ADVISORY_UPDATES_SQL = """
+SELECT
+    update_id,
+    ticker,
+    company,
+    previous_advisory_id,
+    new_advisory_id,
+    previous_label,
+    current_label,
+    what_changed,
+    update_type,
+    thesis_change_direction,
+    risk_change_direction,
+    valuation_change_direction,
+    confidence_change,
+    time_horizon,
+    evidence_ids,
+    model_run_ids,
+    deterministic_check_ids,
+    advisory_label,
+    payload_json,
+    created_at
+FROM analyst.advisory_updates
+ORDER BY created_at DESC, update_id ASC
+LIMIT %s;
+"""
+
+
 LATEST_BRIEF_SQL = """
 SELECT
     brief_id,
@@ -286,6 +330,11 @@ LIMIT %s;
 TICKER_TRADING_ADVISORY_SQL = LATEST_TRADING_ADVISORY_SQL.replace(
     "ORDER BY created_at DESC, advisory_id ASC",
     "WHERE UPPER(ticker) = UPPER(%s) ORDER BY created_at DESC, advisory_id ASC",
+)
+
+TICKER_ADVISORY_UPDATES_SQL = LATEST_ADVISORY_UPDATES_SQL.replace(
+    "ORDER BY created_at DESC, update_id ASC",
+    "WHERE UPPER(ticker) = UPPER(%s) ORDER BY created_at DESC, update_id ASC",
 )
 
 TICKER_SEGMENT_IMPACTS_SQL = LATEST_SEGMENT_IMPACTS_SQL.replace(
@@ -415,6 +464,37 @@ class AdvisoryWorkstationRepository:
             "items": [_trading_advisory_payload(row) for row in rows],
         }
 
+    def get_latest_advisory_updates(self, limit: int = 20) -> dict[str, object]:
+        rows = self._fetch_many(LATEST_ADVISORY_UPDATES_SQL, (_limit(limit),))
+        return {
+            "status": _status(rows),
+            "advisory_label": "advisory_only",
+            "items": [_advisory_update_payload(row) for row in rows],
+        }
+
+    def get_latest_watchlist_ratings(self, limit: int = 50) -> dict[str, object]:
+        advisories = [
+            _trading_advisory_payload(row)
+            for row in self._fetch_many(LATEST_TRADING_ADVISORY_SQL, (_limit(limit),))
+        ]
+        updates = [
+            _advisory_update_payload(row)
+            for row in self._fetch_many(LATEST_ADVISORY_UPDATES_SQL, (_limit(limit),))
+        ]
+        assessments = [
+            _equity_assessment_payload(row)
+            for row in self._fetch_many(LATEST_EQUITY_ASSESSMENTS_SQL, (_limit(limit),))
+        ]
+        return {
+            "status": _status(advisories or updates or assessments),
+            "advisory_label": "advisory_only",
+            "items": _watchlist_rating_rows(
+                advisories=advisories,
+                updates=updates,
+                assessments=assessments,
+            ),
+        }
+
     def get_latest_analyst_brief(self) -> dict[str, object]:
         brief = self._fetch_one(LATEST_BRIEF_SQL)
         if not brief:
@@ -475,6 +555,7 @@ class AdvisoryWorkstationRepository:
             if trading_advisory_ids
             else []
         )
+        advisory_updates = self._fetch_many(LATEST_ADVISORY_UPDATES_SQL, (20,))
 
         return {
             "status": "available",
@@ -494,6 +575,9 @@ class AdvisoryWorkstationRepository:
             ],
             "trading_advisories": [
                 _trading_advisory_payload(row) for row in trading_advisories
+            ],
+            "advisory_updates": [
+                _advisory_update_payload(row) for row in advisory_updates
             ],
         }
 
@@ -548,7 +632,10 @@ class AdvisoryWorkstationRepository:
         advisories = self._fetch_many(
             TICKER_TRADING_ADVISORY_SQL, (normalized, 10)
         )
-        sections = source_signals + market_events + assessments + valuation_contexts + advisories
+        advisory_updates = self._fetch_many(
+            TICKER_ADVISORY_UPDATES_SQL, (normalized, 10)
+        )
+        sections = source_signals + market_events + assessments + valuation_contexts + advisories + advisory_updates
         return {
             "status": _status(sections),
             "ticker": normalized,
@@ -563,6 +650,9 @@ class AdvisoryWorkstationRepository:
             ],
             "trading_advisories": [
                 _trading_advisory_payload(row) for row in advisories
+            ],
+            "advisory_updates": [
+                _advisory_update_payload(row) for row in advisory_updates
             ],
         }
 
@@ -588,6 +678,9 @@ class AdvisoryWorkstationRepository:
         )
         advisories = self._fetch_many(
             TICKER_TRADING_ADVISORY_SQL, (normalized, 10)
+        )
+        advisory_updates = self._fetch_many(
+            TICKER_ADVISORY_UPDATES_SQL, (normalized, 10)
         )
         trade_plans = self._fetch_many(TICKER_TRADE_PLAN_SQL, (normalized, 10))
         risk_regime_updates = self._fetch_many(
@@ -627,6 +720,9 @@ class AdvisoryWorkstationRepository:
             _valuation_context_payload(row) for row in valuation_contexts
         ]
         advisory_payloads = [_trading_advisory_payload(row) for row in advisories]
+        advisory_update_payloads = [
+            _advisory_update_payload(row) for row in advisory_updates
+        ]
         trade_plan_payloads = [_trade_plan_payload(row) for row in trade_plans]
         risk_payloads = [_risk_regime_payload(row) for row in risk_regime_updates]
         llm_note_payloads = [_llm_note_payload(row) for row in llm_notes]
@@ -637,6 +733,7 @@ class AdvisoryWorkstationRepository:
             + assessments
             + valuation_contexts
             + advisories
+            + advisory_updates
             + trade_plans
             + risk_regime_updates
             + llm_notes
@@ -651,6 +748,7 @@ class AdvisoryWorkstationRepository:
             "equity_impact_assessments": assessment_payloads,
             "valuation_contexts": valuation_payloads,
             "trading_advisories": advisory_payloads,
+            "advisory_updates": advisory_update_payloads,
             "trade_plans": trade_plan_payloads,
             "risk_regime_updates": risk_payloads,
             "llm_analyst_notes": llm_note_payloads,
@@ -698,6 +796,7 @@ class AdvisoryWorkstationRepository:
 
 def _source_signal_payload(row: Mapping[str, object]) -> dict[str, object]:
     payload = _json_value(row.get("payload_json"))
+    evidence_ids = _text_list(row.get("evidence_ids"))
     title = _source_display_text_or_none(
         row.get("title"),
         payload=payload,
@@ -719,7 +818,9 @@ def _source_signal_payload(row: Mapping[str, object]) -> dict[str, object]:
         "available_at": _iso_or_none(row.get("available_at")),
         "tickers": _text_list(row.get("tickers")),
         "themes": _text_list(row.get("themes")),
-        "evidence_ids": _text_list(row.get("evidence_ids")),
+        "evidence_ids": evidence_ids,
+        "evidence_refs": _evidence_refs(evidence_ids, payload=payload),
+        "source_links": _source_links(payload, evidence_ids=evidence_ids),
         "derived_market_event_ids": _text_list(row.get("derived_market_event_ids")),
         "confidence": row.get("confidence"),
         "review_status": row.get("review_status"),
@@ -729,6 +830,7 @@ def _source_signal_payload(row: Mapping[str, object]) -> dict[str, object]:
 
 def _market_event_payload(row: Mapping[str, object]) -> dict[str, object]:
     payload = _json_value(row.get("payload_json"))
+    evidence_ids = _text_list(row.get("evidence_ids"))
     catalyst = _source_display_text_or_none(
         row.get("catalyst"),
         payload=payload,
@@ -745,8 +847,10 @@ def _market_event_payload(row: Mapping[str, object]) -> dict[str, object]:
         "event_id": row.get("event_id"),
         "event_type": row.get("event_type"),
         "source_signal_ids": _text_list(row.get("source_signal_ids")),
-        "evidence_ids": _text_list(row.get("evidence_ids")),
-        "source_evidence_ids": _text_list(row.get("evidence_ids")),
+        "evidence_ids": evidence_ids,
+        "source_evidence_ids": evidence_ids,
+        "evidence_refs": _evidence_refs(evidence_ids, payload=payload),
+        "source_links": _source_links(payload, evidence_ids=evidence_ids),
         "tickers": _text_list(row.get("tickers")),
         "companies": _text_list(row.get("companies")),
         "themes": _text_list(row.get("themes")),
@@ -766,6 +870,8 @@ def _market_event_payload(row: Mapping[str, object]) -> dict[str, object]:
 
 
 def _segment_impact_payload(row: Mapping[str, object]) -> dict[str, object]:
+    payload = _json_value(row.get("payload_json"))
+    evidence_ids = _text_list(row.get("evidence_ids"))
     return {
         "segment_id": row.get("segment_id"),
         "segment_name": row.get("segment_name"),
@@ -774,12 +880,17 @@ def _segment_impact_payload(row: Mapping[str, object]) -> dict[str, object]:
         "linked_event_ids": _text_list(row.get("linked_event_ids")),
         "impact_direction": row.get("impact_direction"),
         "impact_summary": row.get("impact_summary"),
-        "evidence_ids": _text_list(row.get("evidence_ids")),
-        "payload": _json_value(row.get("payload_json")),
+        "evidence_ids": evidence_ids,
+        "evidence_refs": _evidence_refs(evidence_ids, payload=payload),
+        "source_links": _source_links(payload, evidence_ids=evidence_ids),
+        "proof_points": _proof_points(payload, evidence_ids=evidence_ids),
+        "payload": payload,
     }
 
 
 def _equity_assessment_payload(row: Mapping[str, object]) -> dict[str, object]:
+    payload = _json_value(row.get("payload_json"))
+    evidence_ids = _text_list(row.get("evidence_ids"))
     return {
         "assessment_id": row.get("assessment_id"),
         "ticker": row.get("ticker"),
@@ -790,12 +901,16 @@ def _equity_assessment_payload(row: Mapping[str, object]) -> dict[str, object]:
         "advisory_implication": row.get("advisory_implication"),
         "risk_flags": _text_list(row.get("risk_flags")),
         "invalidation": row.get("invalidation"),
-        "evidence_ids": _text_list(row.get("evidence_ids")),
-        "payload": _json_value(row.get("payload_json")),
+        "evidence_ids": evidence_ids,
+        "evidence_refs": _evidence_refs(evidence_ids, payload=payload),
+        "source_links": _source_links(payload, evidence_ids=evidence_ids),
+        "payload": payload,
     }
 
 
 def _valuation_context_payload(row: Mapping[str, object]) -> dict[str, object]:
+    payload = _json_value(row.get("payload_json"))
+    evidence_ids = _text_list(row.get("evidence_ids"))
     return {
         "valuation_context_id": row.get("valuation_context_id"),
         "ticker": row.get("ticker"),
@@ -804,12 +919,16 @@ def _valuation_context_payload(row: Mapping[str, object]) -> dict[str, object]:
         "ev_sales": row.get("ev_sales"),
         "assumptions": _text_list(row.get("assumptions")),
         "risk_flags": _text_list(row.get("risk_flags")),
-        "evidence_ids": _text_list(row.get("evidence_ids")),
-        "payload": _json_value(row.get("payload_json")),
+        "evidence_ids": evidence_ids,
+        "evidence_refs": _evidence_refs(evidence_ids, payload=payload),
+        "source_links": _source_links(payload, evidence_ids=evidence_ids),
+        "payload": payload,
     }
 
 
 def _risk_regime_payload(row: Mapping[str, object]) -> dict[str, object]:
+    payload = _json_value(row.get("payload_json"))
+    evidence_ids = _text_list(row.get("evidence_ids"))
     return {
         "regime_id": row.get("regime_id"),
         "risk_type": row.get("risk_type"),
@@ -819,18 +938,22 @@ def _risk_regime_payload(row: Mapping[str, object]) -> dict[str, object]:
         "linked_event_ids": _text_list(row.get("linked_event_ids")),
         "affected_segments": _text_list(row.get("affected_segments")),
         "affected_tickers": _text_list(row.get("affected_tickers")),
-        "evidence_ids": _text_list(row.get("evidence_ids")),
+        "evidence_ids": evidence_ids,
+        "evidence_refs": _evidence_refs(evidence_ids, payload=payload),
+        "source_links": _source_links(payload, evidence_ids=evidence_ids),
         "summary": row.get("summary"),
         "portfolio_monitoring_note": row.get("portfolio_monitoring_note"),
         "relief_condition": row.get("relief_condition"),
         "invalidation_condition": row.get("invalidation_condition"),
         "as_of": _iso_or_none(row.get("as_of")),
         "available_at": _iso_or_none(row.get("available_at")),
-        "payload": _json_value(row.get("payload_json")),
+        "payload": payload,
     }
 
 
 def _trading_advisory_payload(row: Mapping[str, object]) -> dict[str, object]:
+    payload = _json_value(row.get("payload_json"))
+    evidence_ids = _text_list(row.get("evidence_ids"))
     return {
         "advisory_id": row.get("advisory_id"),
         "recommendation_artifact_id": row.get("recommendation_artifact_id"),
@@ -838,13 +961,44 @@ def _trading_advisory_payload(row: Mapping[str, object]) -> dict[str, object]:
         "advisory_label": row.get("advisory_label"),
         "analyst_action": row.get("analyst_action"),
         "advisory_summary": row.get("advisory_summary"),
-        "evidence_ids": _text_list(row.get("evidence_ids")),
+        "evidence_ids": evidence_ids,
+        "evidence_refs": _evidence_refs(evidence_ids, payload=payload),
+        "source_links": _source_links(payload, evidence_ids=evidence_ids),
         "model_run_ids": _text_list(row.get("model_run_ids")),
         "signal_bundle_id": row.get("signal_bundle_id"),
         "target_weights_id": row.get("target_weights_id"),
         "deterministic_checks": _text_list(row.get("deterministic_checks")),
         "linked_trade_plan_id": row.get("linked_trade_plan_id"),
-        "payload": _json_value(row.get("payload_json")),
+        "payload": payload,
+    }
+
+
+def _advisory_update_payload(row: Mapping[str, object]) -> dict[str, object]:
+    payload = _json_value(row.get("payload_json"))
+    evidence_ids = _text_list(row.get("evidence_ids"))
+    return {
+        "update_id": row.get("update_id"),
+        "ticker": row.get("ticker"),
+        "company": row.get("company"),
+        "previous_advisory_id": row.get("previous_advisory_id"),
+        "new_advisory_id": row.get("new_advisory_id"),
+        "previous_label": row.get("previous_label"),
+        "current_label": row.get("current_label"),
+        "what_changed": row.get("what_changed"),
+        "update_type": row.get("update_type"),
+        "thesis_change_direction": row.get("thesis_change_direction"),
+        "risk_change_direction": row.get("risk_change_direction"),
+        "valuation_change_direction": row.get("valuation_change_direction"),
+        "confidence_change": row.get("confidence_change"),
+        "time_horizon": row.get("time_horizon"),
+        "evidence_ids": evidence_ids,
+        "evidence_refs": _evidence_refs(evidence_ids, payload=payload),
+        "source_links": _source_links(payload, evidence_ids=evidence_ids),
+        "model_run_ids": _text_list(row.get("model_run_ids")),
+        "deterministic_check_ids": _text_list(row.get("deterministic_check_ids")),
+        "advisory_label": row.get("advisory_label") or "advisory_only",
+        "created_at": _iso_or_none(row.get("created_at")),
+        "payload": payload,
     }
 
 
@@ -864,6 +1018,8 @@ def _brief_payload(row: Mapping[str, object]) -> dict[str, object]:
 
 
 def _trade_plan_payload(row: Mapping[str, object]) -> dict[str, object]:
+    payload = _json_value(row.get("payload_json"))
+    evidence_ids = _text_list(row.get("evidence_ids"))
     return {
         "trade_plan_id": row.get("trade_plan_id"),
         "ticker": row.get("ticker"),
@@ -880,10 +1036,12 @@ def _trade_plan_payload(row: Mapping[str, object]) -> dict[str, object]:
         "readiness": row.get("readiness"),
         "blocking_reasons": _text_list(row.get("blocking_reasons")),
         "manual_journal_only": _bool(row.get("manual_journal_only")),
-        "evidence_ids": _text_list(row.get("evidence_ids")),
+        "evidence_ids": evidence_ids,
+        "evidence_refs": _evidence_refs(evidence_ids, payload=payload),
+        "source_links": _source_links(payload, evidence_ids=evidence_ids),
         "linked_advisory_id": row.get("linked_advisory_id"),
         "last_reviewed_at": _iso_or_none(row.get("last_reviewed_at")),
-        "payload": _json_value(row.get("payload_json")),
+        "payload": payload,
     }
 
 
@@ -909,21 +1067,216 @@ def _portfolio_exposure_payload(row: Mapping[str, object]) -> dict[str, object]:
 
 
 def _llm_note_payload(row: Mapping[str, object]) -> dict[str, object]:
+    payload = _json_value(row.get("payload_json"))
+    evidence_ids = _text_list(row.get("evidence_ids"))
     return {
         "note_id": row.get("note_id"),
         "model_run_id": row.get("model_run_id"),
         "scope": row.get("scope"),
         "allowed_role": row.get("allowed_role"),
         "reviewed_object_ids": _text_list(row.get("reviewed_object_ids")),
-        "evidence_ids": _text_list(row.get("evidence_ids")),
+        "evidence_ids": evidence_ids,
+        "evidence_refs": _evidence_refs(evidence_ids, payload=payload),
+        "source_links": _source_links(payload, evidence_ids=evidence_ids),
         "note": row.get("note"),
         "deterministic_fields_not_modified": _text_list(
             row.get("deterministic_fields_not_modified")
         ),
         "created_at": _iso_or_none(row.get("created_at")),
         "review_status": row.get("review_status"),
-        "payload": _json_value(row.get("payload_json")),
+        "payload": payload,
     }
+
+
+def _watchlist_rating_rows(
+    *,
+    advisories: Sequence[Mapping[str, object]],
+    updates: Sequence[Mapping[str, object]],
+    assessments: Sequence[Mapping[str, object]],
+) -> list[dict[str, object]]:
+    by_ticker: dict[str, dict[str, object]] = {}
+    for advisory in advisories:
+        ticker = str(advisory.get("ticker") or "").upper()
+        if not ticker:
+            continue
+        by_ticker[ticker] = {
+            "ticker": ticker,
+            "company": None,
+            "current_label": advisory.get("analyst_action") or "review",
+            "previous_label": None,
+            "outlook_delta": "no published delta",
+            "risk_delta": "review_needed",
+            "valuation_delta": "review_needed",
+            "confidence_delta": "review_needed",
+            "latest_change": advisory.get("advisory_summary"),
+            "freshness": "current",
+            "source_advisory_id": advisory.get("advisory_id"),
+            "source_update_id": None,
+            "evidence_ids": _text_list(advisory.get("evidence_ids")),
+            "evidence_refs": advisory.get("evidence_refs") or [],
+            "source_links": advisory.get("source_links") or [],
+            "advisory_only": True,
+        }
+    for assessment in assessments:
+        ticker = str(assessment.get("ticker") or "").upper()
+        if not ticker:
+            continue
+        row = dict(by_ticker.get(ticker, {"ticker": ticker, "advisory_only": True}))
+        row.setdefault("company", assessment.get("company"))
+        row.setdefault("current_label", assessment.get("advisory_implication") or "review")
+        row.setdefault("latest_change", assessment.get("assessment"))
+        row.setdefault("freshness", "assessment_available")
+        row.setdefault("source_advisory_id", None)
+        row.setdefault("source_update_id", None)
+        row["risk_flags"] = _text_list(assessment.get("risk_flags"))
+        row["invalidation"] = assessment.get("invalidation")
+        row["evidence_ids"] = _unique_texts(
+            _text_list(row.get("evidence_ids")) + _text_list(assessment.get("evidence_ids"))
+        )
+        row["evidence_refs"] = list(row.get("evidence_refs") or []) + list(
+            assessment.get("evidence_refs") or []
+        )
+        row["source_links"] = list(row.get("source_links") or []) + list(
+            assessment.get("source_links") or []
+        )
+        by_ticker[ticker] = row
+    for update in updates:
+        ticker = str(update.get("ticker") or "").upper()
+        if not ticker:
+            continue
+        row = dict(by_ticker.get(ticker, {"ticker": ticker, "advisory_only": True}))
+        row.update(
+            {
+                "company": row.get("company") or update.get("company"),
+                "current_label": update.get("current_label") or row.get("current_label") or "review",
+                "previous_label": update.get("previous_label"),
+                "outlook_delta": update.get("thesis_change_direction"),
+                "risk_delta": update.get("risk_change_direction"),
+                "valuation_delta": update.get("valuation_change_direction"),
+                "confidence_delta": update.get("confidence_change"),
+                "latest_change": update.get("what_changed"),
+                "freshness": update.get("created_at"),
+                "source_update_id": update.get("update_id"),
+                "evidence_ids": _unique_texts(
+                    _text_list(row.get("evidence_ids")) + _text_list(update.get("evidence_ids"))
+                ),
+                "evidence_refs": list(row.get("evidence_refs") or [])
+                + list(update.get("evidence_refs") or []),
+                "source_links": list(row.get("source_links") or [])
+                + list(update.get("source_links") or []),
+            }
+        )
+        by_ticker[ticker] = row
+    return sorted(by_ticker.values(), key=lambda item: str(item.get("ticker") or ""))
+
+
+def _evidence_refs(
+    evidence_ids: Sequence[str],
+    *,
+    payload: object = None,
+) -> list[dict[str, object]]:
+    payload_mapping = payload if isinstance(payload, Mapping) else {}
+    title = _source_display_text_or_none(
+        payload_mapping,
+        preferred_keys=SOURCE_LINK_TITLE_KEYS,
+    )
+    summary = _source_display_text_or_none(
+        payload_mapping,
+        preferred_keys=DISPLAY_SUMMARY_KEYS,
+    )
+    return [
+        {
+            "evidence_id": evidence_id,
+            "title": title,
+            "summary": summary,
+            "source_links": _source_links(payload_mapping, evidence_ids=[evidence_id]),
+        }
+        for evidence_id in evidence_ids
+    ]
+
+
+def _source_links(
+    payload: object,
+    *,
+    evidence_ids: Sequence[str],
+) -> list[dict[str, object]]:
+    links: list[dict[str, object]] = []
+    for url in _source_urls(payload):
+        links.append(
+            {
+                "url": url,
+                "label": _source_link_label(payload),
+                "evidence_ids": list(evidence_ids),
+            }
+        )
+    return _dedupe_links(links)
+
+
+def _source_urls(value: object) -> list[str]:
+    urls: list[str] = []
+    if isinstance(value, Mapping):
+        for key, child in value.items():
+            if key in SOURCE_LINK_URL_KEYS and isinstance(child, str):
+                normalized = child.strip()
+                if normalized.startswith(("http://", "https://")):
+                    urls.append(normalized)
+            elif isinstance(child, Mapping) or (
+                isinstance(child, Sequence) and not isinstance(child, str)
+            ):
+                urls.extend(_source_urls(child))
+    elif isinstance(value, Sequence) and not isinstance(value, str):
+        for item in value:
+            urls.extend(_source_urls(item))
+    return _unique_texts(urls)
+
+
+def _source_link_label(payload: object) -> str:
+    label = _source_display_text_or_none(
+        payload,
+        preferred_keys=SOURCE_LINK_TITLE_KEYS,
+    )
+    return label or "Source document"
+
+
+def _dedupe_links(links: Sequence[Mapping[str, object]]) -> list[dict[str, object]]:
+    seen: set[str] = set()
+    result: list[dict[str, object]] = []
+    for link in links:
+        url = str(link.get("url") or "")
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        result.append(dict(link))
+    return result
+
+
+def _proof_points(payload: object, *, evidence_ids: Sequence[str]) -> list[dict[str, object]]:
+    if not isinstance(payload, Mapping):
+        return []
+    raw_points = (
+        payload.get("proof_points")
+        or payload.get("supporting_claims")
+        or payload.get("key_evidence")
+        or []
+    )
+    points = raw_points if isinstance(raw_points, Sequence) and not isinstance(raw_points, str) else []
+    result: list[dict[str, object]] = []
+    for index, point in enumerate(points):
+        if isinstance(point, Mapping):
+            text = _source_display_text_or_none(point, preferred_keys=DISPLAY_SUMMARY_KEYS)
+            point_evidence = _text_list(point.get("evidence_ids")) or list(evidence_ids)
+        else:
+            text = _source_display_text_or_none(point, preferred_keys=DISPLAY_SUMMARY_KEYS)
+            point_evidence = list(evidence_ids)
+        if text:
+            result.append(
+                {
+                    "proof_point_id": f"proof-{index + 1}",
+                    "summary": text,
+                    "evidence_ids": point_evidence,
+                }
+            )
+    return result
 
 
 def _ticker_theme_groups(

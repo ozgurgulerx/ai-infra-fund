@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 import os
 from pathlib import Path
@@ -55,6 +55,7 @@ def seed_watchlist(
 
     watched_records = build_watched_equity_records(watchlist, now=now)
     skipped_sources: tuple[tuple[str, str], ...] = ()
+    source_plan = None
 
     if source_registry_path is not None and source_registry_path.exists():
         registry = load_source_registry(source_registry_path)
@@ -89,6 +90,14 @@ def seed_watchlist(
         repository.upsert_frontier_url(record)
     for record in queue_records:
         repository.upsert_crawl_queue_item(record)
+    if source_plan is not None:
+        repository.sync_source_registry_scope(
+            current_source_ids=source_plan.current_source_ids,
+            active_source_ids=source_plan.active_source_ids,
+            current_frontier_keys=source_plan.current_frontier_keys,
+            now=now,
+            parked_until=now + timedelta(days=3650),
+        )
 
     return SeedReport(
         watched_equities=len(watched_records),

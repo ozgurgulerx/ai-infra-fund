@@ -29,10 +29,10 @@ sources:
       - https://nvidianews.nvidia.com/news
 
   - source_id: source_tsmc_ir_monthly_revenue
-    source_name: TSMC IR Monthly Revenue
+    source_name: Taiwan MOPS Company Filings
     tier: tier_0_primary
     source_kind: earnings_releases
-    base_url: https://investor.tsmc.com
+    base_url: https://mops.twse.com.tw
     license_label: public
     data_class: public_evidence
     trust_weight: 0.96
@@ -40,7 +40,127 @@ sources:
     fanout: static
     ticker_allowlist: [TSM]
     url_templates:
-      - https://investor.tsmc.com/english/monthly-revenue
+      - https://mops.twse.com.tw/mops/web/index
+
+  - source_id: source_asml_investor_relations
+    source_name: ASML Investor Relations
+    tier: tier_0_primary
+    source_kind: semiconductor_equipment_company_disclosures
+    base_url: https://www.asml.com
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.95
+    refresh_interval_minutes: 720
+    fanout: static
+    ticker_allowlist: [ASML]
+    themes: [lithography, semiconductor_equipment, compute_supply_chain]
+    url_templates:
+      - https://www.asml.com/en/investors
+
+  - source_id: source_micron_quarterly_results
+    source_name: Micron Quarterly Results
+    tier: tier_0_primary
+    source_kind: earnings_releases
+    base_url: https://investors.micron.com
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.94
+    refresh_interval_minutes: 720
+    fanout: static
+    ticker_allowlist: [MU]
+    themes: [hbm_memory, compute_supply_chain, ai_accelerators]
+    url_templates:
+      - https://investors.micron.com/quarterly-results
+
+  - source_id: source_nvidia_developer_blog
+    source_name: NVIDIA Developer Blog
+    tier: tier_0_primary
+    source_kind: technical_docs
+    base_url: https://developer.nvidia.com
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.94
+    refresh_interval_minutes: 720
+    fanout: static
+    ticker_allowlist: [NVDA]
+    themes: [ai_accelerators, software_ecosystem, technical_direction]
+    url_templates:
+      - https://developer.nvidia.com/blog/
+
+  - source_id: source_amd_press_releases
+    source_name: AMD Press Releases
+    tier: tier_0_primary
+    source_kind: company_investor_relations
+    base_url: https://ir.amd.com
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.94
+    refresh_interval_minutes: 720
+    fanout: static
+    ticker_allowlist: [AMD]
+    themes: [ai_accelerators, datacenter_cpu, compute_supply_chain]
+    url_templates:
+      - https://ir.amd.com/news-events/press-releases
+
+  - source_id: source_arista_news
+    source_name: Arista News
+    tier: tier_0_primary
+    source_kind: company_investor_relations
+    base_url: https://www.arista.com
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.92
+    refresh_interval_minutes: 720
+    fanout: static
+    ticker_allowlist: [ANET]
+    themes: [networking_interconnect, ai_datacenter_networking]
+    url_templates:
+      - https://www.arista.com/en/company/news
+
+  - source_id: source_marvell_press_releases
+    source_name: Marvell Press Releases
+    tier: tier_0_primary
+    source_kind: company_investor_relations
+    base_url: https://investor.marvell.com
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.92
+    refresh_interval_minutes: 720
+    fanout: static
+    ticker_allowlist: [MRVL]
+    themes: [custom_silicon, networking_interconnect, optical_connectivity]
+    url_templates:
+      - https://investor.marvell.com/news-events/press-releases
+
+  - source_id: source_broadcom_product_releases
+    source_name: Broadcom Product Releases
+    tier: tier_0_primary
+    source_kind: company_product_updates
+    base_url: https://www.broadcom.com
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.92
+    refresh_interval_minutes: 720
+    fanout: static
+    ticker_allowlist: [AVGO]
+    themes: [custom_silicon, networking_interconnect, ai_accelerators]
+    url_templates:
+      - https://www.broadcom.com/company/news/product-releases
+
+  - source_id: source_supermicro_newsroom
+    source_name: Supermicro Newsroom
+    tier: tier_0_primary
+    source_kind: company_product_updates
+    base_url: https://www.supermicro.com
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.90
+    refresh_interval_minutes: 720
+    fanout: static
+    ticker_allowlist: [SMCI]
+    themes: [datacenter_servers, liquid_cooling, ai_infrastructure_supply]
+    url_templates:
+      - https://www.supermicro.com/en/newsroom
 
   - source_id: source_eia_electricity
     source_name: EIA Electricity Data
@@ -82,11 +202,14 @@ sources:
     license_label: public_metadata_only
     data_class: public_evidence
     trust_weight: 0.90
-    refresh_interval_minutes: 720
+    refresh_interval_minutes: 10080
     metadata_only: true
-    fanout: ticker
+    crawl_enabled: false
+    disabled_reason: rate_limited_deferred
+    fanout: static
+    ticker_allowlist: [NVDA]
     url_templates:
-      - https://semianalysis.com/?s={ticker}
+      - https://semianalysis.com/feed/
 
   - source_id: source_semiconductor_engineering
     source_name: Semiconductor Engineering
@@ -114,6 +237,21 @@ sources:
     url_templates:
       - https://semiwiki.com/?s={ticker}
 
+  - source_id: source_situational_awareness
+    source_name: Situational Awareness
+    tier: tier_1_specialist
+    source_kind: ai_model_progress
+    base_url: https://situational-awareness.ai
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.86
+    refresh_interval_minutes: 10080
+    fanout: static
+    ticker_allowlist: [NVDA]
+    themes: [ai_model_progress, frontier_ai, ai_infrastructure_demand]
+    url_templates:
+      - https://situational-awareness.ai/
+
   - source_id: source_datacenter_dynamics
     source_name: Data Center Dynamics
     tier: tier_1_specialist
@@ -137,9 +275,70 @@ sources:
     data_class: public_evidence
     trust_weight: 0.82
     refresh_interval_minutes: 720
-    fanout: ticker
+    fanout: static
+    ticker_allowlist: [NVDA]
     url_templates:
-      - https://www.datacenterknowledge.com/search?q={ticker}
+      - https://www.datacenterknowledge.com/sitemap.xml
+
+  - source_id: source_next_platform_rss
+    source_name: The Next Platform RSS
+    tier: tier_1_specialist
+    source_kind: ai_infrastructure_industry_news
+    base_url: https://www.nextplatform.com
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.84
+    refresh_interval_minutes: 720
+    fanout: static
+    ticker_allowlist: [NVDA]
+    themes: [ai_accelerators, datacenter_infrastructure, compute_supply_chain]
+    url_templates:
+      - https://www.nextplatform.com/feed/
+
+  - source_id: source_serve_the_home_rss
+    source_name: ServeTheHome RSS
+    tier: tier_1_specialist
+    source_kind: datacenter_hardware_news
+    base_url: https://www.servethehome.com
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.82
+    refresh_interval_minutes: 720
+    fanout: static
+    ticker_allowlist: [NVDA]
+    themes: [datacenter_servers, networking_interconnect, ai_infrastructure_supply]
+    url_templates:
+      - https://www.servethehome.com/feed/
+
+  - source_id: source_chips_and_cheese_rss
+    source_name: Chips and Cheese RSS
+    tier: tier_1_specialist
+    source_kind: semiconductor_architecture_analysis
+    base_url: https://chipsandcheese.com
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.82
+    refresh_interval_minutes: 1440
+    fanout: static
+    ticker_allowlist: [NVDA]
+    themes: [semiconductor_architecture, ai_accelerators, datacenter_cpu]
+    url_templates:
+      - https://chipsandcheese.com/feed/
+
+  - source_id: source_blocks_and_files_rss
+    source_name: Blocks and Files RSS
+    tier: tier_1_specialist
+    source_kind: storage_datacenter_news
+    base_url: https://www.blocksandfiles.com
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.78
+    refresh_interval_minutes: 720
+    fanout: static
+    ticker_allowlist: [NVDA]
+    themes: [storage_infrastructure, datacenter_infrastructure]
+    url_templates:
+      - https://www.blocksandfiles.com/feed/
 
   - source_id: source_ieee_spectrum_ai_energy
     source_name: IEEE Spectrum AI/Energy/Computing
@@ -197,6 +396,203 @@ sources:
     url_templates:
       - https://metr.org/blog/
 
+  - source_id: source_arxiv_ai_recent
+    source_name: arXiv AI Recent
+    tier: tier_1_specialist
+    source_kind: ai_model_progress
+    base_url: https://arxiv.org
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.78
+    refresh_interval_minutes: 1440
+    fanout: static
+    ticker_allowlist: [NVDA]
+    themes: [ai_model_progress, research_velocity]
+    url_templates:
+      - https://arxiv.org/list/cs.AI/recent
+
+  - source_id: source_wipo_ai_trends
+    source_name: WIPO Technology Trends AI
+    tier: tier_1_specialist
+    source_kind: patents_technical_direction
+    base_url: https://www.wipo.int
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.82
+    refresh_interval_minutes: 10080
+    fanout: static
+    ticker_allowlist: [NVDA]
+    themes: [ai_model_progress, patent_activity, technical_direction]
+    url_templates:
+      - https://www.wipo.int/en/web/technology-trends/artificial_intelligence/index
+
+  - source_id: source_papers_with_code
+    source_name: Papers with Code
+    tier: tier_1_specialist
+    source_kind: ai_model_progress
+    base_url: https://paperswithcode.com
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.74
+    refresh_interval_minutes: 1440
+    fanout: static
+    ticker_allowlist: [NVDA]
+    themes: [ai_model_progress, research_velocity, model_benchmarks]
+    url_templates:
+      - https://paperswithcode.com/
+
+  - source_id: source_federal_register_bis_api
+    source_name: Federal Register BIS Documents API
+    tier: tier_0_primary
+    source_kind: export_controls_policy
+    base_url: https://www.federalregister.gov
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.94
+    refresh_interval_minutes: 720
+    fanout: static
+    ticker_allowlist: [NVDA]
+    themes: [export_controls, national_security_policy, semiconductor_supply_chain]
+    url_templates:
+      - https://www.federalregister.gov/api/v1/documents.json?conditions%5Bagencies%5D%5B%5D=industry-and-security-bureau&per_page=20&order=newest
+
+  - source_id: source_bis_news_updates
+    source_name: BIS News and Updates
+    tier: tier_0_primary
+    source_kind: export_controls_policy
+    base_url: https://media.bis.gov
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.92
+    refresh_interval_minutes: 720
+    fanout: static
+    ticker_allowlist: [NVDA]
+    themes: [export_controls, national_security_policy, semiconductor_supply_chain]
+    url_templates:
+      - https://media.bis.gov/news-updates
+
+  - source_id: source_chips_for_america
+    source_name: CHIPS for America
+    tier: tier_0_primary
+    source_kind: industrial_policy
+    base_url: https://www.nist.gov
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.92
+    refresh_interval_minutes: 1440
+    fanout: static
+    ticker_allowlist: [INTC]
+    themes: [chips_act, semiconductor_capacity, industrial_policy]
+    url_templates:
+      - https://www.nist.gov/chips
+
+  - source_id: source_us_treasury_interest_rates
+    source_name: U.S. Treasury Interest Rate Statistics
+    tier: tier_0_primary
+    source_kind: macro_rates_liquidity_commentary
+    base_url: https://home.treasury.gov
+    license_label: public
+    data_class: public_market_data
+    trust_weight: 0.94
+    refresh_interval_minutes: 1440
+    fanout: static
+    ticker_allowlist: [NVDA]
+    themes: [rates, liquidity, valuation_pressure]
+    url_templates:
+      - https://home.treasury.gov/policy-issues/financing-the-government/interest-rate-statistics
+
+  - source_id: source_iea_data_statistics
+    source_name: IEA Data and Statistics
+    tier: tier_1_specialist
+    source_kind: power_grid_nuclear_gas
+    base_url: https://www.iea.org
+    license_label: public_metadata_only
+    data_class: public_evidence
+    trust_weight: 0.82
+    refresh_interval_minutes: 10080
+    metadata_only: true
+    fanout: static
+    ticker_allowlist: [CEG]
+    themes: [power_grid, energy_supply, datacenter_power]
+    url_templates:
+      - https://www.iea.org/data-and-statistics
+
+  - source_id: source_darpa_programs
+    source_name: DARPA Programs
+    tier: tier_1_specialist
+    source_kind: defense_ai_programs
+    base_url: https://www.darpa.mil
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.78
+    refresh_interval_minutes: 1440
+    fanout: static
+    ticker_allowlist: [NVDA]
+    themes: [defense_ai, frontier_compute, government_demand]
+    url_templates:
+      - https://www.darpa.mil/research/programs
+
+  - source_id: source_defense_innovation_unit
+    source_name: Defense Innovation Unit
+    tier: tier_1_specialist
+    source_kind: defense_ai_programs
+    base_url: https://www.diu.mil
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.76
+    refresh_interval_minutes: 1440
+    fanout: static
+    ticker_allowlist: [NVDA]
+    themes: [defense_ai, government_demand, ai_procurement]
+    url_templates:
+      - https://www.diu.mil/
+
+  - source_id: source_uspto_open_data
+    source_name: USPTO Open Data
+    tier: tier_1_specialist
+    source_kind: patents_technical_direction
+    base_url: https://data.uspto.gov
+    license_label: public_metadata_only
+    data_class: public_evidence
+    trust_weight: 0.78
+    refresh_interval_minutes: 10080
+    metadata_only: true
+    fanout: static
+    ticker_allowlist: [NVDA]
+    themes: [patent_activity, technical_direction]
+    url_templates:
+      - https://data.uspto.gov/
+
+  - source_id: source_g42_ai_infrastructure
+    source_name: G42
+    tier: tier_1_specialist
+    source_kind: sovereign_ai_infrastructure
+    base_url: https://www.g42.ai
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.76
+    refresh_interval_minutes: 1440
+    fanout: static
+    ticker_allowlist: [NVDA]
+    themes: [sovereign_ai, gulf_ai_infrastructure, datacenter_demand]
+    url_templates:
+      - https://www.g42.ai/
+
+  - source_id: source_khazna_datacenters
+    source_name: Khazna Data Centers
+    tier: tier_1_specialist
+    source_kind: sovereign_ai_infrastructure
+    base_url: https://khaznadatacenters.com
+    license_label: public
+    data_class: public_evidence
+    trust_weight: 0.76
+    refresh_interval_minutes: 1440
+    fanout: static
+    ticker_allowlist: [VRT]
+    themes: [gulf_ai_infrastructure, datacenter_capacity, power_cooling]
+    url_templates:
+      - https://khaznadatacenters.com/
+
   - source_id: source_gdelt_doc
     source_name: GDELT DOC 2.0
     tier: tier_2_news_api
@@ -205,11 +601,13 @@ sources:
     license_label: public
     data_class: public_evidence
     trust_weight: 0.74
-    refresh_interval_minutes: 720
+    refresh_interval_minutes: 1440
+    crawl_enabled: false
+    disabled_reason: rate_limited_deferred
     fanout: static
     ticker_allowlist: [NVDA]
     url_templates:
-      - https://api.gdeltproject.org/api/v2/doc/doc?query=AI%20infrastructure%20OR%20AI%20data%20center%20OR%20NVIDIA%20OR%20AMD%20OR%20Broadcom%20OR%20TSMC%20OR%20ASML%20OR%20Micron%20OR%20Arista%20OR%20Marvell%20OR%20Vertiv%20OR%20Eaton%20OR%20Oracle%20OR%20Microsoft%20OR%20Google%20OR%20Amazon%20OR%20Meta&mode=ArtList&format=json&maxrecords=25&sort=datedesc
+      - https://api.gdeltproject.org/api/v2/doc/doc?query=artificial%20intelligence%20infrastructure&mode=ArtList&format=json&maxrecords=10&sort=datedesc
 
   - source_id: source_finnhub_company_news
     source_name: Finnhub Company News

@@ -4,9 +4,9 @@ metadata:
   name: ai-infra-fund
 ---
 # v1.0 release deployment images:
-# - API: aistartuptr.azurecr.io/ai-infra-fund-api:faa5b6d-runtime
-# - Worker: aistartuptr.azurecr.io/ai-infra-fund-worker:faa5b6d
-# - Web App Service: aistartuptr.azurecr.io/ai-infra-fund-web:7c21cf9
+# - API: aistartuptr.azurecr.io/ai-infra-fund-api:20260520-1742-ai-sentiment
+# - Worker: aistartuptr.azurecr.io/ai-infra-fund-worker:20260520-1742-ai-sentiment
+# - Web App Service: aistartuptr.azurecr.io/ai-infra-fund-web:20260520-1742-ai-sentiment
 #
 # Shadow analyst mode/model-client settings are configured through deployment
 # environment or secret overlays when enabled. The v1.0 runtime remains
@@ -109,7 +109,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   # Keep this release-scoped with the migration image tag; Job pod templates are immutable.
-  name: ai-infra-fund-migrate-faa5b6d
+  name: ai-infra-fund-migrate-20260520-1742-ai-sentiment
   namespace: ai-infra-fund
 spec:
   backoffLimit: 3
@@ -121,7 +121,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: migrate
-          image: aistartuptr.azurecr.io/ai-infra-fund-api:faa5b6d-runtime
+          image: aistartuptr.azurecr.io/ai-infra-fund-api:20260520-1742-ai-sentiment
           imagePullPolicy: Always
           command:
             - python
@@ -152,7 +152,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: aistartuptr.azurecr.io/ai-infra-fund-api:faa5b6d-runtime
+          image: aistartuptr.azurecr.io/ai-infra-fund-api:20260520-1742-ai-sentiment
           imagePullPolicy: Always
           ports:
             - name: http
@@ -223,7 +223,7 @@ spec:
     spec:
       containers:
         - name: worker
-          image: aistartuptr.azurecr.io/ai-infra-fund-worker:faa5b6d
+          image: aistartuptr.azurecr.io/ai-infra-fund-worker:20260520-1742-ai-sentiment
           imagePullPolicy: Always
           envFrom:
             - configMapRef:
@@ -260,3 +260,59 @@ spec:
       targetPort: 8000
   selector:
     app: ai-infra-fund-api
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ai-infra-fund-crawl-frontier
+  namespace: ai-infra-fund
+  labels:
+    app: ai-infra-fund-crawl-frontier
+spec:
+  schedule: "*/30 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: ai-infra-fund-crawl-frontier
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: crawl-frontier
+              image: aistartuptr.azurecr.io/ai-infra-fund-worker:20260520-1742-ai-sentiment
+              imagePullPolicy: Always
+              command:
+                - python
+                - -m
+                - ai_infra_fund_worker.crawl
+                - run
+                - --once
+                - --batch-size
+                - "20"
+                - --domain-cap
+                - "2"
+              envFrom:
+                - configMapRef:
+                    name: ai-infra-fund-config
+                - secretRef:
+                    name: ai-infra-fund-db
+              env:
+                - name: AI_INFRA_FUND_INTERNAL_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: ai-infra-fund-db
+                      key: AI_INFRA_FUND_INTERNAL_TOKEN
+                      optional: true
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi

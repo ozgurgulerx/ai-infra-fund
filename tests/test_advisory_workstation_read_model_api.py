@@ -30,6 +30,8 @@ class AdvisoryWorkstationReadModelApiTests(unittest.TestCase):
             "/internal/segment-map/latest": "segment-map",
             "/internal/analyst-brief/latest": "analyst-brief",
             "/internal/trading-advisory/latest": "trading-advisory",
+            "/internal/advisory-updates/latest": "advisory-updates",
+            "/internal/watchlist/ratings/latest": "watchlist-ratings",
             "/internal/ticker/NVDA/analyst-summary": "ticker-summary",
             "/internal/ticker/NVDA/workbench": "ticker-workbench",
             "/internal/portfolio/exposure/latest": "portfolio-exposure",
@@ -58,6 +60,8 @@ class AdvisoryWorkstationReadModelApiTests(unittest.TestCase):
             "/internal/segment-map/latest",
             "/internal/analyst-brief/latest",
             "/internal/trading-advisory/latest",
+            "/internal/advisory-updates/latest",
+            "/internal/watchlist/ratings/latest",
             "/internal/ticker/NVDA/analyst-summary",
             "/internal/ticker/NVDA/workbench",
             "/internal/portfolio/exposure/latest",
@@ -89,6 +93,8 @@ class AdvisoryWorkstationReadModelApiTests(unittest.TestCase):
                     "segment-map",
                     "analyst-brief",
                     "trading-advisory",
+                    "advisory-updates",
+                    "watchlist",
                     "analyst-summary",
                     "workbench",
                     "portfolio",
@@ -124,6 +130,12 @@ class FakeAdvisoryWorkstationRepository:
 
     def get_latest_trading_advisory(self) -> dict[str, object]:
         return {"kind": "trading-advisory", "advisory_label": "advisory_only"}
+
+    def get_latest_advisory_updates(self) -> dict[str, object]:
+        return {"kind": "advisory-updates", "advisory_label": "advisory_only"}
+
+    def get_latest_watchlist_ratings(self) -> dict[str, object]:
+        return {"kind": "watchlist-ratings", "advisory_label": "advisory_only"}
 
     def get_ticker_analyst_summary(self, ticker: str) -> dict[str, object]:
         self.ticker_calls.append(ticker)

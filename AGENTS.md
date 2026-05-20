@@ -29,6 +29,29 @@ Use `docs/SPEC_ROUTER.md` only to choose deeper canonical specs for the active t
 - Cloud deployment is the only deployment surface to reference in user-facing answers, status reports, URLs, and readiness claims. Do not refer to local deployment URLs, local Compose URLs, or localhost access unless the user explicitly asks for local development or debugging commands.
 - The canonical frontend URL is `https://ai-infra-fund-frontend.azurewebsites.net`. Cloud health/readiness checks should use the frontend proxy paths under this host unless the task explicitly requires lower-level cloud infrastructure checks.
 
+## Active Cloud Deploy Target
+
+When the user says "deploy", "ship", "push it", "release", or any equivalent term in this repo, the target is always the Azure cloud project, not a local-only stack.
+
+Canonical cloud resources:
+
+- Frontend: `https://ai-infra-fund-frontend.azurewebsites.net`
+- Sibling frontend allowed by CORS: `https://fundrag-frontend.azurewebsites.net`
+- AKS cluster: `aks-fund-rag`
+- Azure resource group: `rg-fund-rag`
+- Kubernetes namespace: `ai-infra-fund`
+- Container registry: `aistartuptr.azurecr.io`
+
+Required deployment loop:
+
+1. Commit changes locally.
+2. Build Docker images for `api`, `worker`, and `web`.
+3. Push those images to Azure Container Registry.
+4. Apply the AKS manifest to the canonical cluster and namespace.
+5. Run or verify migrations against the cloud stack.
+6. Roll the Azure App Service frontend onto the new `web` image.
+7. Verify cloud rollout with pod readiness, App Service status, and public frontend `/health` and `/ready` checks.
+
 Hard forbidden:
 
 - broker credentials

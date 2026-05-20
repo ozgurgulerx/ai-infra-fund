@@ -23,6 +23,10 @@ class AdvisoryWorkstationReadRepository(Protocol):
 
     def get_latest_trading_advisory(self) -> dict[str, object]: ...
 
+    def get_latest_advisory_updates(self) -> dict[str, object]: ...
+
+    def get_latest_watchlist_ratings(self) -> dict[str, object]: ...
+
     def get_ticker_analyst_summary(self, ticker: str) -> dict[str, object]: ...
 
     def get_latest_segment_map(self) -> dict[str, object]: ...
@@ -54,6 +58,12 @@ class PostgresAdvisoryWorkstationReadRepository:
 
     def get_latest_trading_advisory(self) -> dict[str, object]:
         return self._read("get_latest_trading_advisory")
+
+    def get_latest_advisory_updates(self) -> dict[str, object]:
+        return self._read("get_latest_advisory_updates")
+
+    def get_latest_watchlist_ratings(self) -> dict[str, object]:
+        return self._read("get_latest_watchlist_ratings")
 
     def get_ticker_analyst_summary(self, ticker: str) -> dict[str, object]:
         return self._read_with_argument("get_ticker_analyst_summary", ticker.upper())
@@ -138,6 +148,14 @@ def register_advisory_workstation_routes(
     @router.get("/internal/trading-advisory/latest")
     def latest_trading_advisory() -> JSONResponse:
         return _read(repository.get_latest_trading_advisory)
+
+    @router.get("/internal/advisory-updates/latest")
+    def latest_advisory_updates() -> JSONResponse:
+        return _read(repository.get_latest_advisory_updates)
+
+    @router.get("/internal/watchlist/ratings/latest")
+    def latest_watchlist_ratings() -> JSONResponse:
+        return _read(repository.get_latest_watchlist_ratings)
 
     @router.get("/internal/ticker/{ticker}/analyst-summary")
     def ticker_analyst_summary(ticker: str) -> JSONResponse:

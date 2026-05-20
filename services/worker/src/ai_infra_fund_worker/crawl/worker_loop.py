@@ -33,6 +33,24 @@ from ai_infra_fund_core.equity_intelligence.research_extractor import (
 # Effectively "never retry" (matches BLOCKED_AVAILABLE_AT in core frontier).
 _BLOCKED_BACKOFF = timedelta(days=365 * 10)
 _RATE_LIMIT_BACKOFF_BASE = timedelta(hours=1)
+_FORBIDDEN_BACKOFF_BASE = timedelta(hours=24)
+_DEFAULT_RECRAWL_AFTER = timedelta(hours=12)
+_RECRAWL_FALLBACKS = {
+    "sec_filings": timedelta(hours=1),
+    "company_investor_relations": timedelta(hours=6),
+    "company_ir_press": timedelta(hours=6),
+    "earnings_releases": timedelta(hours=12),
+    "semiconductor_supply_chain_news": timedelta(hours=12),
+    "cowos_advanced_packaging_news": timedelta(hours=12),
+    "datacenter_leasing_power_contracts": timedelta(hours=12),
+    "power_grid_nuclear_gas": timedelta(hours=12),
+    "ai_model_progress": timedelta(hours=12),
+    "public_sentiment_news_flow": timedelta(hours=12),
+    "macro_rates_liquidity_commentary": timedelta(hours=24),
+    "utility_load_growth_guidance": timedelta(hours=24),
+    "market_price_snapshot": timedelta(hours=24),
+    "static_product_page": timedelta(hours=24),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,6 +173,7 @@ def _process_one(
             max_attempts=max_attempts,
             policy=policy,
             now=now,
+            frontier_metadata=metadata,
             error_summary=_safe_exception_summary(error),
             fetch_method="error",
             http_status=None,
@@ -162,7 +181,7 @@ def _process_one(
             bytes_fetched=None,
         )
 
-    # 304: nothing changed, write log + complete.
+    # 304: nothing changed, write log + schedule the next configured recrawl.
     if result.http_status == 304:
         crawl_log_repo.record_attempt(
             CrawlLogRecord(
@@ -180,7 +199,21 @@ def _process_one(
                 error_summary=None,
             )
         )
-        repo.complete_frontier_url(frontier_url_id=frontier_url_id, now=now)
+        repo.update_frontier_metadata(
+            frontier_url_id=frontier_url_id,
+            metadata=_success_metadata(
+                existing=metadata,
+                result=result,
+                now=now,
+                capture_id=None,
+            ),
+            now=now,
+        )
+        repo.schedule_frontier_recrawl(
+            frontier_url_id=frontier_url_id,
+            next_attempt_at=_next_recrawl_at(row=row, metadata=metadata, now=now),
+            now=now,
+        )
         return "not_modified"
 
     # Failure path: any error_summary, missing status, or HTTP >= 400.
@@ -206,6 +239,7 @@ def _process_one(
             max_attempts=max_attempts,
             policy=policy,
             now=now,
+            frontier_metadata=metadata,
             error_summary=error_summary,
             fetch_method=log_fetch_method,
             http_status=result.http_status,
@@ -338,14 +372,19 @@ def _process_one(
 
     repo.update_frontier_metadata(
         frontier_url_id=frontier_url_id,
-        metadata={
-            "etag": result.etag,
-            "last_modified": result.last_modified,
-            "last_capture_id": capture_id,
-        },
+        metadata=_success_metadata(
+            existing=metadata,
+            result=result,
+            now=now,
+            capture_id=capture_id,
+        ),
         now=now,
     )
-    repo.complete_frontier_url(frontier_url_id=frontier_url_id, now=now)
+    repo.schedule_frontier_recrawl(
+        frontier_url_id=frontier_url_id,
+        next_attempt_at=_next_recrawl_at(row=row, metadata=frontier_metadata, now=now),
+        now=now,
+    )
 
     crawl_log_repo.record_attempt(
         CrawlLogRecord(
@@ -384,6 +423,33 @@ def _merged_frontier_metadata(
         merged.update(row_metadata)
     merged.update(metadata)
     return merged
+
+
+def _success_metadata(
+    *,
+    existing: dict[str, object],
+    result: FetchResult,
+    now: datetime,
+    capture_id: str | None,
+) -> dict[str, object]:
+    metadata = dict(existing)
+    metadata.update(
+        {
+            "etag": result.etag,
+            "last_modified": result.last_modified,
+            "last_http_status": result.http_status,
+            "last_success_at": now.isoformat(),
+            "consecutive_failures": 0,
+            "crawl_allowed": True,
+            "render_strategy": metadata.get("render_strategy") or "http_only",
+        }
+    )
+    if capture_id is not None:
+        metadata["last_capture_id"] = capture_id
+    metadata.pop("backoff_until", None)
+    metadata.pop("blocked_until", None)
+    metadata.pop("last_error_summary", None)
+    return metadata
 
 
 def _build_evidence_item(
@@ -517,6 +583,7 @@ def _record_failed_attempt(
     max_attempts: int,
     policy: FrontierPolicy,
     now: datetime,
+    frontier_metadata: dict[str, object] | None = None,
     error_summary: str,
     fetch_method: str,
     http_status: int | None,
@@ -529,6 +596,18 @@ def _record_failed_attempt(
         policy=policy,
         now=now,
         http_status=http_status,
+    )
+    metadata = _failure_metadata(
+        existing=frontier_metadata or {},
+        error_summary=error_summary,
+        http_status=http_status,
+        next_attempt_at=next_attempt_at,
+        now=now,
+    )
+    repo.update_frontier_metadata(
+        frontier_url_id=frontier_url_id,
+        metadata=metadata,
+        now=now,
     )
     repo.record_frontier_failure(
         frontier_url_id=frontier_url_id,
@@ -564,12 +643,110 @@ def _next_attempt_at(
     http_status: int | None,
 ) -> datetime:
     next_attempt_count = attempt_count_before + 1
+    if http_status == 403:
+        return now + _FORBIDDEN_BACKOFF_BASE
     if next_attempt_count >= max_attempts:
         return now + _BLOCKED_BACKOFF
     backoff_base = (
         _RATE_LIMIT_BACKOFF_BASE if http_status == 429 else policy.backoff_base
     )
     return now + backoff_base * (2 ** (next_attempt_count - 1))
+
+
+def _failure_metadata(
+    *,
+    existing: dict[str, object],
+    error_summary: str,
+    http_status: int | None,
+    next_attempt_at: datetime,
+    now: datetime,
+) -> dict[str, object]:
+    metadata = dict(existing)
+    current_failures = _int_metadata(metadata.get("consecutive_failures"), default=0)
+    metadata.update(
+        {
+            "consecutive_failures": current_failures + 1,
+            "last_failure_at": now.isoformat(),
+            "last_http_status": http_status,
+            "last_error_summary": error_summary,
+            "backoff_until": next_attempt_at.isoformat(),
+            "render_strategy": metadata.get("render_strategy") or "http_only",
+        }
+    )
+    if http_status == 429:
+        metadata["blocked_until"] = next_attempt_at.isoformat()
+    if http_status == 403 or error_summary == "robots_disallowed":
+        metadata["blocked_until"] = next_attempt_at.isoformat()
+        metadata["render_strategy"] = "blocked"
+        metadata["crawl_allowed"] = False
+    else:
+        metadata.setdefault("crawl_allowed", True)
+    if error_summary == "robots_disallowed":
+        metadata["robots_disallow"] = True
+    return metadata
+
+
+def _next_recrawl_at(
+    *,
+    row: dict,
+    metadata: dict[str, object],
+    now: datetime,
+) -> datetime:
+    return now + _recrawl_after(row=row, metadata=metadata)
+
+
+def _recrawl_after(*, row: dict, metadata: dict[str, object]) -> timedelta:
+    minutes = _refresh_interval_minutes(row=row, metadata=metadata)
+    if minutes is not None:
+        return timedelta(minutes=minutes)
+    source_kind = _metadata_text(row=row, metadata=metadata, key="source_kind")
+    if source_kind in _RECRAWL_FALLBACKS:
+        return _RECRAWL_FALLBACKS[source_kind]
+    source_id = (str(row.get("source_id") or "")).lower()
+    if "sec" in source_id:
+        return timedelta(hours=1)
+    if "fred" in source_id or "eia" in source_id:
+        return timedelta(hours=24)
+    if "gdelt" in source_id or "news" in source_id or "rss" in source_id:
+        return timedelta(hours=12)
+    return _DEFAULT_RECRAWL_AFTER
+
+
+def _refresh_interval_minutes(
+    *,
+    row: dict,
+    metadata: dict[str, object],
+) -> int | None:
+    for value in (
+        metadata.get("refresh_interval_minutes"),
+        row.get("refresh_interval_minutes"),
+    ):
+        minutes = _int_metadata(value, default=0)
+        if minutes > 0:
+            return minutes
+    row_metadata = row.get("metadata")
+    if isinstance(row_metadata, dict):
+        minutes = _int_metadata(row_metadata.get("refresh_interval_minutes"), default=0)
+        if minutes > 0:
+            return minutes
+    return None
+
+
+def _metadata_text(*, row: dict, metadata: dict[str, object], key: str) -> str | None:
+    value = metadata.get(key)
+    if value is None and isinstance(row.get("metadata"), dict):
+        value = row["metadata"].get(key)  # type: ignore[index]
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _int_metadata(value: object, *, default: int) -> int:
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
 
 
 def _safe_exception_summary(error: Exception) -> str:

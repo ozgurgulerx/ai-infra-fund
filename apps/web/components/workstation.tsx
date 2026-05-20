@@ -91,12 +91,14 @@ type AdvisoryTableProps = {
   columns: string[];
   rows: Array<{ id: string; cells: ReactNode[] }>;
   emptyLabel?: string;
+  density?: "normal" | "compact";
 };
 
 export function AdvisoryTable({
   columns,
   rows,
   emptyLabel = "No records available.",
+  density = "normal",
 }: AdvisoryTableProps) {
   const gridStyle: CSSProperties = {
     gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))`,
@@ -107,7 +109,7 @@ export function AdvisoryTable({
   }
 
   return (
-    <div className="advisory-table">
+    <div className={`advisory-table advisory-table-${density}`}>
       <div className="advisory-table-row advisory-table-header" style={gridStyle}>
         {columns.map((column) => (
           <span key={column}>{column}</span>
@@ -126,16 +128,30 @@ export function AdvisoryTable({
 
 type EvidenceDrawerProps = {
   ids: string[];
+  refs?: Array<{
+    evidence_id?: string;
+    title?: string | null;
+    summary?: string | null;
+    source_links?: Array<{ url?: string; label?: string; evidence_ids?: string[] }>;
+  }>;
+  links?: Array<{ url?: string; label?: string; evidence_ids?: string[] }>;
   title?: string;
   caption?: string;
 };
 
 export function EvidenceDrawer({
   ids,
+  refs = [],
+  links = [],
   title = "Evidence and audit trail",
   caption = "Evidence IDs are available for audit review and hidden from the main analyst viewport by default.",
 }: EvidenceDrawerProps) {
   const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
+  const linkedRefs = refs.filter((ref) => ref.evidence_id);
+  const sourceLinks = dedupeLinks([
+    ...links,
+    ...linkedRefs.flatMap((ref) => ref.source_links ?? []),
+  ]);
 
   return (
     <details className="evidence-drawer">
@@ -144,7 +160,33 @@ export function EvidenceDrawer({
         <strong>{uniqueIds.length} refs</strong>
       </summary>
       <p>{caption}</p>
-      {uniqueIds.length > 0 ? (
+      {sourceLinks.length > 0 ? (
+        <div className="source-link-list">
+          {sourceLinks.map((link) => (
+            <a
+              className="source-link"
+              href={link.url}
+              key={link.url}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <span>{link.label || "Review source"}</span>
+              <small>{link.url}</small>
+            </a>
+          ))}
+        </div>
+      ) : null}
+      {linkedRefs.length > 0 ? (
+        <div className="evidence-ref-list">
+          {linkedRefs.map((ref) => (
+            <article className="evidence-ref" key={ref.evidence_id}>
+              <code>{ref.evidence_id}</code>
+              {ref.title ? <strong>{ref.title}</strong> : null}
+              {ref.summary ? <span>{ref.summary}</span> : null}
+            </article>
+          ))}
+        </div>
+      ) : uniqueIds.length > 0 ? (
         <div className="evidence-drawer-grid">
           {uniqueIds.map((id) => (
             <code key={id}>{id}</code>
@@ -155,6 +197,21 @@ export function EvidenceDrawer({
       )}
     </details>
   );
+}
+
+function dedupeLinks(
+  links: Array<{ url?: string; label?: string; evidence_ids?: string[] }>,
+) {
+  const seen = new Set<string>();
+  const result: Array<{ url?: string; label?: string; evidence_ids?: string[] }> = [];
+  for (const link of links) {
+    if (!link.url || seen.has(link.url)) {
+      continue;
+    }
+    seen.add(link.url);
+    result.push(link);
+  }
+  return result;
 }
 
 type SectionCardProps = {
@@ -203,4 +260,3 @@ export function EmptyState({
     </div>
   );
 }
-

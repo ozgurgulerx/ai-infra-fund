@@ -445,7 +445,8 @@ class ComposeSmokeScriptTests(unittest.TestCase):
         )
 
         required_snippets = [
-            "FROM python:3.12-slim",
+            "ARG BASE_IMAGE=python:3.12-slim",
+            "FROM ${BASE_IMAGE}",
             "COPY pyproject.toml /app/pyproject.toml",
             "COPY packages/core /app/packages/core",
             "COPY services/api /app/services/api",

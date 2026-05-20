@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT / "tests"))
 
 from test_advisory_workstation_read_model_repository import (  # noqa: E402
     ADVISORY_COLUMNS,
+    ADVISORY_UPDATE_COLUMNS,
     ASSESSMENT_COLUMNS,
     LLM_NOTE_COLUMNS,
     MARKET_EVENT_COLUMNS,
@@ -32,6 +33,7 @@ from test_advisory_workstation_read_model_repository import (  # noqa: E402
     source_signal_row,
     trade_plan_row,
     trading_advisory_row,
+    advisory_update_row,
     valuation_row,
 )
 
@@ -268,6 +270,7 @@ def _workbench_connection(
             ResultSet([equity_assessment_row()], ASSESSMENT_COLUMNS),
             ResultSet([valuation_row()], VALUATION_COLUMNS),
             ResultSet([advisory_row or trading_advisory_row()], ADVISORY_COLUMNS),
+            ResultSet([advisory_update_row()], ADVISORY_UPDATE_COLUMNS),
             ResultSet([trade_plan_row()], TRADE_PLAN_COLUMNS),
             ResultSet([risk_regime_row()], RISK_COLUMNS),
             ResultSet([llm_note_row()], LLM_NOTE_COLUMNS),

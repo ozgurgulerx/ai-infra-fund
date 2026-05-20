@@ -290,23 +290,26 @@ class ControlRoomUiTests(unittest.TestCase):
         self,
     ) -> None:
         page = read_web("app/page.tsx")
+        data_lib = read_web("lib/advisory/workstation-data.ts")
+        combined = f"{page}\n{data_lib}"
         required = [
             "Daily Trading Cockpit",
             "AI Infrastructure Trading Analyst Workstation",
             "readCockpitPayload",
             "Top MarketEvents",
             "Segment impact snapshot",
-            "Equity impact assessments",
+            "Top advisory stances table",
             "Risk regime updates",
-            "Suggested actions",
-            "Open trade plans",
+            "LLM analyst notes",
+            "Portfolio exposure summary",
+            "AdvisoryUpdate",
             "API-backed analyst brief unavailable",
             "stale-data",
         ]
-        self.assertEqual([], [text for text in required if text not in page])
-        self.assertIn("/internal/analyst-brief/latest", page)
-        self.assertIn("/internal/source-signals/latest", page)
-        self.assertIn("/internal/market-events/latest", page)
+        self.assertEqual([], [text for text in required if text not in combined])
+        self.assertIn("/internal/analyst-brief/latest", data_lib)
+        self.assertIn("/internal/source-signals/latest", data_lib)
+        self.assertIn("/internal/market-events/latest", data_lib)
         self.assertNotIn("mockWorkstationData", page)
         self.assertNotIn("readFileSync", page)
         self.assertNotIn("existsSync", page)
@@ -340,13 +343,15 @@ class ControlRoomUiTests(unittest.TestCase):
 
     def test_daily_trading_cockpit_is_dynamic_and_backend_dependent(self) -> None:
         page = read_web("app/page.tsx")
+        data_lib = read_web("lib/advisory/workstation-data.ts")
+        combined = f"{page}\n{data_lib}"
         required = [
             'export const dynamic = "force-dynamic"',
             "API read model",
             "readAnalystBriefPayload",
             "degradedAnalystBrief",
         ]
-        self.assertEqual([], [text for text in required if text not in page])
+        self.assertEqual([], [text for text in required if text not in combined])
         forbidden = [
             "Static mock data",
             "mockWorkstationData",
@@ -357,12 +362,14 @@ class ControlRoomUiTests(unittest.TestCase):
         self,
     ) -> None:
         page = read_web("app/page.tsx")
-        self.assertIn("AI_INFRA_FUND_INTERNAL_API_BASE_URL", page)
-        self.assertIn("AI_INFRA_FUND_INTERNAL_TOKEN", page)
-        self.assertIn("internalApiBaseUrl", page)
-        self.assertNotIn('get("host")', page)
-        self.assertNotIn('get("x-forwarded-proto")', page)
-        self.assertNotIn("next/headers", page)
+        data_lib = read_web("lib/advisory/workstation-data.ts")
+        combined = f"{page}\n{data_lib}"
+        self.assertIn("AI_INFRA_FUND_INTERNAL_API_BASE_URL", data_lib)
+        self.assertIn("AI_INFRA_FUND_INTERNAL_TOKEN", data_lib)
+        self.assertIn("internalApiBaseUrl", data_lib)
+        self.assertNotIn('get("host")', combined)
+        self.assertNotIn('get("x-forwarded-proto")', combined)
+        self.assertNotIn("next/headers", combined)
 
     def test_ticker_workbench_uses_live_theme_grouped_api_payload(self) -> None:
         page = read_web("app/ticker/[ticker]/page.tsx")
@@ -530,16 +537,15 @@ class ControlRoomUiTests(unittest.TestCase):
     def test_manual_trade_intent_workflow_is_local_and_advisory_only(self) -> None:
         combined = visible_web_source()
         required = [
-            "Manual Trade Intents",
-            "Planning queue from suggested actions",
-            "Intent capture remains an advisory review surface",
-            "does not write",
-            "order APIs",
+            "Manual Plan Review Queue",
+            "Planning queue from advisory changes",
+            "manual analyst review",
+            "does not create market instructions",
             "Trade plan linkage",
             "Evidence before manual action",
             "Local journal only",
             "No broker connection",
-            "no order, broker, or execution control",
+            "Suggested review items remain advisory-only",
         ]
         missing = [text for text in required if text not in combined]
         self.assertEqual([], missing)

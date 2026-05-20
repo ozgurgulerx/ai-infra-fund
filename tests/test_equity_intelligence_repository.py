@@ -229,6 +229,11 @@ class EquityIntelligenceRepositoryTests(unittest.TestCase):
         self.assertIn("FOR UPDATE SKIP LOCKED", statement)
         self.assertIn("LIMIT %s", statement)
         self.assertIn("UPDATE evidence.source_frontier_urls", statement)
+        self.assertIn("JOIN evidence.source_registry AS source", statement)
+        self.assertIn("source.active IS TRUE", statement)
+        self.assertIn("last_error_summary", statement)
+        self.assertIn("metadata_json->>'render_strategy'", statement)
+        self.assertIn("metadata_json->>'crawl_allowed'", statement)
         self.assertNotIn("worker-a", statement)
         self.assertEqual(("worker-a", LATER, NOW, 10), params)
         self.assertEqual([dict(zip(FRONTIER_FIELDS, row, strict=True))], leased)
@@ -253,6 +258,87 @@ class EquityIntelligenceRepositoryTests(unittest.TestCase):
         )
         self.assertNotIn("HTTP 429", statement)
         self.assertEqual(("HTTP 429 from source", BACKOFF, NOW, "frontier-1"), params)
+        self.assertEqual(1, connection.commit_count)
+
+    def test_schedules_frontier_recrawl_and_syncs_queue_after_success(self) -> None:
+        connection = FakeConnection()
+
+        EquityIntelligenceRepository(connection).schedule_frontier_recrawl(
+            frontier_url_id="frontier-1",
+            next_attempt_at=BACKOFF,
+            now=NOW,
+        )
+
+        frontier_statement, frontier_params = connection.cursor_instance.executions[0]
+        queue_statement, queue_params = connection.cursor_instance.executions[1]
+        self.assertIn("UPDATE evidence.source_frontier_urls", frontier_statement)
+        self.assertIn("status = 'queued'", frontier_statement)
+        self.assertIn("attempt_count = 0", frontier_statement)
+        self.assertIn("next_attempt_at = %s", frontier_statement)
+        self.assertIn("leased_by = NULL", frontier_statement)
+        self.assertIn("WHERE frontier_url_id = %s", frontier_statement)
+        self.assertIn("INSERT INTO evidence.crawl_frontier_queue", queue_statement)
+        self.assertIn("SELECT", queue_statement)
+        self.assertIn("ON CONFLICT (frontier_url_id) DO UPDATE SET", queue_statement)
+        self.assertIn("status = 'queued'", queue_statement)
+        self.assertNotIn("frontier-1", frontier_statement)
+        self.assertEqual((BACKOFF, NOW, "frontier-1"), frontier_params)
+        self.assertEqual((BACKOFF, NOW, "frontier-1"), queue_params)
+        self.assertEqual(1, connection.commit_count)
+
+    def test_frontier_upsert_reactivates_captured_rows_but_keeps_skipped_terminal(
+        self,
+    ) -> None:
+        connection = FakeConnection()
+
+        EquityIntelligenceRepository(connection).upsert_frontier_url(
+            record_from(frontier_url(), FRONTIER_FIELDS)
+        )
+
+        statement, _params = connection.cursor_instance.executions[0]
+        self.assertIn(
+            "WHEN evidence.source_frontier_urls.status IN ('failed', 'skipped')",
+            statement,
+        )
+        self.assertNotIn("'captured', 'failed', 'skipped'", statement)
+        self.assertIn("attempt_count = CASE", statement)
+        self.assertIn("ELSE 0", statement)
+
+    def test_sync_source_registry_scope_deactivates_and_skips_stale_registry_rows(
+        self,
+    ) -> None:
+        connection = FakeConnection()
+
+        EquityIntelligenceRepository(connection).sync_source_registry_scope(
+            current_source_ids=("source-sec", "source-finnhub"),
+            active_source_ids=("source-sec",),
+            current_frontier_keys=(("source-sec", "hash-current"),),
+            now=NOW,
+            parked_until=NOW + timedelta(days=3650),
+        )
+
+        source_statement, source_params = connection.cursor_instance.executions[0]
+        frontier_statement, frontier_params = connection.cursor_instance.executions[1]
+        self.assertIn("UPDATE evidence.source_registry AS source", source_statement)
+        self.assertIn("source.metadata_json->>'origin' = 'source_registry'", source_statement)
+        self.assertIn("active = false", source_statement)
+        self.assertIn("source_registry_removed", source_statement)
+        self.assertIn("source_registry_inactive", source_statement)
+        self.assertEqual(["source-sec", "source-finnhub"], source_params[0])
+        self.assertEqual(["source-sec"], source_params[1])
+        self.assertEqual(NOW, source_params[2])
+
+        self.assertIn("jsonb_to_recordset", frontier_statement)
+        self.assertIn("UPDATE evidence.source_frontier_urls AS frontier", frontier_statement)
+        self.assertIn("status = 'skipped'", frontier_statement)
+        self.assertIn("INSERT INTO evidence.crawl_frontier_queue", frontier_statement)
+        self.assertIn("ON CONFLICT (frontier_url_id) DO UPDATE SET", frontier_statement)
+        self.assertNotIn("hash-current", frontier_statement)
+        self.assertEqual(["source-sec", "source-finnhub"], frontier_params[0])
+        self.assertEqual(["source-sec"], frontier_params[1])
+        self.assertEqual('[{"source_id": "source-sec", "url_hash": "hash-current"}]', frontier_params[2])
+        self.assertEqual(NOW, frontier_params[3])
+        self.assertEqual(NOW + timedelta(days=3650), frontier_params[4])
         self.assertEqual(1, connection.commit_count)
 
     def test_upserts_and_leases_crawl_frontier_queue_items(self) -> None:
@@ -423,6 +509,17 @@ class EquityIntelligenceRepositoryTests(unittest.TestCase):
         self.assertEqual(NOW, updated_at)
         self.assertEqual("frontier-1", frontier_url_id)
         self.assertEqual(1, connection.commit_count)
+
+    def test_crawl_runtime_schema_preflight_reports_missing_relations(self) -> None:
+        connection = FakeConnection(rows=[(None,)], columns=("to_regclass",))
+
+        missing = EquityIntelligenceRepository(connection).verify_crawl_runtime_schema()
+
+        self.assertIn("evidence.source_frontier_urls", missing)
+        self.assertIn("analyst.market_events", missing)
+        statements = [statement for statement, _params in connection.cursor_instance.executions]
+        self.assertTrue(all("SELECT to_regclass(%s)" in statement for statement in statements))
+        self.assertEqual(0, connection.commit_count)
 
     def test_latest_summary_read_uses_bound_ticker_and_returns_json_safe_payload(
         self,

@@ -91,6 +91,20 @@ class SourceRegistrySeedPlan:
     def skipped_sources_by_id(self) -> dict[str, str]:
         return {record.source_id: record.reason for record in self.skipped_sources}
 
+    @property
+    def current_source_ids(self) -> tuple[str, ...]:
+        return tuple(record.source_id for record in self.source_records)
+
+    @property
+    def active_source_ids(self) -> tuple[str, ...]:
+        return tuple(record.source_id for record in self.source_records if record.active)
+
+    @property
+    def current_frontier_keys(self) -> tuple[tuple[str, str], ...]:
+        return tuple(
+            (record.source_id, record.url_hash) for record in self.frontier_url_records
+        )
+
 
 def build_watched_equity_records(
     watchlist: AIEquityWatchlist,
@@ -383,6 +397,8 @@ def _source_record_from_registry(
         "requires_secret": source.requires_secret,
         "secret_env_var": source.secret_env_var,
         "metadata_only": source.metadata_only,
+        "crawl_enabled": source.crawl_enabled,
+        "disabled_reason": source.disabled_reason,
         "fanout": source.fanout,
         "ticker_allowlist": list(source.ticker_allowlist),
         "series_ids": list(source.series_ids),
@@ -401,7 +417,7 @@ def _source_record_from_registry(
         data_class=source.data_class,
         reliability_score=source.trust_weight,
         metadata=metadata,
-        active=True,
+        active=skip_reason is None,
         created_at=now,
         updated_at=now,
     )
@@ -549,6 +565,8 @@ def _strip_secret_placeholders(url: str) -> str:
 
 
 def _skip_reason(source: RegistrySource, environ: dict[str, str]) -> str | None:
+    if not source.crawl_enabled:
+        return f"crawl_disabled:{source.disabled_reason or 'unspecified'}"
     if not source.requires_secret:
         return None
     env_var = source.secret_env_var or ""

@@ -78,6 +78,15 @@ SERVICE_NAME = "api"
 VERSION = "0.1.0"
 LOCAL_WEB_ORIGINS = ("http://localhost:3000", "http://127.0.0.1:3000")
 CORS_ORIGINS_ENV = "AI_INFRA_FUND_CORS_ORIGINS"
+
+# Environments where the X-Internal-Token middleware is allowed to be
+# disabled (i.e., omitted ``AI_INFRA_FUND_INTERNAL_TOKEN`` is permitted).
+# Every other value of ``AI_INFRA_FUND_ENV`` MUST configure a token —
+# see ``_resolve_internal_token``. Empty/unset is treated as local so
+# bare ``pytest`` / ``python -c "import ai_infra_fund_api.main"`` still
+# work for developers; any deployment is expected to set the var
+# explicitly (compose ships ``local``, AKS ships ``production``).
+LOCAL_DEV_ENVIRONMENTS = frozenset({"", "local", "test"})
 INTERNAL_TOKEN_ENV = "AI_INFRA_FUND_INTERNAL_TOKEN"
 INTERNAL_TOKEN_HEADER = "X-Internal-Token"
 INTERNAL_PATH_PREFIX = "/internal/"
@@ -319,14 +328,38 @@ def create_app(
 
 
 def _resolve_internal_token(internal_token: str | None | object) -> str | None:
+    """Resolve the X-Internal-Token middleware secret.
+
+    Fail-closed by default. The only environments where an unset/blank token
+    is allowed are ``local`` and ``test``. Every other value of
+    ``AI_INFRA_FUND_ENV`` (including the empty string, common typos like
+    ``"dev"`` or ``"staging"``, and ``production``/``prod``) MUST supply
+    a non-empty token via the env var or the explicit constructor arg —
+    otherwise ``create_app()`` raises ``RuntimeError``.
+
+    Operators who genuinely intend to run with the auth middleware disabled
+    must set ``AI_INFRA_FUND_ENV=local`` explicitly. This prevents the
+    silent fail-open that affects e.g. staging clusters with a missing
+    secret.
+    """
     token_value = (
         os.environ.get(INTERNAL_TOKEN_ENV) if internal_token is ... else internal_token
     )
-    token = token_value.strip() if isinstance(token_value, str) else None
-    environment = os.environ.get("AI_INFRA_FUND_ENV", "").strip().lower()
-    if environment in {"production", "prod"} and not token:
+    raw_token = token_value if isinstance(token_value, str) else None
+    if isinstance(raw_token, str) and raw_token and not raw_token.strip():
+        # A configured-but-blank token (e.g. ``"   "``) is almost certainly a
+        # misconfiguration. Surface it instead of silently disabling auth.
         raise RuntimeError(
-            f"{INTERNAL_TOKEN_ENV} is required when AI_INFRA_FUND_ENV=production"
+            f"{INTERNAL_TOKEN_ENV} is set but contains only whitespace; "
+            "either remove it or set a real token"
+        )
+    token = raw_token.strip() if isinstance(raw_token, str) else None
+    environment = os.environ.get("AI_INFRA_FUND_ENV", "").strip().lower()
+    if not token and environment not in LOCAL_DEV_ENVIRONMENTS:
+        raise RuntimeError(
+            f"{INTERNAL_TOKEN_ENV} is required when AI_INFRA_FUND_ENV={environment!r}; "
+            f"only environments in {sorted(LOCAL_DEV_ENVIRONMENTS)} may run without "
+            f"the internal-token auth middleware"
         )
     return token or None
 

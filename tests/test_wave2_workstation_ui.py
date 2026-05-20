@@ -38,25 +38,26 @@ class Wave2WorkstationUiTests(unittest.TestCase):
 
     def test_daily_trading_cockpit_renders_api_backed_advisory_workstation_sections(self) -> None:
         page = read_web("app/page.tsx")
+        data_lib = read_web("lib/advisory/workstation-data.ts")
+        combined = f"{page}\n{data_lib}"
         required = [
             "Daily Trading Cockpit",
             "AI infrastructure regime",
             "Executive summary",
             "Top MarketEvents",
             "Segment impact snapshot",
-            "Equity impact assessments",
+            "Top advisory stances table",
             "Risk regime updates",
             "LLM analyst notes",
-            "Suggested actions",
-            "Open trade plans",
-            "Portfolio exposure snapshot",
-            "Invalidation watchlist",
+            "Portfolio exposure summary",
+            "Rating / outlook changes",
+            "View all monitored asset ratings",
             "readCockpitPayload",
             "API read model",
         ]
-        self.assertEqual([], [text for text in required if text not in page])
-        self.assertIn("/internal/analyst-brief/latest", page)
-        self.assertIn("/internal/source-signals/latest", page)
+        self.assertEqual([], [text for text in required if text not in combined])
+        self.assertIn("/internal/analyst-brief/latest", data_lib)
+        self.assertIn("/internal/source-signals/latest", data_lib)
         self.assertNotIn("mockWorkstationData", page)
 
     def test_premium_workstation_components_and_evidence_disclosure_exist(self) -> None:
@@ -107,6 +108,28 @@ class Wave2WorkstationUiTests(unittest.TestCase):
         self.assertIn("const coreMarketEvents = marketEvents.filter", page)
         self.assertIn("const topEvents = coreMarketEvents.slice(0, 4);", page)
         self.assertNotIn("const topEvents = marketEvents.slice(0, 4);", page)
+
+    def test_daily_cockpit_has_removable_ai_infra_sentiment_card(self) -> None:
+        page = read_web("app/page.tsx")
+        component = read_web("components/daily-cockpit/daily-ai-infra-sentiment-card.tsx")
+        css = read_web("app/globals.css")
+        combined = f"{page}\n{component}\n{css}"
+
+        required = [
+            "DailyAiInfraSentimentCard",
+            "Daily AI Infra Ecosystem Sentiment",
+            "eventReviewPrompt",
+            "eventInterpretation",
+            "localStorage",
+            "ai-infra-fund:daily-ai-infra-sentiment",
+            "Show AI infra sentiment",
+            "Potential stock effect",
+            "ai-infra-sentiment-card",
+            "marketEvents={coreMarketEvents}",
+            "sourceSignals={sourceSignals}",
+            "advisoryUpdates={advisoryUpdates}",
+        ]
+        self.assertEqual([], [text for text in required if text not in combined])
 
     def test_value_chain_atlas_is_candidate_matrix_with_ai_grid_lens(self) -> None:
         page = read_web("app/themes/page.tsx")
@@ -184,6 +207,15 @@ class Wave2WorkstationUiTests(unittest.TestCase):
                     [],
                     [item for item in required if item.lower() not in normalized],
                 )
+
+    def test_trade_plans_page_expands_to_full_watchlist_universe(self) -> None:
+        page = read_web("app/trade-plans/page.tsx")
+
+        self.assertIn('from "../../lib/watchlist-mirror"', page)
+        self.assertIn("const tradePlanRows", page)
+        self.assertIn("watchlist.map", page)
+        self.assertIn("advisory: advisoriesByTicker.get(entry.ticker)", page)
+        self.assertNotIn("{advisories.map((advisory)", page)
 
     def test_wave2_static_adapter_preserves_evidence_and_invalidation_links(self) -> None:
         adapter = read_web("lib/situational-awareness/mock-workstation-data.ts")

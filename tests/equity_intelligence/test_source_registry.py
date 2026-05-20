@@ -149,7 +149,9 @@ class SourceRegistryValidationTests(unittest.TestCase):
         for expected in (
             "SEC EDGAR",
             "NVIDIA Official Feeds",
-            "TSMC IR Monthly Revenue",
+            "Taiwan MOPS Company Filings",
+            "ASML Investor Relations",
+            "Situational Awareness",
             "SemiAnalysis Public Metadata",
             "Semiconductor Engineering",
             "SemiWiki",
@@ -159,6 +161,13 @@ class SourceRegistryValidationTests(unittest.TestCase):
             "DeepLearning.AI The Batch",
             "Epoch AI",
             "METR",
+            "Federal Register BIS Documents API",
+            "BIS News and Updates",
+            "CHIPS for America",
+            "U.S. Treasury Interest Rate Statistics",
+            "DARPA Programs",
+            "WIPO Technology Trends AI",
+            "Micron Quarterly Results",
             "EIA Electricity Data",
             "FRED Macro Series",
             "GDELT DOC 2.0",
@@ -166,6 +175,36 @@ class SourceRegistryValidationTests(unittest.TestCase):
             "Stooq Market Data",
         ):
             self.assertIn(expected, names)
+
+    def test_project_registry_adds_validated_easy_picking_sources(self) -> None:
+        from ai_infra_fund_core.equity_intelligence.source_registry import (
+            load_source_registry,
+        )
+
+        registry = load_source_registry(ROOT / "config" / "source_registry.yaml")
+        sources = {source.source_id: source for source in registry.sources}
+
+        expected = {
+            "source_next_platform_rss": ("The Next Platform RSS", "NVDA"),
+            "source_serve_the_home_rss": ("ServeTheHome RSS", "NVDA"),
+            "source_chips_and_cheese_rss": ("Chips and Cheese RSS", "NVDA"),
+            "source_blocks_and_files_rss": ("Blocks and Files RSS", "NVDA"),
+            "source_nvidia_developer_blog": ("NVIDIA Developer Blog", "NVDA"),
+            "source_amd_press_releases": ("AMD Press Releases", "AMD"),
+            "source_arista_news": ("Arista News", "ANET"),
+            "source_marvell_press_releases": ("Marvell Press Releases", "MRVL"),
+            "source_broadcom_product_releases": ("Broadcom Product Releases", "AVGO"),
+            "source_supermicro_newsroom": ("Supermicro Newsroom", "SMCI"),
+        }
+        for source_id, (source_name, ticker) in expected.items():
+            self.assertIn(source_id, sources)
+            source = sources[source_id]
+            self.assertEqual(source_name, source.source_name)
+            self.assertTrue(source.crawl_enabled)
+            self.assertFalse(source.requires_secret)
+            self.assertEqual("static", source.fanout)
+            self.assertEqual((ticker,), source.ticker_allowlist)
+            self.assertEqual("public_evidence", source.data_class)
 
     def test_project_registry_tunes_known_failed_public_urls(self) -> None:
         from ai_infra_fund_core.equity_intelligence.source_registry import (
@@ -183,13 +222,34 @@ class SourceRegistryValidationTests(unittest.TestCase):
 
         semianalysis = sources["source_semianalysis_public"]
         self.assertEqual(
-            ("https://semianalysis.com/?s={ticker}",),
+            ("https://semianalysis.com/feed/",),
             semianalysis.url_templates,
         )
+        self.assertEqual("static", semianalysis.fanout)
+        self.assertEqual(("NVDA",), semianalysis.ticker_allowlist)
 
         eia = sources["source_eia_electricity"]
         self.assertTrue(eia.requires_secret)
         self.assertEqual("EIA_API_KEY", eia.secret_env_var)
+
+    def test_project_registry_replaces_blocked_tsmc_ir_with_mops(self) -> None:
+        from ai_infra_fund_core.equity_intelligence.source_registry import (
+            load_source_registry,
+        )
+
+        registry = load_source_registry(ROOT / "config" / "source_registry.yaml")
+        sources = {source.source_id: source for source in registry.sources}
+        tsmc = sources["source_tsmc_ir_monthly_revenue"]
+
+        self.assertTrue(tsmc.crawl_enabled)
+        self.assertEqual("https://mops.twse.com.tw", tsmc.base_url)
+        self.assertEqual(("TSM",), tsmc.ticker_allowlist)
+        self.assertEqual(
+            ("https://mops.twse.com.tw/mops/web/index",),
+            tsmc.url_templates,
+        )
+        self.assertNotIn("investor.tsmc.com", "\n".join(tsmc.url_templates))
+        self.assertNotIn("emops.twse.com.tw", "\n".join(tsmc.url_templates))
 
     def test_project_registry_uses_crawlable_dcd_rss_feed(self) -> None:
         from ai_infra_fund_core.equity_intelligence.source_registry import (
@@ -206,6 +266,45 @@ class SourceRegistryValidationTests(unittest.TestCase):
         self.assertNotIn("/search/", dcd.url_templates[0])
         self.assertNotIn("{ticker}", dcd.url_templates[0])
 
+    def test_project_registry_uses_robots_allowed_datacenter_knowledge_sitemap(self) -> None:
+        from ai_infra_fund_core.equity_intelligence.source_registry import (
+            load_source_registry,
+        )
+
+        registry = load_source_registry(ROOT / "config" / "source_registry.yaml")
+        sources = {source.source_id: source for source in registry.sources}
+        dck = sources["source_datacenter_knowledge"]
+
+        self.assertTrue(dck.crawl_enabled)
+        self.assertEqual("static", dck.fanout)
+        self.assertEqual(("NVDA",), dck.ticker_allowlist)
+        self.assertEqual(("https://www.datacenterknowledge.com/sitemap.xml",), dck.url_templates)
+        self.assertNotIn("/search", dck.url_templates[0])
+        self.assertNotIn("{ticker}", dck.url_templates[0])
+
+    def test_project_registry_promotes_resolved_deferred_public_sources(self) -> None:
+        from ai_infra_fund_core.equity_intelligence.source_registry import (
+            load_source_registry,
+        )
+
+        registry = load_source_registry(ROOT / "config" / "source_registry.yaml")
+        sources = {source.source_id: source for source in registry.sources}
+
+        bis = sources["source_bis_news_updates"]
+        self.assertTrue(bis.crawl_enabled)
+        self.assertEqual("https://media.bis.gov", bis.base_url)
+        self.assertEqual(("NVDA",), bis.ticker_allowlist)
+        self.assertEqual(("https://media.bis.gov/news-updates",), bis.url_templates)
+
+        micron = sources["source_micron_quarterly_results"]
+        self.assertTrue(micron.crawl_enabled)
+        self.assertEqual("https://investors.micron.com", micron.base_url)
+        self.assertEqual(("MU",), micron.ticker_allowlist)
+        self.assertEqual(
+            ("https://investors.micron.com/quarterly-results",),
+            micron.url_templates,
+        )
+
     def test_project_registry_lowers_gdelt_pressure(self) -> None:
         from ai_infra_fund_core.equity_intelligence.source_registry import (
             load_source_registry,
@@ -217,14 +316,16 @@ class SourceRegistryValidationTests(unittest.TestCase):
 
         self.assertEqual("static", gdelt.fanout)
         self.assertEqual(("NVDA",), gdelt.ticker_allowlist)
-        self.assertGreaterEqual(gdelt.refresh_interval_minutes, 720)
+        self.assertFalse(gdelt.crawl_enabled)
+        self.assertIn("rate", gdelt.disabled_reason or "")
+        self.assertGreaterEqual(gdelt.refresh_interval_minutes, 1440)
         self.assertEqual(1, len(gdelt.url_templates))
         self.assertNotIn("{ticker}", gdelt.url_templates[0])
 
         query = parse_qs(urlparse(gdelt.url_templates[0]).query)
         self.assertEqual(["json"], query["format"])
-        self.assertLessEqual(int(query["maxrecords"][0]), 25)
-        self.assertIn("AI", query["query"][0])
+        self.assertLessEqual(int(query["maxrecords"][0]), 10)
+        self.assertIn("artificial", query["query"][0])
 
     def test_rejects_invalid_tier_and_private_source(self) -> None:
         from ai_infra_fund_core.equity_intelligence.source_registry import (
@@ -293,6 +394,8 @@ class SourceRegistrySeedPlanTests(unittest.TestCase):
             {
                 "source_eia_electricity": "missing_secret:EIA_API_KEY",
                 "source_fred_macro": "missing_secret:FRED_API_KEY",
+                "source_semianalysis_public": "crawl_disabled:rate_limited_deferred",
+                "source_gdelt_doc": "crawl_disabled:rate_limited_deferred",
                 "source_finnhub_company_news": "missing_secret:FINNHUB_API_KEY",
             },
             plan.skipped_sources_by_id,
@@ -302,6 +405,31 @@ class SourceRegistrySeedPlanTests(unittest.TestCase):
         self.assertNotIn("{api_token}", urls)
         self.assertNotIn("api_key=", urls)
         self.assertNotIn("token=", urls)
+
+    def test_skipped_sources_are_inactive_in_seed_plan(self) -> None:
+        from ai_infra_fund_core.equity_intelligence.seeder import (
+            build_source_registry_seed_plan,
+        )
+        from ai_infra_fund_core.equity_intelligence.source_registry import (
+            validate_source_registry,
+        )
+
+        registry = validate_source_registry(yaml.safe_load(_registry_yaml()))
+        plan = build_source_registry_seed_plan(
+            _watchlist(),
+            registry,
+            now=NOW,
+            environ={},
+        )
+        sources = {record.source_id: record for record in plan.source_records}
+
+        self.assertFalse(sources["source_fred_macro"].active)
+        self.assertFalse(sources["source_finnhub_company_news"].active)
+        self.assertTrue(sources["source_sec_edgar"].active)
+        self.assertEqual(
+            "missing_secret:FRED_API_KEY",
+            sources["source_fred_macro"].metadata["skip_reason"],
+        )
 
     def test_env_example_names_optional_source_secrets(self) -> None:
         env_example = (ROOT / ".env.example").read_text(encoding="utf-8")

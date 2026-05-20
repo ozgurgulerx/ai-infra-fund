@@ -412,6 +412,22 @@ class ArchitecturePolicyTests(unittest.TestCase):
         ]
         self.assertEqual([], missing)
 
+    def test_agents_md_defines_cloud_deploy_target_and_pipeline(self) -> None:
+        text = read_text("AGENTS.md")
+        required = [
+            "Active Cloud Deploy Target",
+            "aks-fund-rag",
+            "rg-fund-rag",
+            "ai-infra-fund",
+            "aistartuptr.azurecr.io",
+            "ai-infra-fund-frontend.azurewebsites.net",
+            "Build Docker images for `api`, `worker`, and `web`.",
+            "Push those images to Azure Container Registry.",
+            "Apply the AKS manifest to the canonical cluster and namespace.",
+            "Roll the Azure App Service frontend onto the new `web` image.",
+        ]
+        self.assertEqual([], [phrase for phrase in required if phrase not in text])
+
     def test_specs_agree_on_postgresql_only_v1_storage(self) -> None:
         required_files = [
             "docs/ARCHITECTURE.md",

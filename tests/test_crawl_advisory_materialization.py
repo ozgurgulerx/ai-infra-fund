@@ -151,7 +151,7 @@ class CrawlWorkerCanonicalSuccessUnitTests(unittest.TestCase):
         self.assertEqual((signal.signal_id,), market_event.source_signal_ids)
         self.assertEqual(signal.evidence_ids, market_event.evidence_ids)
         self.assertEqual(1, len(crawl_log_repo.records))
-        self.assertEqual(["frontier-nvda-unit"], repo.completed_frontiers)
+        self.assertEqual("frontier-nvda-unit", repo.recrawls[0]["frontier_url_id"])
 
 
 def equity_event(**overrides: object) -> EquityEventRecord:
@@ -269,7 +269,7 @@ class FakeSuccessFetcher:
 class FakeWorkerRepository:
     def __init__(self) -> None:
         self.saved: list[dict[str, object]] = []
-        self.completed_frontiers: list[str] = []
+        self.recrawls: list[dict[str, object]] = []
         self.updated_metadata: list[dict[str, object]] = []
 
     def get_frontier_metadata(self, *, frontier_url_id: str) -> dict[str, object]:
@@ -288,8 +288,20 @@ class FakeWorkerRepository:
     ) -> None:
         self.updated_metadata.append(metadata)
 
-    def complete_frontier_url(self, *, frontier_url_id: str, now: datetime) -> None:
-        self.completed_frontiers.append(frontier_url_id)
+    def schedule_frontier_recrawl(
+        self,
+        *,
+        frontier_url_id: str,
+        next_attempt_at: datetime,
+        now: datetime,
+    ) -> None:
+        self.recrawls.append(
+            {
+                "frontier_url_id": frontier_url_id,
+                "next_attempt_at": next_attempt_at,
+                "now": now,
+            }
+        )
 
 
 class FakeCrawlLogRepository:

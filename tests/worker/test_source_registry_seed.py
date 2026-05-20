@@ -89,6 +89,7 @@ class RecordingRepository:
         self.sources: dict[str, object] = {}
         self.frontier: dict[str, object] = {}
         self.queue: dict[str, object] = {}
+        self.synced_scope: dict[str, object] | None = None
         RecordingRepository.instances.append(self)
 
     def upsert_watched_equity(self, record: object) -> None:
@@ -102,6 +103,9 @@ class RecordingRepository:
 
     def upsert_crawl_queue_item(self, record: object) -> None:
         self.queue[getattr(record, "queue_id")] = record
+
+    def sync_source_registry_scope(self, **kwargs: object) -> None:
+        self.synced_scope = kwargs
 
 
 class SeedSourceRegistryTests(unittest.TestCase):
@@ -171,6 +175,35 @@ class SeedSourceRegistryTests(unittest.TestCase):
             seed_module.EquityIntelligenceRepository = original
 
         self.assertEqual(first, second)
+
+    def test_seed_watchlist_syncs_stale_registry_scope_after_upserts(self) -> None:
+        import ai_infra_fund_worker.crawl.seed as seed_module
+
+        original = seed_module.EquityIntelligenceRepository
+        seed_module.EquityIntelligenceRepository = RecordingRepository
+        try:
+            seed_module.seed_watchlist(
+                object(),
+                watchlist_path=self.watchlist_path,
+                source_registry_path=self.registry_path,
+                now=NOW,
+                environ={},
+            )
+        finally:
+            seed_module.EquityIntelligenceRepository = original
+
+        repo = RecordingRepository.instances[-1]
+        self.assertIsNotNone(repo.synced_scope)
+        synced = repo.synced_scope or {}
+        self.assertIn("source_finnhub_company_news", synced["current_source_ids"])
+        self.assertNotIn("source_finnhub_company_news", synced["active_source_ids"])
+        self.assertIn("source_sec_edgar", synced["active_source_ids"])
+        self.assertTrue(synced["current_frontier_keys"])
+        self.assertTrue(all(len(key) == 2 for key in synced["current_frontier_keys"]))
+        self.assertNotIn(
+            "source_finnhub_company_news",
+            {key[0] for key in synced["current_frontier_keys"]},
+        )
 
 
 if __name__ == "__main__":

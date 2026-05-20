@@ -1,0 +1,852 @@
+version: 1
+
+optional_public_api_keys:
+  - env_var: EIA_API_KEY
+    provider: EIA Open Data API
+    source_ids: [source_eia_electricity]
+    decision: approve_to_activate_when_secret_configured
+    notes: Public energy data API. Activate only after the key is configured in cloud secrets.
+
+  - env_var: FRED_API_KEY
+    provider: FRED
+    source_ids: [source_fred_macro]
+    decision: approve_to_activate_when_secret_configured
+    notes: Public macro data API. Activate only after the key is configured in cloud secrets.
+
+  - env_var: FINNHUB_API_KEY
+    provider: Finnhub
+    source_ids: [source_finnhub_company_news]
+    decision: approve_to_activate_when_secret_configured
+    notes: Public/free-tier company news API. Activate only after the key and usage limits are configured.
+
+source_decisions:
+  - source_id: access_eia_open_data_api
+    source_name: EIA Open Data API
+    url: https://www.eia.gov/opendata/
+    source_family: power_grid_energy
+    decision: needs_optional_api_key
+    crawl_enabled: false
+    secret_env_var: EIA_API_KEY
+    required_action: Configure EIA_API_KEY in cloud secrets to activate source_eia_electricity.
+    notes: The no-key website page is not the canonical runtime feed; use the configured API integration after key approval.
+
+  - source_id: access_fred_api
+    source_name: FRED
+    url: https://fred.stlouisfed.org/
+    source_family: macro_market_data
+    decision: needs_optional_api_key
+    crawl_enabled: false
+    secret_env_var: FRED_API_KEY
+    required_action: Configure FRED_API_KEY in cloud secrets to activate source_fred_macro.
+    notes: The runtime uses the FRED API source, not broad website crawling.
+
+  - source_id: access_finnhub_company_news
+    source_name: Finnhub Company News
+    url: https://finnhub.io/api/v1
+    source_family: public_sentiment_news_flow
+    decision: needs_optional_api_key
+    crawl_enabled: false
+    secret_env_var: FINNHUB_API_KEY
+    required_action: Configure FINNHUB_API_KEY in cloud secrets and validate free-tier limits.
+    notes: Keep skipped until the optional key is explicitly provided.
+
+  - source_id: access_tsmc_monthly_revenue
+    source_name: TSMC Monthly Revenue
+    url: https://investor.tsmc.com/english/monthly-revenue/2026
+    source_family: filings_company_disclosures
+    decision: deferred_access_blocked
+    crawl_enabled: false
+    required_action: Keep using source_tsmc_ir_monthly_revenue through Taiwan MOPS until a stable official revenue endpoint is verified.
+    notes: The investor page is a useful human source but was not selected as crawler-active because Taiwan MOPS is healthier.
+
+  - source_id: access_taiwan_emops_query
+    source_name: Taiwan eMOPS Query
+    url: https://emops.twse.com.tw/server-java/t58query
+    source_family: filings_company_disclosures
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Build a typed MOPS/eMOPS provider before using this query endpoint.
+    notes: Query endpoint needs form/request semantics; do not crawl as a plain URL.
+
+  - source_id: access_korea_dart
+    source_name: Korea DART
+    url: https://englishdart.fss.or.kr/
+    source_family: filings_company_disclosures
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Add a Korea DART connector and terms/rate-limit review before activation.
+    notes: Useful for SK hynix/Samsung filings, but not a generic crawl target.
+
+  - source_id: access_japan_edinet
+    source_name: Japan EDINET
+    url: https://disclosure2.edinet-fsa.go.jp/
+    source_family: filings_company_disclosures
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Add an EDINET connector and terms/rate-limit review before activation.
+    notes: Useful for Japan semiconductor equipment names; not a plain static crawl source.
+
+  - source_id: access_sk_hynix_ir
+    source_name: SK hynix Investor Relations Earnings Releases
+    url: https://www.skhynix.com/ir/UI-FR-IR01/
+    source_family: filings_company_disclosures
+    decision: deferred_not_in_watchlist
+    crawl_enabled: false
+    required_action: Add an approved SK hynix ticker/security mapping before activation.
+    notes: The URL is reachable, but the v1 watchlist does not yet include a SK hynix security.
+
+  - source_id: access_sk_hynix_newsroom
+    source_name: SK hynix Newsroom Financial Results
+    url: https://news.skhynix.com/
+    source_family: filings_company_disclosures
+    decision: deferred_not_in_watchlist
+    crawl_enabled: false
+    required_action: Add an approved SK hynix ticker/security mapping before activation.
+    notes: Reachable public newsroom; keep pending until watchlist/security mapping is explicit.
+
+  - source_id: access_micron_investor_relations
+    source_name: Micron Investor Relations
+    url: https://investors.micron.com/
+    source_family: filings_company_disclosures
+    decision: deferred_access_blocked
+    crawl_enabled: false
+    required_action: Find a stable Micron RSS/API/press endpoint or approve a source-specific fetch strategy.
+    notes: Live validation timed out or returned edge-block responses for Micron IR.
+
+  - source_id: access_wsts_report_schedule
+    source_name: WSTS Reports Publication Schedule
+    url: https://www.wsts.org/61/73/Publication-Schedule-for-WSTS-Reports
+    source_family: semiconductor_market_data
+    decision: deferred_terms_review
+    crawl_enabled: false
+    required_action: Verify WSTS public-page terms and content boundaries before activation.
+    notes: WSTS is adjacent to subscription data; keep outside active crawling until reviewed.
+
+  - source_id: access_semianalysis_public_feed
+    source_name: SemiAnalysis Public Metadata Feed
+    url: https://semianalysis.com/feed/
+    source_family: semiconductor_market_data
+    decision: deferred_access_blocked
+    crawl_enabled: false
+    required_action: Add source-specific rate limiting or manual metadata import before re-enabling.
+    notes: Live validation returned HTTP 429 under the approved HTTP-only crawler; keep metadata-only and disabled.
+
+  - source_id: access_wsts_historical_billings
+    source_name: WSTS Historical Billings
+    url: https://www.wsts.org/67/Historical-Billings-Report
+    source_family: semiconductor_market_data
+    decision: restricted_paid_or_subscription
+    crawl_enabled: false
+    required_action: Obtain license/terms approval before any runtime use.
+    notes: Historical semiconductor billings data is commonly subscription-oriented.
+
+  - source_id: access_semi_silicon_shipments
+    source_name: SEMI Silicon Shipment Statistics
+    url: https://www.semi.org/en/products-services/market-data/materials/si-shipment-statistics
+    source_family: semiconductor_market_data
+    decision: deferred_terms_review
+    crawl_enabled: false
+    required_action: Review SEMI market-data terms before activation.
+    notes: SEMI market-data pages may include restricted or report-linked content.
+
+  - source_id: access_semi_materials_market
+    source_name: SEMI Semiconductor Materials Market Data
+    url: https://www.semi.org/en/MarketInfo/MaterialsMarket
+    source_family: semiconductor_market_data
+    decision: deferred_terms_review
+    crawl_enabled: false
+    required_action: Review SEMI market-data terms before activation.
+    notes: SEMI market-data pages may include restricted or report-linked content.
+
+  - source_id: access_bis_home
+    source_name: Bureau of Industry and Security
+    url: https://www.bis.gov/
+    source_family: policy_export_controls_industrial_policy
+    decision: deferred_low_value_static_page
+    crawl_enabled: false
+    required_action: Use specific BIS/Federal Register endpoints rather than crawling the broad homepage.
+    notes: The homepage is too broad for the high-alpha crawler.
+
+  - source_id: access_federal_register_page
+    source_name: Federal Register BIS Agency Page
+    url: https://www.federalregister.gov/agencies/industry-and-security-bureau
+    source_family: policy_export_controls_industrial_policy
+    decision: deferred_access_blocked
+    crawl_enabled: false
+    required_action: Use source_federal_register_bis_api instead of the bot-gated HTML page.
+    notes: HTML validation redirected to an unblock page; the public API endpoint is active in source_registry.
+
+  - source_id: access_commerce_home
+    source_name: U.S. Department of Commerce
+    url: https://www.commerce.gov/
+    source_family: policy_export_controls_industrial_policy
+    decision: deferred_low_value_static_page
+    crawl_enabled: false
+    required_action: Add specific Commerce/BIS/CHIPS endpoints only.
+    notes: Broad agency homepage is not specific enough for source-registry-driven crawling.
+
+  - source_id: access_eu_chips_act
+    source_name: EU Chips Act
+    url: https://digital-strategy.ec.europa.eu/en/policies/european-chips-act
+    source_family: policy_export_controls_industrial_policy
+    decision: deferred_global_fanout
+    crawl_enabled: false
+    required_action: Add global/thematic frontier support or bind to explicit EU semiconductor tickers before activation.
+    notes: Public source candidate; not activated because current frontier schema requires a watched ticker.
+
+  - source_id: access_japan_meti_english
+    source_name: Japan METI English
+    url: https://www.meti.go.jp/english/
+    source_family: policy_export_controls_industrial_policy
+    decision: deferred_global_fanout
+    crawl_enabled: false
+    required_action: Add a specific METI semiconductor/AI policy feed or thematic source support.
+    notes: Broad policy homepage is public but too general for active crawling.
+
+  - source_id: access_korea_msit_english
+    source_name: Korea MSIT English
+    url: https://www.msit.go.kr/eng/
+    source_family: policy_export_controls_industrial_policy
+    decision: deferred_global_fanout
+    crawl_enabled: false
+    required_action: Add a specific AI/semiconductor policy feed or thematic source support.
+    notes: Public but broad and not currently ticker-bound.
+
+  - source_id: access_korea_motie_english
+    source_name: Korea MOTIE English
+    url: https://english.motie.go.kr/
+    source_family: policy_export_controls_industrial_policy
+    decision: deferred_global_fanout
+    crawl_enabled: false
+    required_action: Add a specific semiconductor/industrial policy feed or thematic source support.
+    notes: Public but broad and not currently ticker-bound.
+
+  - source_id: access_china_ndrc
+    source_name: China NDRC
+    url: https://www.ndrc.gov.cn/
+    source_family: policy_export_controls_industrial_policy
+    decision: deferred_global_fanout
+    crawl_enabled: false
+    required_action: Add source-specific language handling and thematic source support before activation.
+    notes: Public but broad, non-English-heavy, and not ticker-bound.
+
+  - source_id: access_china_ndrc_english
+    source_name: China NDRC English
+    url: https://en.ndrc.gov.cn/
+    source_family: policy_export_controls_industrial_policy
+    decision: deferred_global_fanout
+    crawl_enabled: false
+    required_action: Add a specific policy feed or thematic source support before activation.
+    notes: Public but broad and not currently ticker-bound.
+
+  - source_id: access_china_nea
+    source_name: China National Energy Administration
+    url: http://www.nea.gov.cn/
+    source_family: power_grid_energy
+    decision: deferred_global_fanout
+    crawl_enabled: false
+    required_action: Add source-specific language handling and thematic source support before activation.
+    notes: Public but broad, non-English-heavy, and not ticker-bound.
+
+  - source_id: access_ferc_eqr
+    source_name: FERC Electric Quarterly Reports
+    url: https://www.ferc.gov/power-sales-and-markets/electric-quarterly-reports-eqr
+    source_family: power_grid_energy
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Build a FERC/EQR provider or stable report import path before activation.
+    notes: Valuable for power market analysis but not a plain source URL.
+
+  - source_id: access_lbnl_interconnection_queues
+    source_name: LBNL Interconnection Queues
+    url: https://emp.lbl.gov/queues
+    source_family: power_grid_energy
+    decision: deferred_access_blocked
+    crawl_enabled: false
+    required_action: Find a stable dataset/download endpoint or request source-specific approval.
+    notes: Live validation returned 403.
+
+  - source_id: access_ercot_resource
+    source_name: ERCOT Resource Adequacy
+    url: https://www.ercot.com/gridinfo/resource
+    source_family: power_grid_energy
+    decision: deferred_access_blocked
+    crawl_enabled: false
+    required_action: Find a stable ERCOT report/feed endpoint before activation.
+    notes: Live validation returned 403.
+
+  - source_id: access_pjm_generation_queue
+    source_name: PJM Active Generation Queue
+    url: https://www.pjm.com/planning/generation-interconnection/generation-queue-active.aspx
+    source_family: power_grid_energy
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Identify stable PJM queue download/API endpoint and rate limits.
+    notes: Useful but requires provider-specific parsing.
+
+  - source_id: access_pjm_planning_center
+    source_name: PJM Planning Center
+    url: https://www.pjm.com/markets-and-operations/etools/planning-center.ashx
+    source_family: power_grid_energy
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Identify stable PJM queue download/API endpoint and rate limits.
+    notes: Useful but requires provider-specific parsing.
+
+  - source_id: access_miso_gi_queue
+    source_name: MISO Generator Interconnection Queue
+    url: https://www.misoenergy.org/planning/resource-utilization/GI_Queue/
+    source_family: power_grid_energy
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Identify stable MISO queue download/API endpoint and rate limits.
+    notes: Useful but requires provider-specific parsing.
+
+  - source_id: access_caiso_queue_reports
+    source_name: CAISO Interconnection Queue Reports
+    url: https://www.caiso.com/library/interconnection-queue-reports
+    source_family: power_grid_energy
+    decision: deferred_unstable_endpoint
+    crawl_enabled: false
+    required_action: Confirm current CAISO hostname/path and stable download endpoint.
+    notes: Live validation could not resolve www.caiso.com from this environment.
+
+  - source_id: access_caiso_rimspub
+    source_name: CAISO RIMSPUB Queue Reports
+    url: https://rimspub.caiso.com/
+    source_family: power_grid_energy
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Confirm public access and provider-specific query semantics.
+    notes: Queue portal should not be crawled generically.
+
+  - source_id: access_spp_generator_interconnection
+    source_name: SPP Generator Interconnection
+    url: https://spp.org/engineering/generator-interconnection/
+    source_family: power_grid_energy
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Identify stable queue/report endpoint and parse contract.
+    notes: Useful but requires provider-specific parsing.
+
+  - source_id: access_entsoe_transparency
+    source_name: ENTSO-E Transparency Platform
+    url: https://transparency.entsoe.eu/
+    source_family: power_grid_energy
+    decision: deferred_account_required
+    crawl_enabled: false
+    required_action: Review account/API token requirements before activation.
+    notes: ENTSO-E operational data normally requires API registration.
+
+  - source_id: access_occto_information_disclosure
+    source_name: OCCTO Information Disclosure
+    url: https://www.occto.or.jp/en/information_disclosure/
+    source_family: power_grid_energy
+    decision: deferred_global_fanout
+    crawl_enabled: false
+    required_action: Add source-specific parsing and Japan thematic mapping before activation.
+    notes: Public candidate, but not yet mapped to a watched equity/security.
+
+  - source_id: access_occto_search
+    source_name: OCCTO Outlook Search
+    url: https://www.occto.or.jp/en/search.html
+    source_family: power_grid_energy
+    decision: deferred_low_value_static_page
+    crawl_enabled: false
+    required_action: Use a specific OCCTO report/feed rather than search page crawling.
+    notes: Search page is not suitable for source-registry crawling.
+
+  - source_id: access_kpx_english
+    source_name: Korea Power Exchange English
+    url: https://www.kpx.or.kr/eng
+    source_family: power_grid_energy
+    decision: deferred_global_fanout
+    crawl_enabled: false
+    required_action: Add Korea power thematic mapping and source-specific feed before activation.
+    notes: Public but broad and not ticker-bound.
+
+  - source_id: access_kpx_epsis
+    source_name: KPX EPSIS
+    url: https://epsis.kpx.or.kr/epsisnew/selectMain.do?locale=eng
+    source_family: power_grid_energy
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Identify public data endpoints and usage constraints before activation.
+    notes: Portal-style data source should not be crawled generically.
+
+  - source_id: access_taipower_english
+    source_name: Taipower English
+    url: https://www.taipower.com.tw/en/
+    source_family: power_grid_energy
+    decision: deferred_global_fanout
+    crawl_enabled: false
+    required_action: Add Taiwan power thematic mapping or a specific dataset endpoint.
+    notes: Broad homepage not activated.
+
+  - source_id: access_taipower_peak_reserve
+    source_name: Taipower Estimated Peak Operating Reserve Today
+    url: https://www.taipower.com.tw/d006/loadGraph/loadGraph/load_reserve_E.html
+    source_family: power_grid_energy
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Build a Taipower data parser and Taiwan power thematic mapping before activation.
+    notes: Useful operational page but requires source-specific parsing.
+
+  - source_id: access_taipower_supply_demand_history
+    source_name: Taipower Historical Power Supply and Demand
+    url: https://www.taipower.com.tw/d006/loadGraph/loadGraph/load_supdem_his_E.html
+    source_family: power_grid_energy
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Build a Taipower data parser and Taiwan power thematic mapping before activation.
+    notes: Useful operational page but requires source-specific parsing.
+
+  - source_id: access_taiwan_open_data_taipower
+    source_name: Taiwan Open Data Taipower Past Supply Demand Dataset
+    url: https://data.gov.tw/en/datasets/19995
+    source_family: power_grid_energy
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Add dataset download/API semantics before activation.
+    notes: Public dataset candidate; not a plain static crawl source.
+
+  - source_id: access_taiwan_open_data_portal
+    source_name: Taiwan Open Data Portal
+    url: https://data.gov.tw/
+    source_family: power_grid_energy
+    decision: deferred_low_value_static_page
+    crawl_enabled: false
+    required_action: Use specific dataset endpoints only.
+    notes: Broad portal is not source-registry-ready.
+
+  - source_id: access_eurostat_energy_database
+    source_name: Eurostat Energy Database
+    url: https://ec.europa.eu/eurostat/web/energy/database
+    source_family: power_grid_energy
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Add Eurostat API/table provider before activation.
+    notes: Valuable data source, but should be integrated as structured data.
+
+  - source_id: access_usitc_dataweb
+    source_name: USITC DataWeb
+    url: https://dataweb.usitc.gov/
+    source_family: trade_customs_supply_chain
+    decision: deferred_account_required
+    crawl_enabled: false
+    required_action: Verify access, account, and terms before activation.
+    notes: Trade data portal may require account/session for reliable use.
+
+  - source_id: access_usitc_dataweb_api_docs
+    source_name: USITC DataWeb API Documentation
+    url: https://www.usitc.gov/applications/dataweb/api/dataweb_query_api.html
+    source_family: trade_customs_supply_chain
+    decision: deferred_terms_review
+    crawl_enabled: false
+    required_action: Review API terms and implement a structured provider if approved.
+    notes: API docs only; not runtime evidence.
+
+  - source_id: access_gacc_statistics
+    source_name: GACC China Customs Statistics
+    url: https://english.customs.gov.cn/Statistics/Statistics?ColumnId=4
+    source_family: trade_customs_supply_chain
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Identify stable download/API path and language handling before activation.
+    notes: Useful but requires structured provider work.
+
+  - source_id: access_gacc_home
+    source_name: GACC English Homepage
+    url: https://english.customs.gov.cn/publish/portal191/
+    source_family: trade_customs_supply_chain
+    decision: deferred_low_value_static_page
+    crawl_enabled: false
+    required_action: Use specific customs statistics endpoints only.
+    notes: Broad homepage is not source-registry-ready.
+
+  - source_id: access_taiwan_customs_english
+    source_name: Taiwan Customs Administration English
+    url: https://web.customs.gov.tw/en/
+    source_family: trade_customs_supply_chain
+    decision: deferred_global_fanout
+    crawl_enabled: false
+    required_action: Add specific customs dataset/source mapping before activation.
+    notes: Broad homepage not activated.
+
+  - source_id: access_taiwan_customs_statistics
+    source_name: Taiwan Customs Statistics Database Query
+    url: https://tportal.sw.nat.gov.tw/APGA/GA30E
+    source_family: trade_customs_supply_chain
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Add query provider and terms review before activation.
+    notes: Query UI should not be crawled as a plain URL.
+
+  - source_id: access_taiwan_hs_trade_dataset
+    source_name: Taiwan HS Import Export Trade Dataset
+    url: https://data.nat.gov.tw/dataset/8383
+    source_family: trade_customs_supply_chain
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Add dataset download/API semantics before activation.
+    notes: Public dataset candidate; not a plain static crawl source.
+
+  - source_id: access_kita_trade_reports
+    source_name: KITA Monthly Trade Reports
+    url: https://global.kita.net/kitaTradeReport/kitaTradeReport/kitaTradeReportList.do
+    source_family: trade_customs_supply_chain
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Add KITA provider and terms/rate-limit review before activation.
+    notes: Report list likely needs source-specific pagination/parsing.
+
+  - source_id: access_kita_home
+    source_name: KITA Main Site
+    url: https://www.kita.net/main.do
+    source_family: trade_customs_supply_chain
+    decision: deferred_low_value_static_page
+    crawl_enabled: false
+    required_action: Use specific KITA trade-report endpoints only.
+    notes: Broad homepage not activated.
+
+  - source_id: access_korea_customs_english
+    source_name: Korea Customs Service English
+    url: https://www.customs.go.kr/english/main.do
+    source_family: trade_customs_supply_chain
+    decision: deferred_low_value_static_page
+    crawl_enabled: false
+    required_action: Use specific trade-statistics endpoints only.
+    notes: Broad homepage not activated.
+
+  - source_id: access_korea_customs_trade_stats
+    source_name: Korea Customs Trade Statistics Page
+    url: https://www.customs.go.kr/english/cm/cntnts/cntntsView.do?cntntsId=2724&mi=8042
+    source_family: trade_customs_supply_chain
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Add provider/parser and terms review before activation.
+    notes: Useful but needs structured data extraction.
+
+  - source_id: access_korea_open_data_trade_api
+    source_name: Korea Open Data Trade Statistics API
+    url: https://www.data.go.kr/en/data/15102108/openapi.do
+    source_family: trade_customs_supply_chain
+    decision: deferred_account_required
+    crawl_enabled: false
+    required_action: Verify API key/account requirements before activation.
+    notes: Open data API likely requires registration/key.
+
+  - source_id: access_un_comtrade
+    source_name: UN Comtrade
+    url: https://comtradeplus.un.org/
+    source_family: trade_customs_supply_chain
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Add UN Comtrade API/provider semantics and rate-limit policy before activation.
+    notes: Structured provider preferred over generic portal crawling.
+
+  - source_id: access_usaspending
+    source_name: USAspending
+    url: https://www.usaspending.gov/
+    source_family: procurement_government_awards
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Use approved USAspending API/query provider after terms review.
+    notes: The website is reachable but actual awards data should come through structured queries.
+
+  - source_id: access_darpa_ai_forward
+    source_name: DARPA AI Forward
+    url: https://www.darpa.mil/research/programs/ai-forward
+    source_family: procurement_government_awards
+    decision: deferred_access_blocked
+    crawl_enabled: false
+    required_action: Verify current DARPA program URL; use source_darpa_programs meanwhile.
+    notes: Candidate specific program URL may be stale.
+
+  - source_id: access_cdao
+    source_name: Chief Digital and Artificial Intelligence Office
+    url: https://www.ai.mil/
+    source_family: procurement_government_awards
+    decision: deferred_access_blocked
+    crawl_enabled: false
+    required_action: Find a stable public feed or source-specific fetch strategy.
+    notes: Live validation returned 403.
+
+  - source_id: access_patentsview
+    source_name: PatentsView
+    url: https://patentsview.org/
+    source_family: patents_technical_direction
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Use USPTO Open Data now; add a PatentsView provider after API/terms review.
+    notes: Validation redirected into USPTO Open Data transition content.
+
+  - source_id: access_espacenet
+    source_name: Espacenet
+    url: https://worldwide.espacenet.com/
+    source_family: patents_technical_direction
+    decision: deferred_terms_review
+    crawl_enabled: false
+    required_action: Review EPO terms and API/fair-use constraints before activation.
+    notes: Patent search portal should not be crawled generically.
+
+  - source_id: access_wipo_patentscope
+    source_name: WIPO PATENTSCOPE
+    url: https://patentscope.wipo.int/
+    source_family: patents_technical_direction
+    decision: deferred_terms_review
+    crawl_enabled: false
+    required_action: Review PATENTSCOPE access and query terms before activation.
+    notes: Patent search portal should not be crawled generically.
+
+  - source_id: access_gh_archive
+    source_name: GH Archive
+    url: https://www.gharchive.org/
+    source_family: research_velocity
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Add BigQuery/download provider semantics before activation.
+    notes: Homepage is reachable, but signal value requires structured data integration.
+
+  - source_id: access_papers_with_code_datasets
+    source_name: Papers with Code Datasets
+    url: https://paperswithcode.com/datasets
+    source_family: research_velocity
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Add a focused datasets/source feed before activation.
+    notes: Keep generic datasets page out of active crawler until relevance filters exist.
+
+  - source_id: access_papers_with_code_data_dump
+    source_name: Papers with Code Data Dump
+    url: https://github.com/paperswithcode/paperswithcode-data
+    source_family: research_velocity
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Add GitHub release/download provider and terms review before activation.
+    notes: Repository/dataset ingestion should be explicit, not generic HTML crawling.
+
+  - source_id: access_planning_data_england
+    source_name: Planning Data API for England
+    url: https://www.planning.data.gov.uk/
+    source_family: planning_satellite_construction
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Add structured planning-data provider and AI datacenter filters before activation.
+    notes: Website is reachable, but signal value requires targeted planning queries.
+
+  - source_id: access_copernicus_browser
+    source_name: Copernicus Data Space Browser
+    url: https://browser.dataspace.copernicus.eu/
+    source_family: planning_satellite_construction
+    decision: deferred_account_required
+    crawl_enabled: false
+    required_action: Review account/API requirements and source policy before activation.
+    notes: Satellite browser is not a runtime crawl source.
+
+  - source_id: access_copernicus_ecosystem
+    source_name: Copernicus Data Space Ecosystem
+    url: https://dataspace.copernicus.eu/
+    source_family: planning_satellite_construction
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Add explicit dataset/API provider after terms review.
+    notes: Use structured satellite/data APIs if approved later.
+
+  - source_id: access_oregon_epermitting
+    source_name: Oregon ePermitting
+    url: https://aca-oregon.accela.com/oregon/
+    source_family: planning_satellite_construction
+    decision: deferred_account_required
+    crawl_enabled: false
+    required_action: Verify public access, terms, and query boundaries before activation.
+    notes: Permitting portal may require sessions and should not be crawled broadly.
+
+  - source_id: access_malaysia_planmalaysia
+    source_name: Malaysia PLANMalaysia
+    url: https://www.planmalaysia.gov.my/
+    source_family: planning_satellite_construction
+    decision: deferred_global_fanout
+    crawl_enabled: false
+    required_action: Add source-specific dataset/feed and regional thematic mapping.
+    notes: Broad public site is not source-registry-ready.
+
+  - source_id: access_vast_ai
+    source_name: Vast.ai
+    url: https://vast.ai/
+    source_family: gpu_rental_neocloud_pricing
+    decision: deferred_terms_review
+    crawl_enabled: false
+    required_action: Review site/API terms and decide whether pricing pages are acceptable metadata-only evidence.
+    notes: Commercial GPU marketplace; no account/API crawling without approval.
+
+  - source_id: access_lambda_gpu_cloud
+    source_name: Lambda GPU Cloud
+    url: https://lambda.ai/service/gpu-cloud
+    source_family: gpu_rental_neocloud_pricing
+    decision: deferred_terms_review
+    crawl_enabled: false
+    required_action: Review commercial-site terms before adding metadata-only pricing monitoring.
+    notes: Public page candidate, but commercial pricing monitoring needs explicit approval.
+
+  - source_id: access_iaea_pris
+    source_name: IAEA Power Reactor Information System
+    url: https://pris.iaea.org/
+    source_family: commodities_uranium_macro
+    decision: deferred_unstable_endpoint
+    crawl_enabled: false
+    required_action: Find the current reachable PRIS endpoint or use IAEA overview page after validation.
+    notes: Live validation hit connection errors for the PRIS host.
+
+  - source_id: access_iaea_pris_overview
+    source_name: IAEA PRIS Overview
+    url: https://www.iaea.org/resources/databases/power-reactor-information-system-pris
+    source_family: commodities_uranium_macro
+    decision: deferred_global_fanout
+    crawl_enabled: false
+    required_action: Add nuclear-power thematic source support before activation.
+    notes: Public static page, but source_registry currently needs ticker-bound frontier rows.
+
+  - source_id: access_oecd_nea_red_book
+    source_name: OECD NEA Uranium Red Book
+    url: https://cms.oecd-nea.org/jcms/pl_28569/uranium-resources-production-and-demand-red-book
+    source_family: commodities_uranium_macro
+    decision: deferred_terms_review
+    crawl_enabled: false
+    required_action: Review publication/licensing terms before activation.
+    notes: Reference publication, not a frequent crawl source.
+
+  - source_id: access_mgx
+    source_name: MGX
+    url: https://www.mgx.ae/en
+    source_family: gulf_sovereign_ai_infrastructure
+    decision: deferred_access_blocked
+    crawl_enabled: false
+    required_action: Find a stable public feed/page or keep out of crawler.
+    notes: Live validation returned 403.
+
+  - source_id: access_mgx_about
+    source_name: MGX AI Infrastructure Strategy
+    url: https://www.mgx.ae/en/about-us
+    source_family: gulf_sovereign_ai_infrastructure
+    decision: deferred_access_blocked
+    crawl_enabled: false
+    required_action: Find a stable public feed/page or keep out of crawler.
+    notes: Same site as MGX homepage; likely edge-blocked.
+
+  - source_id: access_pif_home
+    source_name: Public Investment Fund
+    url: https://www.pif.gov.sa/en/Pages/Homepage.aspx
+    source_family: gulf_sovereign_ai_infrastructure
+    decision: deferred_access_blocked
+    crawl_enabled: false
+    required_action: Find stable public feed/page or source-specific fetch strategy.
+    notes: PIF pages returned 403 in validation.
+
+  - source_id: access_pif_humain_launch
+    source_name: PIF HUMAIN Launch Announcement
+    url: https://www.pif.gov.sa/en/news-and-insights/press-releases/2025/hrh-crown-prince-launches-humain-as-global-ai-powerhouse/
+    source_family: gulf_sovereign_ai_infrastructure
+    decision: deferred_access_blocked
+    crawl_enabled: false
+    required_action: Find stable public feed/page or source-specific fetch strategy.
+    notes: Live validation returned 403.
+
+  - source_id: access_humain
+    source_name: HUMAIN
+    url: https://humain.ai/en/index
+    source_family: gulf_sovereign_ai_infrastructure
+    decision: deferred_unstable_endpoint
+    crawl_enabled: false
+    required_action: Confirm current HUMAIN URL before activation.
+    notes: Live validation followed to humain.com and returned 404.
+
+  - source_id: access_g42_about
+    source_name: G42 About Page
+    url: https://www.g42.ai/about-g42-2026
+    source_family: gulf_sovereign_ai_infrastructure
+    decision: deferred_unstable_endpoint
+    crawl_enabled: false
+    required_action: Use active G42 homepage source until a stable about/news endpoint is verified.
+    notes: Candidate path appears date/version-specific and may go stale.
+
+  - source_id: access_khazna_home
+    source_name: Khazna
+    url: https://www.khazna.ae/
+    source_family: gulf_sovereign_ai_infrastructure
+    decision: deferred_low_value_static_page
+    crawl_enabled: false
+    required_action: Use source_khazna_datacenters instead.
+    notes: Active registry uses the more relevant Khazna Data Centers site.
+
+  - source_id: access_abu_dhabi_media_office
+    source_name: Abu Dhabi Media Office
+    url: https://www.mediaoffice.abudhabi/
+    source_family: gulf_sovereign_ai_infrastructure
+    decision: deferred_global_fanout
+    crawl_enabled: false
+    required_action: Add English/news feed selection and thematic mapping before activation.
+    notes: Validation redirected to Arabic content; keep pending until source selection is explicit.
+
+  - source_id: access_openai_stargate_uae
+    source_name: OpenAI Stargate UAE Announcement
+    url: https://openai.com/index/introducing-stargate-uae/
+    source_family: gulf_sovereign_ai_infrastructure
+    decision: deferred_access_blocked
+    crawl_enabled: false
+    required_action: Use manual evidence ingestion or a stable public feed if available.
+    notes: Live validation returned 403; do not bypass access controls.
+
+  - source_id: access_intel_ai_newsroom
+    source_name: Intel AI Newsroom
+    url: https://www.intel.com/content/www/us/en/newsroom/artificial-intelligence.html
+    source_family: company_disclosures_ai_accelerators
+    decision: deferred_access_blocked
+    crawl_enabled: false
+    required_action: Find an Intel newsroom feed or stable public endpoint that passes the approved HTTP crawler before activation.
+    notes: Validation returned HTTP 403 under the current robots-aware HTTP fetcher; do not bypass access controls.
+
+  - source_id: access_eetimes_ai_accelerator
+    source_name: EE Times AI Accelerator Coverage
+    url: https://www.eetimes.com/tag/ai-accelerator/
+    source_family: semiconductor_supply_chain_news
+    decision: deferred_unstable_endpoint
+    crawl_enabled: false
+    required_action: Revalidate a stable feed or list endpoint before adding an active source.
+    notes: Validation hit HTTP/2 errors and HTTP/1 timeouts, so this is not safe for scheduled crawling yet.
+
+  - source_id: access_eaton_news
+    source_name: Eaton News
+    url: https://www.eaton.com/us/en-us/company/news-insights/news-releases.html
+    source_family: power_grid_energy
+    decision: deferred_unstable_endpoint
+    crawl_enabled: false
+    required_action: Revalidate a stable Eaton news endpoint before activation.
+    notes: Validation hit HTTP/2 errors and HTTP/1 timeouts under the approved HTTP crawler.
+
+  - source_id: access_vertiv_news
+    source_name: Vertiv News
+    url: https://www.vertiv.com/en-us/about/news-and-insights/news-releases/
+    source_family: power_cooling_datacenter
+    decision: deferred_unstable_endpoint
+    crawl_enabled: false
+    required_action: Find the current Vertiv press/news URL before activation.
+    notes: Validation returned 404 for the candidate URL.
+
+  - source_id: access_semi_press
+    source_name: SEMI Press Releases
+    url: https://www.semi.org/en/news-resources/press
+    source_family: semiconductor_supply_chain_news
+    decision: deferred_access_blocked
+    crawl_enabled: false
+    required_action: Revalidate a public SEMI press endpoint and terms boundary before activation.
+    notes: Validation returned HTTP 403; market-data and association pages should remain deferred until terms are reviewed.
+
+  - source_id: access_the_register_ai_ml
+    source_name: The Register AI and ML
+    url: https://www.theregister.com/ai_ml/
+    source_family: public_sentiment_news_flow
+    decision: deferred_provider_design
+    crawl_enabled: false
+    required_action: Add latest-post extraction support before activating broad list pages like The Register AI/ML.
+    notes: The corrected AI/ML list page is reachable, but static list pages should wait for latest-post extraction instead of recurring broad-page captures.

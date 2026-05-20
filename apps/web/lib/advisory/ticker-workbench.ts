@@ -27,6 +27,13 @@ export type RelevanceMetadata = {
 export type WorkbenchItem = {
   [key: string]: unknown;
   evidence_ids?: string[];
+  evidence_refs?: Array<{
+    evidence_id?: string;
+    title?: string | null;
+    summary?: string | null;
+    source_links?: Array<{ url?: string; label?: string; evidence_ids?: string[] }>;
+  }>;
+  source_links?: Array<{ url?: string; label?: string; evidence_ids?: string[] }>;
   relevance?: RelevanceMetadata;
 };
 
@@ -57,6 +64,7 @@ export type ThemeGroup = {
   next_watch_items: string[];
   latest_available_at?: string | null;
   evidence_ids: string[];
+  source_links?: Array<{ url?: string; label?: string; evidence_ids?: string[] }>;
 };
 
 export type TickerWorkbenchPayload = {

@@ -102,6 +102,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     if args.once:
         connection = psycopg.connect(_database_url())
         try:
+            _verify_crawl_runtime_schema(connection)
             now = datetime.now(tz=timezone.utc)
             fetcher = build_default_fetcher(config)
             report = run_crawl_batch(
@@ -129,6 +130,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     def factory() -> object:
         return psycopg.connect(database_url)
 
+    connection = factory()
+    try:
+        _verify_crawl_runtime_schema(connection)
+    finally:
+        connection.close()
+
     succeeded = run_forever(factory, config=config, max_loops=args.max_loops)
     LOGGER.info("scheduler exited after total succeeded captures=%d", succeeded)
     return 0
@@ -143,6 +150,15 @@ def cmd_reclaim_stale(_args: argparse.Namespace) -> int:
         connection.close()
     LOGGER.info("reclaimed %d stale leases", reclaimed)
     return 0
+
+
+def _verify_crawl_runtime_schema(connection: object) -> None:
+    repo = EquityIntelligenceRepository(connection)  # type: ignore[arg-type]
+    missing = repo.verify_crawl_runtime_schema()
+    if missing:
+        raise SystemExit(
+            "crawl runtime schema missing required relations: " + ", ".join(missing)
+        )
 
 
 def main(argv: list[str] | None = None) -> int:

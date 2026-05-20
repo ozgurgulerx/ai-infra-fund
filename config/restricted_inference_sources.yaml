@@ -1,0 +1,428 @@
+version: 1
+
+sources:
+  - source_id: restricted_sia_wsts_subscription_package
+    source_name: SIA WSTS Subscription Package
+    url: https://www.semiconductors.org/industry_statistics/wsts_subscription_package/
+    source_family: semiconductor_market_data
+    restriction_type: paid_subscription
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Subscription-oriented semiconductor market data. Save for future licensing review only.
+
+  - source_id: restricted_fred_api
+    source_name: FRED API
+    url: https://fred.stlouisfed.org/
+    source_family: macro_market_data
+    restriction_type: api_key_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    secret_env_var: FRED_API_KEY
+    notes: FRED API usage requires a configured key. Do not crawl from this restricted list.
+
+  - source_id: restricted_fred_bofa_oas_series
+    source_name: FRED ICE BofA US Corporate Index OAS
+    url: https://fred.stlouisfed.org/series/BAMLC0A0CM
+    source_family: macro_market_data
+    restriction_type: api_key_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    secret_env_var: FRED_API_KEY
+    notes: Series is useful, but API access belongs behind approved FRED integration.
+
+  - source_id: restricted_eia_open_data_api
+    source_name: EIA Open Data API
+    url: https://www.eia.gov/opendata/
+    source_family: power_grid_energy
+    restriction_type: api_key_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    secret_env_var: EIA_API_KEY
+    notes: Requires configured API key for provider integration.
+
+  - source_id: restricted_usaspending_api
+    source_name: USAspending API
+    url: https://api.usaspending.gov/
+    source_family: procurement_government_awards
+    restriction_type: terms_review_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Public API candidate, but needs terms/rate-limit review before activation.
+
+  - source_id: restricted_sam_gov_opportunities
+    source_name: SAM.gov Contract Opportunities
+    url: https://sam.gov/content/opportunities
+    source_family: procurement_government_awards
+    restriction_type: account_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Portal may require account/API setup for reliable use.
+
+  - source_id: restricted_sam_gov_opportunities_api
+    source_name: SAM.gov Get Opportunities API
+    url: https://open.gsa.gov/api/get-opportunities-public-api/
+    source_family: procurement_government_awards
+    restriction_type: api_key_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: API access requires future approval and key/config review.
+
+  - source_id: restricted_govwin_iq
+    source_name: GovWin IQ
+    url: https://iq.govwin.com/
+    source_family: procurement_government_awards
+    restriction_type: paid_subscription
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Paid procurement intelligence platform.
+
+  - source_id: restricted_deltek_govwin
+    source_name: Deltek GovWin
+    url: https://www.deltek.com/en/products/business-development/govwin
+    source_family: procurement_government_awards
+    restriction_type: paid_subscription
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Paid vendor platform.
+
+  - source_id: restricted_uspto_api_catalog
+    source_name: USPTO API Catalog
+    url: https://developer.uspto.gov/api-catalog
+    source_family: patents_technical_direction
+    restriction_type: terms_review_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Public developer endpoint candidate; requires API terms/rate-limit review.
+
+  - source_id: restricted_epo_developer_portal
+    source_name: EPO Developer Portal
+    url: https://developers.epo.org/
+    source_family: patents_technical_direction
+    restriction_type: account_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Developer portal may require registered access.
+
+  - source_id: restricted_epo_fair_use
+    source_name: EPO Fair Use Charter
+    url: https://developers.epo.org/fair-use
+    source_family: patents_technical_direction
+    restriction_type: terms_review_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Save policy page for future integration review; do not crawl as runtime evidence.
+
+  - source_id: restricted_greenhouse_apis
+    source_name: Greenhouse APIs
+    url: https://www.greenhouse.com/api
+    source_family: hiring_workforce
+    restriction_type: api_key_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: API access requires approved provider integration.
+
+  - source_id: restricted_greenhouse_developer_resources
+    source_name: Greenhouse Developer Resources
+    url: https://developers.greenhouse.io/
+    source_family: hiring_workforce
+    restriction_type: api_key_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Developer docs for future key-gated integration only.
+
+  - source_id: restricted_greenhouse_job_board_api
+    source_name: Greenhouse Job Board API
+    url: https://developer.greenhouse.io/job-board.html
+    source_family: hiring_workforce
+    restriction_type: terms_review_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Public-facing API candidate; requires terms and source-policy review.
+
+  - source_id: restricted_ashby_public_job_posting_api
+    source_name: Ashby Public Job Posting API
+    url: https://developers.ashbyhq.com/docs/public-job-posting-api
+    source_family: hiring_workforce
+    restriction_type: terms_review_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Public API candidate; requires source-policy review before activation.
+
+  - source_id: restricted_ashby_job_postings_docs
+    source_name: Ashby Job Postings Docs
+    url: https://docs.ashbyhq.com/job-postings
+    source_family: hiring_workforce
+    restriction_type: terms_review_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Documentation only; not a configured crawl source.
+
+  - source_id: restricted_linkedin_talent_insights
+    source_name: LinkedIn Talent Insights
+    url: https://business.linkedin.com/talent-solutions/talent-insights
+    source_family: hiring_workforce
+    restriction_type: paid_subscription
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Account/subscription product.
+
+  - source_id: restricted_arxiv_api_docs
+    source_name: arXiv API Docs
+    url: https://info.arxiv.org/help/api/index.html
+    source_family: research_velocity
+    restriction_type: terms_review_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: API docs saved for future provider design; not runtime evidence.
+
+  - source_id: restricted_hugging_face_hub_api_docs
+    source_name: Hugging Face Hub API Docs
+    url: https://huggingface.co/docs/hub/api
+    source_family: research_velocity
+    restriction_type: uncertain_verify_first
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: API docs saved for future review of auth, rate limits, and terms.
+
+  - source_id: restricted_sentinel_hub
+    source_name: Sentinel Hub
+    url: https://www.sentinel-hub.com/
+    source_family: planning_satellite_construction
+    restriction_type: account_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Satellite data platform generally requires account/API configuration.
+
+  - source_id: restricted_planet
+    source_name: Planet
+    url: https://www.planet.com/
+    source_family: planning_satellite_construction
+    restriction_type: paid_subscription
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Commercial satellite data platform.
+
+  - source_id: restricted_planet_apis
+    source_name: Planet APIs
+    url: https://developers.planet.com/docs/apis/
+    source_family: planning_satellite_construction
+    restriction_type: api_key_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: API access requires approved account/key setup.
+
+  - source_id: restricted_planet_analytics_api
+    source_name: Planet Analytics API
+    url: https://docs.planet.com/develop/apis/analytics/
+    source_family: planning_satellite_construction
+    restriction_type: api_key_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: API access requires approved account/key setup.
+
+  - source_id: restricted_maxar
+    source_name: Maxar
+    url: https://www.maxar.com/
+    source_family: planning_satellite_construction
+    restriction_type: paid_subscription
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Commercial satellite/data provider.
+
+  - source_id: restricted_blacksky
+    source_name: BlackSky
+    url: https://www.blacksky.com/
+    source_family: planning_satellite_construction
+    restriction_type: paid_subscription
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Commercial satellite/data provider.
+
+  - source_id: restricted_vast_ai_api_docs
+    source_name: Vast.ai API Docs
+    url: https://docs.vast.ai/api/overview-and-quickstart
+    source_family: gpu_rental_neocloud_pricing
+    restriction_type: api_key_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: API integration requires account/key setup.
+
+  - source_id: restricted_vast_ai_api_reference
+    source_name: Vast.ai API Reference
+    url: https://docs.vast.ai/api-reference/introduction
+    source_family: gpu_rental_neocloud_pricing
+    restriction_type: api_key_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: API integration requires account/key setup.
+
+  - source_id: restricted_runpod_pricing
+    source_name: Runpod Pricing
+    url: https://www.runpod.io/pricing
+    source_family: gpu_rental_neocloud_pricing
+    restriction_type: uncertain_verify_first
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Pricing page can be useful, but source terms and anti-scraping posture must be reviewed first.
+
+  - source_id: restricted_runpod_api_docs
+    source_name: Runpod API Docs
+    url: https://docs.runpod.io/api-reference
+    source_family: gpu_rental_neocloud_pricing
+    restriction_type: api_key_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: API integration requires approved account/key setup.
+
+  - source_id: restricted_lambda_cloud_docs
+    source_name: Lambda Cloud Docs
+    url: https://docs.lambda.ai/public-cloud/console/
+    source_family: gpu_rental_neocloud_pricing
+    restriction_type: account_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Cloud console documentation; runtime access requires provider review.
+
+  - source_id: restricted_coreweave_pricing
+    source_name: CoreWeave Pricing
+    url: https://www.coreweave.com/pricing
+    source_family: gpu_rental_neocloud_pricing
+    restriction_type: uncertain_verify_first
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Pricing page can be useful, but source terms must be reviewed before crawling.
+
+  - source_id: restricted_coreweave_pricing_docs
+    source_name: CoreWeave Pricing Docs
+    url: https://docs.coreweave.com/pricing/pricing-instances
+    source_family: gpu_rental_neocloud_pricing
+    restriction_type: account_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Docs may require account and provider-specific terms review.
+
+  - source_id: restricted_pitchbook
+    source_name: PitchBook
+    url: https://pitchbook.com/
+    source_family: private_market_vendor_data
+    restriction_type: paid_subscription
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Paid private-market vendor.
+
+  - source_id: restricted_crunchbase
+    source_name: Crunchbase
+    url: https://www.crunchbase.com/
+    source_family: private_market_vendor_data
+    restriction_type: paid_subscription
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Account/subscription vendor.
+
+  - source_id: restricted_cb_insights
+    source_name: CB Insights
+    url: https://www.cbinsights.com/
+    source_family: private_market_vendor_data
+    restriction_type: paid_subscription
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Paid vendor platform.
+
+  - source_id: restricted_preqin
+    source_name: Preqin
+    url: https://www.preqin.com/
+    source_family: private_market_vendor_data
+    restriction_type: paid_subscription
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Paid vendor platform.
+
+  - source_id: restricted_dealroom
+    source_name: Dealroom
+    url: https://dealroom.co/
+    source_family: private_market_vendor_data
+    restriction_type: paid_subscription
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Paid/vendor data platform.
+
+  - source_id: restricted_sp_capital_iq_pro
+    source_name: S&P Capital IQ Pro
+    url: https://www.spglobal.com/market-intelligence/en/solutions/products/capital-iq-pro
+    source_family: private_market_vendor_data
+    restriction_type: licensed_data
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Licensed market-intelligence platform.
+
+  - source_id: restricted_tracxn
+    source_name: Tracxn
+    url: https://tracxn.com/
+    source_family: private_market_vendor_data
+    restriction_type: paid_subscription
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Paid vendor platform.
+
+  - source_id: restricted_panjiva
+    source_name: Panjiva
+    url: https://panjiva.com/
+    source_family: private_market_vendor_data
+    restriction_type: licensed_data
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Licensed supply-chain/vendor data.
+
+  - source_id: restricted_importgenius
+    source_name: ImportGenius
+    url: https://www.importgenius.com/
+    source_family: private_market_vendor_data
+    restriction_type: licensed_data
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Licensed import/export vendor data.
+
+  - source_id: restricted_datamyne
+    source_name: Datamyne
+    url: https://www.datamyne.com/
+    source_family: private_market_vendor_data
+    restriction_type: licensed_data
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Licensed trade/vendor data.
+
+  - source_id: restricted_london_metal_exchange
+    source_name: London Metal Exchange
+    url: https://www.lme.com/
+    source_family: commodities_macro_market_data
+    restriction_type: terms_review_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Market-data terms need review before any automated ingestion.
+
+  - source_id: restricted_cme_henry_hub_futures
+    source_name: CME Henry Hub Natural Gas Futures
+    url: https://www.cmegroup.com/markets/energy/natural-gas/natural-gas.html
+    source_family: commodities_macro_market_data
+    restriction_type: terms_review_required
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Exchange market-data terms need review before automated ingestion.
+
+  - source_id: restricted_uxc_uranium_prices
+    source_name: UxC Uranium Prices
+    url: https://www.uxc.com/p/data/about-uranium-prices
+    source_family: commodities_macro_market_data
+    restriction_type: paid_subscription
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Uranium pricing appears vendor-controlled/licensed.
+
+  - source_id: restricted_tradetech_uranium_prices
+    source_name: TradeTech Uranium Prices
+    url: https://www.uranium.info/
+    source_family: commodities_macro_market_data
+    restriction_type: paid_subscription
+    default_action: do_not_crawl
+    crawl_enabled: false
+    notes: Uranium pricing appears vendor-controlled/licensed.

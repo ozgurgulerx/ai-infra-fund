@@ -27,7 +27,7 @@ const navigationSections = [
       { href: "/radar", label: "Market / Sentiment Radar" },
       { href: "/portfolio", label: "Portfolio Workbench" },
       { href: "/trade-plans", label: "Trade Plan Workbench" },
-      { href: "/trade-intents", label: "Manual Trade Intents" },
+      { href: "/trade-intents", label: "Manual Plan Review Queue" },
       { href: "/trade-journal", label: "Trade Journal" },
     ],
   },
@@ -92,7 +92,7 @@ export function AppShell({ eyebrow, title, children, aside }: AppShellProps) {
           ))}
         </nav>
         <div className="nav-disclaimer">
-          <strong>Local journal only</strong>
+          <strong>Manual journal only</strong>
           <span>
             External account connections disabled. Manual journal only.
           </span>

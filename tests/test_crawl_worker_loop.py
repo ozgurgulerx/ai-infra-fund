@@ -79,11 +79,44 @@ class ExplodingFetcher:
 
 
 class FakeFrontierRepository:
-    def __init__(self) -> None:
+    def __init__(self, metadata: dict[str, object] | None = None) -> None:
+        self.metadata = dict(metadata or {})
         self.failures: list[dict[str, object]] = []
+        self.recrawls: list[dict[str, object]] = []
+        self.updated_metadata: list[dict[str, object]] = []
 
     def get_frontier_metadata(self, *, frontier_url_id: str) -> dict[str, object]:
-        return {}
+        return dict(self.metadata)
+
+    def update_frontier_metadata(
+        self,
+        *,
+        frontier_url_id: str,
+        metadata: dict[str, object],
+        now: datetime,
+    ) -> None:
+        self.updated_metadata.append(
+            {
+                "frontier_url_id": frontier_url_id,
+                "metadata": metadata,
+                "now": now,
+            }
+        )
+
+    def schedule_frontier_recrawl(
+        self,
+        *,
+        frontier_url_id: str,
+        next_attempt_at: datetime,
+        now: datetime,
+    ) -> None:
+        self.recrawls.append(
+            {
+                "frontier_url_id": frontier_url_id,
+                "next_attempt_at": next_attempt_at,
+                "now": now,
+            }
+        )
 
     def record_frontier_failure(
         self,
@@ -179,7 +212,7 @@ class CrawlBatchSuccessTests(unittest.TestCase):
             self.connection, "NVDA"
         )
 
-    def test_success_path_writes_capture_event_run_and_log_and_completes_frontier(
+    def test_success_path_writes_capture_event_run_log_and_schedules_recrawl(
         self,
     ) -> None:
         now = datetime.now(tz=timezone.utc).replace(microsecond=0)
@@ -219,12 +252,14 @@ class CrawlBatchSuccessTests(unittest.TestCase):
 
         with self.connection.cursor() as cursor:
             cursor.execute(
-                "SELECT status FROM evidence.source_frontier_urls WHERE frontier_url_id = %s;",
+                "SELECT status, next_attempt_at FROM evidence.source_frontier_urls "
+                "WHERE frontier_url_id = %s;",
                 (self.frontier_url_id,),
             )
             row = cursor.fetchone()
             assert row is not None
-            self.assertEqual("captured", row[0])
+            self.assertEqual("queued", row[0])
+            self.assertGreater(row[1], now)
 
             cursor.execute(
                 "SELECT COUNT(*) FROM evidence.source_raw_captures WHERE frontier_url_id = %s;",
@@ -427,6 +462,113 @@ class CrawlProcessOneUnitTests(unittest.TestCase):
         self.assertEqual(now + timedelta(hours=1), repo.failures[0]["next_attempt_at"])
         self.assertEqual(1, len(crawl_log_repo.records))
         self.assertEqual(429, crawl_log_repo.records[0].http_status)
+
+    def test_not_modified_schedules_recrawl_from_refresh_interval(self) -> None:
+        from ai_infra_fund_worker.crawl.worker_loop import _process_one
+
+        repo = FakeFrontierRepository(
+            metadata={
+                "etag": '"old"',
+                "refresh_interval_minutes": 45,
+                "source_kind": "company_investor_relations",
+            }
+        )
+        crawl_log_repo = FakeCrawlLogRepository()
+        now = datetime(2026, 5, 14, 12, 0, tzinfo=timezone.utc)
+        target_url = "https://nvidia.example/news"
+        fetcher = FakeFetcher(
+            {
+                target_url: FetchResult(
+                    final_url=target_url,
+                    http_status=304,
+                    content_type=None,
+                    body_bytes=b"",
+                    etag='"old"',
+                    last_modified="Wed, 14 May 2026 11:00:00 GMT",
+                    latency_ms=9,
+                    fetch_method="http_304",
+                    error_summary=None,
+                )
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _process_one(
+                repo=repo,
+                row={
+                    "frontier_url_id": "frontier-nvda-recrawl",
+                    "ticker": "NVDA",
+                    "source_id": "source-nvidia-ir",
+                    "url": target_url,
+                    "attempt_count": 0,
+                    "max_attempts": 3,
+                    "metadata": {"refresh_interval_minutes": 45},
+                },
+                crawl_log_repo=crawl_log_repo,
+                policy=FrontierPolicy(batch_size=1, domain_cap=1),
+                fetcher=fetcher,
+                capture_store=LocalCaptureStore(Path(tmp)),
+                research_extractor=StubLLMClaimExtractor(),
+                now=now,
+            )
+
+        self.assertEqual("not_modified", result)
+        self.assertEqual(1, len(repo.recrawls))
+        self.assertEqual(
+            now + timedelta(minutes=45),
+            repo.recrawls[0]["next_attempt_at"],
+        )
+        self.assertEqual(1, len(crawl_log_repo.records))
+        self.assertEqual("http_304", crawl_log_repo.records[0].fetch_method)
+
+    def test_forbidden_response_uses_blocked_backoff(self) -> None:
+        from ai_infra_fund_worker.crawl.worker_loop import _process_one
+
+        repo = FakeFrontierRepository()
+        crawl_log_repo = FakeCrawlLogRepository()
+        now = datetime(2026, 5, 14, 12, 0, tzinfo=timezone.utc)
+        target_url = "https://restricted.example/report"
+        fetcher = FakeFetcher(
+            {
+                target_url: FetchResult(
+                    final_url=target_url,
+                    http_status=403,
+                    content_type="text/html",
+                    body_bytes=b"forbidden",
+                    etag=None,
+                    last_modified=None,
+                    latency_ms=14,
+                    fetch_method="http_get",
+                    error_summary=None,
+                )
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _process_one(
+                repo=repo,
+                row={
+                    "frontier_url_id": "frontier-nvda-forbidden",
+                    "ticker": "NVDA",
+                    "source_id": "source-restricted",
+                    "url": target_url,
+                    "attempt_count": 0,
+                    "max_attempts": 3,
+                },
+                crawl_log_repo=crawl_log_repo,
+                policy=FrontierPolicy(batch_size=1, domain_cap=1),
+                fetcher=fetcher,
+                capture_store=LocalCaptureStore(Path(tmp)),
+                research_extractor=StubLLMClaimExtractor(),
+                now=now,
+            )
+
+        self.assertEqual("failed", result)
+        self.assertEqual(1, len(repo.failures))
+        self.assertEqual("http_403", repo.failures[0]["error_summary"])
+        self.assertEqual(now + timedelta(hours=24), repo.failures[0]["next_attempt_at"])
+        self.assertEqual(1, len(crawl_log_repo.records))
+        self.assertEqual(403, crawl_log_repo.records[0].http_status)
 
 
 if __name__ == "__main__":

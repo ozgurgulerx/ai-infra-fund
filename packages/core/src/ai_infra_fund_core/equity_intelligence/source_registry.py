@@ -39,6 +39,8 @@ class RegistrySource:
     requires_secret: bool = False
     secret_env_var: str | None = None
     metadata_only: bool = False
+    crawl_enabled: bool = True
+    disabled_reason: str | None = None
     ticker_allowlist: tuple[str, ...] = ()
     series_ids: tuple[str, ...] = ()
     themes: tuple[str, ...] = ()
@@ -127,6 +129,20 @@ def _source(raw: object, index: int) -> RegistrySource:
         raise ValueError(f"source {index} secret_env_var must be a string")
 
     metadata_only = bool(raw.get("metadata_only", False))
+    crawl_enabled = bool(raw.get("crawl_enabled", True))
+    disabled_raw = raw.get("disabled_reason")
+    disabled_reason = (
+        disabled_raw.strip()
+        if isinstance(disabled_raw, str) and disabled_raw.strip()
+        else None
+    )
+    if disabled_raw is not None and not isinstance(disabled_raw, str):
+        raise ValueError(f"source {index} disabled_reason must be a string")
+    if not crawl_enabled and disabled_reason is None:
+        raise ValueError(
+            f"source {index} disabled_reason is required when crawl_enabled is false"
+        )
+
     lowered_license = license_label.lower()
     if (
         any(marker in lowered_license for marker in ("paid", "paywall", "licensed"))
@@ -186,6 +202,8 @@ def _source(raw: object, index: int) -> RegistrySource:
         requires_secret=requires_secret,
         secret_env_var=secret_env_var,
         metadata_only=metadata_only,
+        crawl_enabled=crawl_enabled,
+        disabled_reason=disabled_reason,
         ticker_allowlist=ticker_allowlist,
         series_ids=series_ids,
         themes=themes,

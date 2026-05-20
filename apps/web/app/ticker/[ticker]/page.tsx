@@ -81,6 +81,23 @@ function evidenceIds(items: WorkbenchItem[]): string[] {
   ).slice(0, 8);
 }
 
+function sourceLinks(items: WorkbenchItem[]) {
+  const seen = new Set<string>();
+  const links: Array<{ url?: string; label?: string; evidence_ids?: string[] }> = [];
+  for (const link of items.flatMap((item) => item.source_links ?? [])) {
+    if (!link.url || seen.has(link.url)) {
+      continue;
+    }
+    seen.add(link.url);
+    links.push(link);
+  }
+  return links;
+}
+
+function evidenceRefs(items: WorkbenchItem[]) {
+  return items.flatMap((item) => item.evidence_refs ?? []);
+}
+
 function primaryCompany(payload: TickerWorkbenchPayload, symbol: string): string {
   const assessment = payload.equity_impact_assessments?.[0];
   return itemText(assessment, ["company"], symbol);
@@ -171,6 +188,20 @@ export default async function TickerPage({ params }: TickerPageProps) {
       ]),
     ]),
   ).slice(0, 8);
+  const allWorkbenchItems = [
+    ...(payload.source_signals ?? []),
+    ...(payload.market_events ?? []),
+    ...(payload.equity_impact_assessments ?? []),
+    ...(payload.trading_advisories ?? []),
+    ...theme_groups.flatMap((theme) => [
+      ...(theme.source_signals ?? []),
+      ...(theme.market_events ?? []),
+      ...(theme.impact_assessments ?? []),
+      ...(theme.llm_notes ?? []),
+    ]),
+  ];
+  const allSourceLinks = sourceLinks(allWorkbenchItems);
+  const allEvidenceRefs = evidenceRefs(allWorkbenchItems);
   const hasValidatedEvidence =
     payload.status === "available" && theme_groups.length > 0 && allEvidenceIds.length > 0;
 
@@ -272,7 +303,7 @@ export default async function TickerPage({ params }: TickerPageProps) {
         <div className="workstation-grid workstation-grid-3">
           <SectionCard eyebrow="News by theme" id="news-events" title="News / Events">
             <AdvisoryTable
-              columns={["Event", "Relevance", "Freshness"]}
+              columns={["Event", "Relevance", "Source", "Freshness"]}
               rows={(primaryGroup?.market_events ?? payload.market_events ?? [])
                 .slice(0, 5)
                 .map((event, index) => ({
@@ -280,6 +311,19 @@ export default async function TickerPage({ params }: TickerPageProps) {
                   cells: [
                     itemText(event, ["catalyst", "event_type"], "Market event"),
                     itemText(event, ["ai_relevance"], "No relevance note"),
+                    sourceLinks([event]).length > 0 ? (
+                      <a
+                        className="source-inline-link"
+                        href={sourceLinks([event])[0].url}
+                        key="source"
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        {sourceLinks([event])[0].label || "review source"}
+                      </a>
+                    ) : (
+                      "source link unavailable"
+                    ),
                     formatTimestamp(event.available_at),
                   ],
                 }))}
@@ -377,7 +421,11 @@ export default async function TickerPage({ params }: TickerPageProps) {
           id="evidence"
           title="Evidence trail"
         >
-          <EvidenceDrawer ids={allEvidenceIds} />
+          <EvidenceDrawer
+            ids={allEvidenceIds}
+            links={allSourceLinks}
+            refs={allEvidenceRefs}
+          />
           <p className="wave2-muted">
             LLM analyst critique can explain and review cited evidence, but
             deterministic modules own scores, risk, constraints, and target
