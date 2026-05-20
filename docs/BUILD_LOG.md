@@ -1,5 +1,29 @@
 # Build Log
 
+## 2026-05-20 Value-Chain Candidate Matrix
+
+Redesigned `/themes` from a static value-chain atlas into a read-only
+candidate matrix for AI infrastructure subsegments.
+
+- Added the `ValueChainCandidateMatrix` client component with the default
+  `AI Grid` lens covering power and grid/DC build stations.
+- Merged the configured watchlist taxonomy with the existing
+  `/internal/watchlist/ratings/latest` read model in the frontend.
+- Added subtheme-level candidate rows with ticker, company, priority, current
+  advisory stance, latest change, risk/invalidation context, evidence refs, and
+  ticker workbench links.
+- Preserved advisory-only language and did not add broker, order, execution,
+  automated trading, dependency, or backend endpoint changes.
+
+Verification:
+
+- RED checkpoint: `./.venv/bin/python -m unittest tests.test_wave2_workstation_ui`
+  failed on the missing candidate-matrix contract.
+- `./.venv/bin/python -m unittest tests.test_wave2_workstation_ui.Wave2WorkstationUiTests.test_value_chain_atlas_is_candidate_matrix_with_ai_grid_lens` passed.
+- `npm --prefix apps/web run build` passed.
+- `./.venv/bin/python -m unittest tests.test_architecture_policy` passed, 42 tests.
+- `git diff --check` passed.
+
 ## 2026-05-18 V1.0 Deployment Manifest Alignment
 
 Aligned checked-in deployment manifests with the observed v1.0 cloud runtime.

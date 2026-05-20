@@ -1264,6 +1264,267 @@ textarea {
   font-size: 12px;
 }
 
+.value-chain-candidate-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.72fr) minmax(0, 2.1fr);
+  gap: var(--s-4);
+  align-items: start;
+}
+
+.value-chain-lens-bar,
+.value-chain-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.value-chain-lens-bar {
+  flex-direction: column;
+}
+
+.value-chain-lens,
+.value-chain-filter {
+  border: 1px solid var(--line);
+  background: var(--panel-raised);
+  color: var(--ink-soft);
+  border-radius: var(--r-2);
+  font-family: var(--ff-sans);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease),
+    background var(--dur-1) var(--ease);
+}
+
+.value-chain-lens {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--s-3);
+  text-align: left;
+}
+
+.value-chain-lens strong {
+  color: var(--ink);
+  font-size: 12.5px;
+}
+
+.value-chain-lens span {
+  color: var(--muted);
+  font-family: var(--ff-mono);
+  font-size: 10.5px;
+}
+
+.value-chain-filter {
+  min-height: 32px;
+  padding: 0 var(--s-3);
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+.value-chain-lens:hover,
+.value-chain-filter:hover,
+.value-chain-lens-active,
+.value-chain-filter-active {
+  border-color: var(--accent);
+  background: var(--accent-trail);
+  color: var(--accent-strong);
+}
+
+.value-chain-candidate-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.value-chain-candidate-header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-4);
+  align-items: flex-start;
+  padding: var(--s-4);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: var(--r-3);
+}
+
+.value-chain-candidate-header p:last-child {
+  margin-top: var(--s-1);
+  max-width: 780px;
+  color: var(--ink-soft);
+}
+
+.value-chain-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: var(--s-3);
+}
+
+.value-chain-summary-grid > div {
+  padding: var(--s-3);
+  border: 1px solid var(--line);
+  background: var(--panel-raised);
+  border-radius: var(--r-2);
+}
+
+.value-chain-summary-grid dt {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.value-chain-summary-grid dd {
+  margin-top: var(--s-2);
+  font-family: var(--ff-mono);
+  font-size: 22px;
+  color: var(--ink);
+}
+
+.value-chain-candidate-table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--r-3);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.value-chain-candidate-row {
+  display: grid;
+  grid-template-columns:
+    minmax(150px, 1.2fr)
+    minmax(82px, 0.55fr)
+    minmax(120px, 0.8fr)
+    minmax(180px, 1.4fr)
+    minmax(180px, 1.3fr)
+    minmax(96px, 0.7fr)
+    minmax(120px, 0.75fr);
+  gap: var(--s-3);
+  align-items: center;
+  padding: 8px var(--s-3);
+  border-top: 1px solid var(--line);
+  min-height: 42px;
+  font-size: 12px;
+}
+
+.value-chain-candidate-row-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel-soft);
+  border-top: 0;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.value-chain-station-heading,
+.value-chain-subtheme-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.value-chain-station-heading {
+  padding: var(--s-3);
+  background: var(--panel-soft);
+  border-top: 1px solid var(--line);
+}
+
+.value-chain-station-heading strong {
+  font-size: 13px;
+}
+
+.value-chain-station-heading span {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.value-chain-subtheme-heading {
+  padding: var(--s-3);
+  border-top: 1px solid var(--line);
+  background: var(--bg-elevated);
+}
+
+.value-chain-subtheme-heading > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.value-chain-subtheme-heading span,
+.value-chain-candidate-asset small,
+.value-chain-candidate-asset em,
+.value-chain-evidence-count small {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.value-chain-subtheme-heading code {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.value-chain-candidate-asset,
+.value-chain-evidence-count {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.value-chain-candidate-note {
+  color: var(--ink-soft);
+  line-height: 1.35;
+}
+
+.value-chain-priority {
+  display: inline-flex;
+  width: fit-content;
+  padding: 3px var(--s-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-1);
+  background: var(--panel-soft);
+  font-family: var(--ff-mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+}
+
+.priority-critical {
+  color: var(--negative);
+  border-color: var(--negative);
+  background: var(--negative-bg);
+}
+
+.priority-high {
+  color: var(--accent-strong);
+  border-color: var(--line-accent);
+  background: var(--accent-soft);
+}
+
+.priority-medium {
+  color: var(--review);
+  border-color: var(--review);
+  background: var(--review-bg);
+}
+
+.priority-low {
+  color: var(--muted);
+}
+
+.value-chain-empty-row {
+  padding: var(--s-3);
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+
 /* ----------------------------------------
    11. Component / module map
 ---------------------------------------- */
@@ -1808,8 +2069,18 @@ textarea {
   }
   .workstation-grid,
   .workstation-grid-2,
-  .workbench-grid {
+  .workbench-grid,
+  .value-chain-candidate-layout {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .value-chain-candidate-header {
+    flex-direction: column;
+  }
+  .value-chain-candidate-row {
+    grid-template-columns: minmax(140px, 1.1fr) minmax(90px, 0.6fr) minmax(120px, 0.8fr);
+  }
+  .value-chain-candidate-row > span:nth-child(n + 4) {
+    grid-column: 1 / -1;
   }
 }
 
@@ -1824,6 +2095,15 @@ textarea {
   }
   h1 {
     font-size: 26px;
+  }
+  .value-chain-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .value-chain-candidate-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .value-chain-candidate-row > span:nth-child(n) {
+    grid-column: auto;
   }
 }
 

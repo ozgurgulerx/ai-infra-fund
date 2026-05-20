@@ -108,6 +108,29 @@ class Wave2WorkstationUiTests(unittest.TestCase):
         self.assertIn("const topEvents = coreMarketEvents.slice(0, 4);", page)
         self.assertNotIn("const topEvents = marketEvents.slice(0, 4);", page)
 
+    def test_value_chain_atlas_is_candidate_matrix_with_ai_grid_lens(self) -> None:
+        page = read_web("app/themes/page.tsx")
+        component = read_web("components/value-chain-candidate-matrix.tsx")
+        css = read_web("app/globals.css")
+        combined = f"{page}\n{component}\n{css}"
+        required = [
+            "Value-Chain Candidate Matrix",
+            "AI Grid",
+            "Candidate matrix",
+            "readLatestWatchlistRatings",
+            "Current advisory stance",
+            "Risk / invalidation",
+            "Evidence refs",
+            "Accumulate candidates",
+            "Watch / review",
+            "Ticker workbench",
+            "value-chain-candidate-row",
+            "value-chain-lens-bar",
+        ]
+
+        self.assertEqual([], [text for text in required if text not in combined])
+        self.assertNotIn("Must Buy", combined)
+
     def test_segment_map_ticker_workbench_trade_and_radar_screens_have_wave2_content(self) -> None:
         expectations = {
             "app/segments/page.tsx": [

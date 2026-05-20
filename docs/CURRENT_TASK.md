@@ -2,83 +2,76 @@
 
 ## Task
 
-Implement LLM Intelligence v1: persist governed shadow analyst draft outputs and wire the daily AI infrastructure brief worker into the existing shadow analyst pipeline.
-
-1. Add durable `analyst.shadow_analyst_drafts` storage and repository support.
-2. Build an `AnalystContextBundle` from daily worker inputs.
-3. Invoke `GovernedShadowAnalystPipeline` from the daily brief worker in shadow/stub mode.
-4. Persist `review_required`, `rejected`, `fallback`, and denied audit outcomes without publishing raw LLM output.
-5. Record and link a `ModelRun` for every model-mediated or attempted model-mediated path.
-6. Preserve deterministic daily brief publication and fallback behavior when no model client is available.
+Redesign the Value-Chain Atlas screen into a segment-by-subtheme investment
+candidate matrix with an AI Grid default lens.
 
 ## Product Objective
 
-Move from deterministic-only DB-backed daily briefs toward governed, auditable LLM-mediated advisory intelligence while preserving deterministic publication gates and advisory-only boundaries.
+Improve advisory brief usefulness, segment impact mapping, and equity thesis
+quality by making each AI infrastructure subsegment show its configured
+candidate tickers, watchlist priority, current advisory stance, evidence
+coverage, and risk/invalidation context.
 
 ## Governing Docs And Specs
 
 - `AGENTS.md`
 - `docs/PRODUCT.md`
 - `docs/ARCHITECTURE.md`
-- `docs/PARALLEL_AGENT_PLAN.md`
-- `docs/plans/active/current-plan.md`
-- `docs/specs/0003-data-contracts.md`
-- `docs/specs/0012-data-architecture.md`
-- `docs/ANALYST_OBJECT_MODEL.md`
-- `docs/LLM_ANALYST_PROMPT_PACK.md`
-
-Specs are canonical. If this task conflicts with a spec, the spec wins.
+- `docs/CURRENT_TASK.md`
 
 ## Allowed Files
 
-- shadow analyst core package under `packages/core/src/ai_infra_fund_core/shadow_analyst/` only if needed
-- API migrations and repositories under `services/api/`
-- daily brief worker integration under `services/worker/src/ai_infra_fund_worker/daily_ai_infra_brief_run.py`
-- worker shadow-draft persistence helpers
-- focused daily worker and repository tests under `tests/`
-- active task and build-log docs
+- `apps/web/app/themes/page.tsx`
+- `apps/web/components/`
+- `apps/web/app/globals.css`
+- `apps/web/lib/value-chain.ts`
+- `apps/web/lib/watchlist-mirror.ts`
+- `apps/web/lib/advisory/workstation-data.ts`
+- focused frontend/UI tests under `tests/`
+- `docs/BUILD_LOG.md`
+- `docs/CURRENT_TASK.md`
 
 ## Forbidden Changes
 
-- no dependency changes
-- no frontend changes
 - no broker integration
 - no live order placement
+- no order routing
 - no execution endpoints
-- no execution-like UI controls
-- no unmanaged model calls
-- no real LLM SDK calls in this slice
-- no raw LLM output publication
-- no private_research cloud calls
-- no model names hard-coded in business logic
-- no LLM-owned scores, risk, constraints, target weights, entry/exit levels, scenario math, PnL, readiness checks, or publication gates
-- no DuckDB/Parquet v1 dependency
+- no execution UI
+- no automated trading loops
+- no dependency changes
+- no new backend endpoint unless existing read models are insufficient
+- no execution-like "must buy" language in UI labels
 
 ## Acceptance Criteria
 
-- Daily brief worker creates shadow draft records in stub/shadow mode.
-- Invalid shadow output is persisted as rejected with validation errors.
-- Fallback path is auditable and linked to a failed `ModelRun`.
-- Private data denial records a denied `ModelRun` and does not call the model client.
-- `ModelRun` IDs link to persisted draft rows and analyst brief payload metadata.
-- Existing deterministic daily brief generation still works.
-- No broker/order/execution route or UI surface is introduced.
-- No application frontend, dependency, or model-router changes are introduced.
+- `/themes` is repositioned as a Value-Chain Candidate Matrix, not a vague
+  static atlas.
+- AI Grid is the default lens and surfaces power/grid/datacenter-power
+  candidates by subtheme.
+- Candidate rows include ticker, company, watchlist priority, current advisory
+  stance, latest change, risk/invalidation context, evidence count, and ticker
+  workbench link.
+- Existing advisory labels are used: `accumulate`, `watch`, `hold`, `review`,
+  `trim`, `avoid`, and `exit-candidate`.
+- Existing read-only API feeds and watchlist taxonomy are reused; UI does not
+  contain scoring or portfolio business logic.
+- No broker, order, execution, or automated-trading surface is introduced.
 
 ## Tests To Run
 
 ```bash
-./.venv/bin/python -m unittest tests.advisory.test_shadow_analyst_pipeline tests.worker.test_shadow_analyst_draft_repository tests.test_daily_ai_infra_brief_run tests.test_advisory_workstation_read_model_migration tests.test_migration_prefix_uniqueness
-./.venv/bin/python -m unittest discover -s tests
-python3 -m compileall packages services tests
-docker compose config
-scripts/run_daily_ai_infra_brief_once.sh
+./.venv/bin/python -m unittest tests.test_wave2_workstation_ui
+./.venv/bin/python -m unittest tests.test_watchlist_frontend_parity tests.test_control_room_ui tests.test_wave2_workstation_ui
+npm --prefix apps/web run build
 git diff --check
 ```
 
 ## Definition Of Done
 
-- Targeted verification passes.
-- Full Python verification either passes or has unrelated pre-existing drift recorded in `docs/BUILD_LOG.md`.
-- `docs/BUILD_LOG.md` records LLM Intelligence v1 implementation and verification.
-- Changes are committed.
+- RED test is confirmed before production code changes.
+- Targeted frontend tests pass.
+- Next build passes.
+- `git diff --check` passes.
+- `docs/BUILD_LOG.md` records the redesign and verification.
+- Any unrelated dirty worktree state is reported explicitly.
